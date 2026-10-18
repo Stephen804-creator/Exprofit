@@ -24,6 +24,8 @@ def has_permission(membership: BusinessMembership, domain: str, action: str) -> 
         return True
     if membership.role not in {"admin", "worker"}:
         return False
+    if domain == "staff_administration" and membership.role != "admin":
+        return False
     permissions = membership.permissions or {}
     return permissions.get(f"{domain}:{action}") is True
 
