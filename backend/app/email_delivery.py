@@ -60,7 +60,7 @@ def send_invitation_email(
     message.set_content(
         f"You have been invited to join the {workspace_name} workspace on Exprofit.\n\n"
         f"Review and accept the invitation here: {invitation_url}\n\n"
-        f"This invitation expires in {settings.email_verification_ttl_minutes} minutes. "
+        f"This invitation expires in {settings.workspace_invitation_ttl_minutes} minutes. "
         "You must sign in with the exact email address that received this invitation, "
         "and that email address must be verified. If you were not expecting this invite, "
         "you can ignore this message."
