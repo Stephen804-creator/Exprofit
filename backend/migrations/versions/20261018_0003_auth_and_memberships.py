@@ -27,8 +27,6 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
     )
-    op.create_index("ix_users_email", "users", ["email"], unique=True)
-
     op.create_table(
         "business_memberships",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -56,5 +54,4 @@ def downgrade() -> None:
     op.drop_index("ix_business_memberships_business_id", table_name="business_memberships")
     op.drop_index("ix_business_memberships_user_id", table_name="business_memberships")
     op.drop_table("business_memberships")
-    op.drop_index("ix_users_email", table_name="users")
     op.drop_table("users")
