@@ -646,7 +646,17 @@ export default function App() {
                           <select
                             id={`role-${member.membership_id}`}
                             value={editRole}
-                            onChange={(event) => setEditRole(event.target.value as "admin" | "worker")}
+                            onChange={(event) => {
+                              const role = event.target.value as "admin" | "worker";
+                              setEditRole(role);
+                              if (role === "worker") {
+                                setEditPermissions((current) => ({
+                                  ...current,
+                                  "staff_administration:read": false,
+                                  "staff_administration:write": false,
+                                }));
+                              }
+                            }}
                             disabled={!isWorkspaceOwner}
                           >
                             <option value="worker">Worker</option>
@@ -696,7 +706,17 @@ export default function App() {
                     <label htmlFor="invite-email">Recipient email</label>
                     <input id="invite-email" type="email" autoComplete="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required />
                     <label htmlFor="invite-role">Role</label>
-                    <select id="invite-role" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as "admin" | "worker")}>
+                    <select id="invite-role" value={inviteRole} onChange={(event) => {
+                        const role = event.target.value as "admin" | "worker";
+                        setInviteRole(role);
+                        if (role === "worker") {
+                          setInvitePermissions((current) => ({
+                            ...current,
+                            "staff_administration:read": false,
+                            "staff_administration:write": false,
+                          }));
+                        }
+                      }}>
                       <option value="worker">Worker</option>
                       <option value="admin" disabled={!isWorkspaceOwner}>Admin (Owner only)</option>
                     </select>
