@@ -46,15 +46,19 @@ Email verification endpoints:
 Configure `FRONTEND_BASE_URL`, `EMAIL_VERIFICATION_TTL_MINUTES`, and the `SMTP_*` settings in the root `.env.example`. Tokens are hashed in the database and are not returned by the API. Email verification does not yet gate login; it must be required by the future invitation acceptance endpoint.
 
 
-Workspace invitation endpoints:
-- `POST /businesses/{business_id}/invitations` creates and emails a recipient-bound invite.
-- `POST /invitations/accept` accepts a pending invite using JSON `{"token":"..." }`.
-- `POST /businesses/{business_id}/invitations/{invitation_id}/revoke` revokes a pending invite.
+Workspace invitation and review endpoints:
+- `POST /businesses/{business_id}/invitations` creates a shareable link and returns it once. The owner chooses an expiry from 1 to 720 hours.
+- `POST /invitations/apply` accepts an authenticated applicant's identifying details and JPEG face photo, with explicit consent.
+- `GET /businesses/{business_id}/invitation-applications` lists pending applications for authorized reviewers.
+- `GET /businesses/{business_id}/invitation-applications/{application_id}/photo` streams a private pending photo to authorized reviewers.
+- `POST /businesses/{business_id}/invitation-applications/{application_id}/approve` approves and grants the invitation's role/permissions.
+- `POST /businesses/{business_id}/invitation-applications/{application_id}/reject` rejects the applicant and disables the link.
+- `POST /businesses/{business_id}/invitations/{invitation_id}/revoke` revokes an unused link.
 
-Invitation acceptance requires the authenticated account's email to be verified and to match the invited recipient exactly. Configure SMTP, `FRONTEND_BASE_URL`, and `WORKSPACE_INVITATION_TTL_MINUTES=30`. Raw invite tokens are never returned by the API or stored in the database. The UI, rate limiting, audit events, and notification workflows are not implemented yet.
+Raw invitation tokens are never stored; only SHA-256 digests are persisted. Application submission alone does not grant access. The workflow does not require SMTP or email verification. Photos are limited to JPEG up to 2 MB, stored privately in PostgreSQL for pending review, and deleted after approval, rejection, revocation, or expiry cleanup. The photo supports manual owner-assisted recognition only; it is not biometric authentication. Manual browser/end-to-end checks and production rate limiting remain outstanding.
 
 
-The React client includes initial sign-in/register, workspace selection and creation, verification-link handling, and invitation acceptance. It uses the configured `VITE_API_BASE_URL` to reach the API. The UI does not replace server-side authorization and is not yet the complete bookkeeping dashboard.
+The React client includes sign-in/register, workspace selection/creation, shareable-link creation/copying, an applicant form with camera/photo input and consent, and a private owner review screen. It uses `VITE_API_BASE_URL`; the UI does not replace server-side authorization and is not yet the complete bookkeeping dashboard.
 
 
 Member administration and audit endpoints:
