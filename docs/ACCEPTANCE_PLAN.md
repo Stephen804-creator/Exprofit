@@ -7,11 +7,11 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Backend starts with example configuration and exposes a health endpoint.
 - [ ] Frontend starts and can reach the configured API.
 - [ ] Versions are pinned and lockfiles are committed.
-- [ ] CI runs backend tests/lint and frontend type/build checks.
+- [x] CI runs backend tests/lint and frontend type/build checks (CI run #97 passed).
 
 ## Unit 2 — Database
 - [ ] SQLAlchemy engine and request-scoped session dependency use configured database settings.
-- [ ] Migrations create the schema from an empty PostgreSQL test database.
+- [x] Migrations create the schema from an empty PostgreSQL 16 test database (CI run #97).
 - [ ] A second migration run leaves the database at the current revision without errors.
 - [ ] The initial Business model persists UUID, name, currency code, timezone, and timestamps.
 - [ ] Database credentials are not committed.
@@ -25,17 +25,17 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Business currency is enforced for transaction creation; currency conversion is not yet supported.
 - [ ] Optional idempotency keys are unique within a business.
 - [ ] Voiding preserves the entry instead of deleting its history; void entries cannot be edited.
-- [ ] Authenticated HTTP endpoints enforce business membership for every transaction operation.
+- [x] Authenticated HTTP endpoints enforce business membership for every transaction operation (covered by API tests).
 - [ ] Refund policy, audit history, and additional correction rules still need implementation.
 
 ## Unit 4 — Authentication and authorization
-- [ ] Registration creates a user, first business workspace, owner membership, and access session atomically.
-- [ ] Passwords are Argon2-hashed and never returned in API responses.
-- [ ] Login rejects invalid credentials without disclosing whether an account exists.
-- [ ] Unauthenticated requests to business and transaction endpoints are denied.
-- [ ] A user cannot read or modify another business's records by changing an ID.
-- [ ] Access tokens expire after 30 minutes; logout revokes the associated database session.
-- [ ] Authentication, authorization, logout, and transaction lifecycle tests pass in CI.
+- [x] Registration creates a user, first business workspace, owner membership, and access session atomically.
+- [x] Passwords are Argon2-hashed and never returned in API responses.
+- [x] Login rejects invalid credentials without disclosing whether an account exists.
+- [x] Unauthenticated requests to business and transaction endpoints are denied.
+- [x] A user cannot read or modify another business's records by changing an ID.
+- [x] Access tokens expire after 30 minutes; logout revokes the associated database session.
+- [x] Authentication, authorization, logout, and transaction lifecycle tests pass in CI (19 backend tests passed in run #97).
 - [ ] Login/register rate limiting and security-event auditing are reviewed before production release.
 
 ## Unit 5 — Receipts
