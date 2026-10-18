@@ -98,3 +98,15 @@ The initial local development path should be reproducible from documented prereq
 The FastAPI app registers `/auth/register`, `/auth/login`, `/auth/me`, `/auth/logout`, `/businesses`, and `/businesses/{business_id}/transactions` routes. User passwords are hashed with Argon2. Access tokens are signed with `AUTH_SECRET_KEY`, expire after 30 minutes, and identify a persisted `AuthSession` row; logout revokes that row. Every business/transaction route checks the current user’s `BusinessMembership` on the server. Registration creates the first NGN workspace using the `Africa/Lagos` timezone. Transaction listing applies status/date filters and pagination in the database query.
 
 CI run #97 passed Ruff, the PostgreSQL migration chain, 19 backend tests, frontend typecheck, and production build. One third-party Starlette/AnyIO deprecation warning remains. Distributed login rate limiting, broader audit-event recording, account recovery, and production deployment controls remain follow-up work before a public production launch.
+
+
+## 10. Workspace collaboration implementation slice
+
+The collaboration branch introduces the first schema/API foundation for one account with multiple workspaces:
+- Registration creates a private workspace of type solo by default.
+- POST /businesses creates a separate shared business workspace under the same account.
+- Workspaces have an original name, optional display name, organization label, optional HTTPS logo URL, currency, and timezone.
+- Membership records now include role, lifecycle status, and a permissions object. Supported role values are owner/admin/worker; lifecycle values are active/suspended/revoked.
+- Workspace listing returns only active memberships, and protected business operations reject non-active memberships.
+
+This is an initial foundation, not complete team collaboration. Recipient-bound invitations, permission-by-permission enforcement, workspace switching UI, member administration, leave/suspend/revoke workflows, audit events, and invitation notifications remain unfinished until separately implemented and verified. The branch CI must pass before this slice is considered verified.
