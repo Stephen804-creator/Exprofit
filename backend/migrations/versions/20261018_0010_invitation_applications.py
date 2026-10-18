@@ -31,6 +31,12 @@ def upgrade() -> None:
         sa.Column("reviewed_by_user_id", sa.Uuid(), nullable=True),
         sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
+            "consent_given_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
             server_default=sa.func.now(),
