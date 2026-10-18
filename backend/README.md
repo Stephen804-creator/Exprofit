@@ -49,8 +49,8 @@ Configure `FRONTEND_BASE_URL`, `EMAIL_VERIFICATION_TTL_MINUTES`, and the `SMTP_*
 Workspace invitation and review endpoints:
 - `POST /businesses/{business_id}/invitations` creates a shareable link and returns it once. The owner chooses an expiry from 1 to 720 hours.
 - `POST /invitations/apply` accepts an authenticated applicant's identifying details and JPEG face photo, with explicit consent.
-- `GET /businesses/{business_id}/invitation-applications` lists pending applications for authorized reviewers.
-- `GET /businesses/{business_id}/invitation-applications/{application_id}/photo` streams a private pending photo to authorized reviewers.
+- `GET /businesses/{business_id}/invitation-applications` lists pending applications for the workspace Owner.
+- `GET /businesses/{business_id}/invitation-applications/{application_id}/photo` streams a private pending photo to the workspace Owner.
 - `POST /businesses/{business_id}/invitation-applications/{application_id}/approve` approves and grants the invitation's role/permissions.
 - `POST /businesses/{business_id}/invitation-applications/{application_id}/reject` rejects the applicant and disables the link.
 - `POST /businesses/{business_id}/invitations/{invitation_id}/revoke` revokes an unused link.
