@@ -112,3 +112,10 @@ The API now supports:
 Only Owner/Admin actors with explicit Staff Administration permissions may use these endpoints. Admins may manage Worker memberships only; Owner memberships cannot be changed through these routes, and an actor cannot change their own membership. Revoked members must accept a new invitation rather than use the suspension-reinstatement endpoint. Timed suspensions are checked at the API boundary and automatically reinstate when their deadline passes.
 
 The new append-only audit table records workspace creation, invitation lifecycle actions, membership updates, suspension, revocation, manual reinstatement, and timed reinstatement. Audit records are committed with the corresponding state change. Notifications, audit retention/exports, and broader tamper-resistance controls are still future work.
+
+
+## Voluntary leave implementation slice
+
+`POST /businesses/{business_id}/leave` now requires the exact phrase `I want to leave`, password re-authentication, and a written reason. The user may leave immediately or set a notice period of 1–720 hours. Immediate departure revokes membership access immediately; scheduled departure remains recorded and is finalized at the deadline when a protected request or authorized member-list read reaches the API. Finalization is audited. Workspace Owners cannot leave through this route until ownership transfer is supported, preventing an accidental orphaned workspace. A new valid invitation can re-establish a previously revoked membership and clears any old leave schedule.
+
+Password re-authentication is implemented, but abuse throttling and a frontend leave screen remain outstanding.
