@@ -258,3 +258,36 @@ def test_worker_cannot_create_invitation_or_review_applications(client: TestClie
         headers=bearer(worker["access_token"]),
     )
     assert listing.status_code == 403
+
+
+
+def test_admin_cannot_review_an_invitation_application(client: TestClient) -> None:
+    owner = register(client, "owner-review-test@example.com")
+    admin = register(client, "admin-review-test@example.com")
+    applicant = register(client, "applicant-review-test@example.com")
+    business_id = make_business(client, owner["access_token"])
+    invite_token = make_invitation(client, owner["access_token"], business_id)
+    submitted = submit_application(client, applicant["access_token"], invite_token)
+
+    with client.app.state.test_session() as db:
+        admin_user = db.scalar(select(User).where(User.email == "admin-review-test@example.com"))
+        assert admin_user is not None
+        db.add(
+            BusinessMembership(
+                user_id=admin_user.id,
+                business_id=UUID(business_id),
+                role="admin",
+                status="active",
+                permissions={
+                    "staff_administration:read": True,
+                    "staff_administration:write": True,
+                },
+            )
+        )
+        db.commit()
+
+    response = client.post(
+        f"/businesses/{business_id}/invitation-applications/{submitted['id']}/approve",
+        headers=bearer(admin["access_token"]),
+    )
+    assert response.status_code == 403
