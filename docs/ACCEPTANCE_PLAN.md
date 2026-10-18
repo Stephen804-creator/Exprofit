@@ -10,21 +10,21 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [x] CI runs backend tests/lint and frontend type/build checks (CI run #97 passed).
 
 ## Unit 2 — Database
-- [ ] SQLAlchemy engine and request-scoped session dependency use configured database settings.
+- [x] SQLAlchemy engine and request-scoped session dependency use configured database settings.
 - [x] Migrations create the schema from an empty PostgreSQL 16 test database (CI run #97).
-- [ ] A second migration run leaves the database at the current revision without errors.
-- [ ] The initial Business model persists UUID, name, currency code, timezone, and timestamps.
-- [ ] Database credentials are not committed.
-- [ ] Monetary and quantity fields use suitable decimal precision when transaction models are added.
-- [ ] Business-scoped relationships cannot accidentally reference another business's records when ownership and transaction models are added.
+- [ ] A second migration run leaves the database at the current revision without errors (not separately verified).
+- [x] The initial Business model persists UUID, name, currency code, timezone, and timestamps.
+- [x] Database credentials are not committed; only example configuration is tracked.
+- [x] Transaction amounts use fixed-precision `NUMERIC(14, 2)` and Python `Decimal`.
+- [x] Transaction access is scoped to business IDs and authenticated membership.
 
 ## Unit 3 — Transactions
-- [ ] Service-level create, list, read, update, and void operations are implemented for income and expense records.
-- [ ] Amounts use fixed-precision decimal storage and must be greater than zero.
-- [ ] Invalid direction, currency codes, blank descriptions, and amounts are rejected by validation/database constraints.
-- [ ] Business currency is enforced for transaction creation; currency conversion is not yet supported.
-- [ ] Optional idempotency keys are unique within a business.
-- [ ] Voiding preserves the entry instead of deleting its history; void entries cannot be edited.
+- [x] Service-level create, list, read, update, and void operations are implemented for income and expense records.
+- [x] Amounts use fixed-precision decimal storage and must be greater than zero.
+- [x] Invalid direction, currency codes, blank descriptions, and amounts are rejected by validation/database constraints.
+- [x] Business currency is enforced for transaction creation; currency conversion is not yet supported.
+- [x] Optional idempotency keys are unique within a business.
+- [x] Voiding preserves the entry instead of deleting its history; void entries cannot be edited.
 - [x] Authenticated HTTP endpoints enforce business membership for every transaction operation (covered by API tests).
 - [ ] Refund policy, audit history, and additional correction rules still need implementation.
 
