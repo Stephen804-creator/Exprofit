@@ -129,3 +129,8 @@ Authenticated transaction HTTP routes are now registered. Every route requires a
 ## Build 4 — authentication and access control (implemented; verification pending)
 
 The API now includes registration, login, current-user, logout, business-workspace, and business-scoped transaction routes. Passwords are Argon2-hashed; signed access tokens expire after 30 minutes and are linked to database sessions that can be revoked on logout. Registration creates an NGN/Africa-Lagos workspace and owner membership. Business and transaction routes check membership server-side. A test suite covers registration, login failures, logout revocation, duplicate email, cross-business isolation, and a transaction lifecycle. CI run #97 passed the PostgreSQL migrations, Ruff, all 19 backend tests, frontend typecheck, and production build. Rate limiting and broader production security hardening remain follow-up work. Set `AUTH_SECRET_KEY` to a unique random value of at least 32 bytes; do not reuse the example placeholder or commit a real secret.
+
+
+## Email verification foundation
+
+The collaboration branch adds account email verification endpoints. To use them, configure `FRONTEND_BASE_URL`, `EMAIL_VERIFICATION_TTL_MINUTES`, and the `SMTP_*` variables from `.env.example`. Sign in, call `POST /auth/request-email-verification`, then submit the token from the email to `POST /auth/verify-email` as JSON: `{"token":"..." }`. `GET /auth/me` reports `email_verified`. SMTP must be configured; the API does not return verification tokens. The frontend verification page and resend rate limiting are not yet implemented.
