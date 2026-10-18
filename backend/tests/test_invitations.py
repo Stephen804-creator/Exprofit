@@ -1,5 +1,6 @@
-"""Security tests for recipient-bound workspace invitations."""
+"""Tests for the no-email, owner-reviewed invitation workflow."""
 
+import base64
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
@@ -15,12 +16,11 @@ from app.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import BusinessMembership, User, WorkspaceInvitation
+from app.models import BusinessMembership, InvitationApplication, User, WorkspaceInvitation
 
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]:
-    """Run invitation API requests against an isolated database."""
     monkeypatch.setenv("AUTH_SECRET_KEY", "test-only-secret-value-with-more-than-32-bytes")
     get_settings.cache_clear()
     engine = create_engine(
@@ -68,219 +68,179 @@ def make_business(client: TestClient, token: str) -> str:
     return response.json()["id"]
 
 
-def verify_user_email(client: TestClient, email: str) -> None:
-    with client.app.state.test_session() as db:
-        user = db.scalar(select(User).where(User.email == email))
-        assert user is not None
-        user.email_verified = True
-        db.commit()
-
-
-def configure_mail(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("SMTP_FROM_EMAIL", "no-reply@example.com")
-    monkeypatch.setenv("SMTP_STARTTLS", "false")
-    get_settings.cache_clear()
-
-
-def test_invitation_is_recipient_bound_verified_single_use_and_hashed(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    configure_mail(monkeypatch)
-    owner = register(client, "owner@example.com")
-    recipient = register(client, "recipient@example.com")
-    wrong_user = register(client, "wrong@example.com")
-    business_id = make_business(client, owner["access_token"])
-    delivered: dict[str, str] = {}
-
-    def capture_email(
-        email: str,
-        invitation_url: str,
-        workspace_name: str,
-        settings: object,
-    ) -> None:
-        delivered["email"] = email
-        delivered["url"] = invitation_url
-
-    monkeypatch.setattr("app.api.routes.invitations.send_invitation_email", capture_email)
-    created = client.post(
+def make_invitation(client: TestClient, owner_token: str, business_id: str, hours: int = 24) -> str:
+    response = client.post(
         f"/businesses/{business_id}/invitations",
-        headers=bearer(owner["access_token"]),
+        headers=bearer(owner_token),
+        json={"role": "worker", "permissions": {"sales:read": True}, "expires_in_hours": hours},
+    )
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    assert payload["invitation_url"]
+    assert payload["recipient_email"] is None
+    assert payload["expires_at"]
+    return parse_qs(urlparse(payload["invitation_url"]).query)["token"][0]
+
+
+def photo_data_url() -> str:
+    # Minimal JPEG-signature fixture for API validation; not a real person's image.
+    fake_jpeg = b"\xff\xd8\xff" + (b"test-image-data-" * 20)
+    return "data:image/jpeg;base64," + base64.b64encode(fake_jpeg).decode("ascii")
+
+
+def submit_application(client: TestClient, token: str, invite_token: str) -> dict:
+    response = client.post(
+        "/invitations/apply",
+        headers=bearer(token),
         json={
-            "recipient_email": "Recipient@Example.com",
-            "role": "worker",
-            "permissions": {"sales:read": True, "sales:write": True},
+            "token": invite_token,
+            "full_name": "Test Applicant",
+            "phone": "+2348000000000",
+            "identifying_details": "We met at the shop on Monday and discussed the cashier role.",
+            "photo_data_url": photo_data_url(),
         },
     )
-    assert created.status_code == 201, created.text
-    assert delivered["email"] == "recipient@example.com"
-    assert "token" not in created.json()
+    assert response.status_code == 201, response.text
+    return response.json()
 
-    raw_token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
-    with client.app.state.test_session() as db:
-        record = db.get(WorkspaceInvitation, UUID(created.json()["id"]))
-        assert record is not None
-        assert record.token_hash != raw_token
-        assert len(record.token_hash) == 64
 
-    not_verified = client.post(
-        "/invitations/accept",
-        headers=bearer(recipient["access_token"]),
-        json={"token": raw_token},
-    )
-    assert not_verified.status_code == 403
+def test_owner_reviews_application_before_membership_is_granted(client: TestClient) -> None:
+    owner = register(client, "owner@example.com")
+    applicant = register(client, "applicant@example.com")
+    business_id = make_business(client, owner["access_token"])
+    invite_token = make_invitation(client, owner["access_token"], business_id, hours=48)
 
-    verify_user_email(client, "wrong@example.com")
-    wrong_email = client.post(
-        "/invitations/accept",
-        headers=bearer(wrong_user["access_token"]),
-        json={"token": raw_token},
-    )
-    assert wrong_email.status_code == 403
-
-    verify_user_email(client, "recipient@example.com")
-    accepted = client.post(
-        "/invitations/accept",
-        headers=bearer(recipient["access_token"]),
-        json={"token": raw_token},
-    )
-    assert accepted.status_code == 200, accepted.text
-    assert accepted.json() == {
-        "business_id": business_id,
-        "role": "worker",
-        "status": "active",
-    }
+    submitted = submit_application(client, applicant["access_token"], invite_token)
+    application_id = submitted["id"]
+    assert submitted["status"] == "pending"
 
     with client.app.state.test_session() as db:
-        membership = db.scalar(
-            select(BusinessMembership).where(
-                BusinessMembership.business_id == UUID(accepted.json()["business_id"]),
-                BusinessMembership.user_id == db.scalar(
-                    select(User.id).where(User.email == "recipient@example.com")
-                ),
-            )
-        )
-        assert membership is not None
-        assert membership.permissions == {"sales:read": True, "sales:write": True}
+        invitation = db.scalar(select(WorkspaceInvitation).where(WorkspaceInvitation.business_id == UUID(business_id)))
+        assert invitation is not None
+        assert invitation.token_hash != invite_token
+        assert len(invitation.token_hash) == 64
+        assert db.scalar(select(BusinessMembership).where(
+            BusinessMembership.business_id == UUID(business_id),
+            BusinessMembership.user_id == db.scalar(select(User.id).where(User.email == "applicant@example.com")),
+        )) is None
+        application = db.get(InvitationApplication, UUID(application_id))
+        assert application is not None and application.photo_bytes is not None
+
+    listed = client.get(
+        f"/businesses/{business_id}/invitation-applications",
+        headers=bearer(owner["access_token"]),
+    )
+    assert listed.status_code == 200, listed.text
+    assert len(listed.json()) == 1
+    photo = client.get(
+        f"/businesses/{business_id}/invitation-applications/{application_id}/photo",
+        headers=bearer(owner["access_token"]),
+    )
+    assert photo.status_code == 200
+    assert photo.headers["cache-control"] == "private, no-store"
+
+    approved = client.post(
+        f"/businesses/{business_id}/invitation-applications/{application_id}/approve",
+        headers=bearer(owner["access_token"]),
+    )
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "approved"
+    with client.app.state.test_session() as db:
+        membership = db.scalar(select(BusinessMembership).where(
+            BusinessMembership.business_id == UUID(business_id),
+            BusinessMembership.user_id == db.scalar(select(User.id).where(User.email == "applicant@example.com")),
+        ))
+        assert membership is not None and membership.status == "active"
+        application = db.get(InvitationApplication, UUID(application_id))
+        assert application is not None and application.photo_bytes is None
 
     replay = client.post(
-        "/invitations/accept",
-        headers=bearer(recipient["access_token"]),
-        json={"token": raw_token},
+        "/invitations/apply",
+        headers=bearer(applicant["access_token"]),
+        json={
+            "token": invite_token,
+            "full_name": "Test Applicant",
+            "identifying_details": "Repeated application attempt",
+            "photo_data_url": photo_data_url(),
+        },
     )
     assert replay.status_code == 400
 
 
-def test_revoked_invitation_cannot_be_accepted(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    configure_mail(monkeypatch)
+def test_invitation_link_can_be_revoked_without_email_setup(client: TestClient) -> None:
     owner = register(client, "owner-revoke@example.com")
-    recipient = register(client, "revoked-recipient@example.com")
+    applicant = register(client, "applicant-revoke@example.com")
     business_id = make_business(client, owner["access_token"])
-    delivered: dict[str, str] = {}
-
-    def capture_email(
-        email: str,
-        invitation_url: str,
-        workspace_name: str,
-        settings: object,
-    ) -> None:
-        delivered["url"] = invitation_url
-
-    monkeypatch.setattr("app.api.routes.invitations.send_invitation_email", capture_email)
     created = client.post(
         f"/businesses/{business_id}/invitations",
         headers=bearer(owner["access_token"]),
-        json={"recipient_email": "revoked-recipient@example.com", "role": "worker"},
+        json={"role": "worker", "expires_in_hours": 1},
     )
     assert created.status_code == 201, created.text
-    token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
+    token = parse_qs(urlparse(created.json()["invitation_url"]).query)["token"][0]
 
     revoked = client.post(
         f"/businesses/{business_id}/invitations/{created.json()['id']}/revoke",
         headers=bearer(owner["access_token"]),
     )
     assert revoked.status_code == 204
-
-    verify_user_email(client, "revoked-recipient@example.com")
-    accepted = client.post(
-        "/invitations/accept",
-        headers=bearer(recipient["access_token"]),
-        json={"token": token},
+    rejected = client.post(
+        "/invitations/apply",
+        headers=bearer(applicant["access_token"]),
+        json={
+            "token": token,
+            "full_name": "Applicant",
+            "identifying_details": "We agreed to meet at the shop",
+            "photo_data_url": photo_data_url(),
+        },
     )
-    assert accepted.status_code == 400
+    assert rejected.status_code == 400
 
 
-def test_worker_cannot_create_workspace_invitations(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    configure_mail(monkeypatch)
-    owner = register(client, "owner-worker-test@example.com")
+def test_expired_invitation_is_unusable(client: TestClient) -> None:
+    owner = register(client, "owner-expiry@example.com")
+    applicant = register(client, "applicant-expiry@example.com")
+    business_id = make_business(client, owner["access_token"])
+    token = make_invitation(client, owner["access_token"], business_id, hours=1)
+    with client.app.state.test_session() as db:
+        invitation = db.scalar(select(WorkspaceInvitation).where(WorkspaceInvitation.business_id == UUID(business_id)))
+        assert invitation is not None
+        invitation.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+        db.commit()
+    response = client.post(
+        "/invitations/apply",
+        headers=bearer(applicant["access_token"]),
+        json={
+            "token": token,
+            "full_name": "Applicant",
+            "identifying_details": "We agreed to meet at the shop",
+            "photo_data_url": photo_data_url(),
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_worker_cannot_create_invitation_or_review_applications(client: TestClient) -> None:
+    owner = register(client, "owner-worker@example.com")
     worker = register(client, "worker@example.com")
     business_id = make_business(client, owner["access_token"])
     with client.app.state.test_session() as db:
         worker_user = db.scalar(select(User).where(User.email == "worker@example.com"))
         assert worker_user is not None
-        membership = BusinessMembership(
-            user_id=worker_user.id,
-            business_id=UUID(business_id),
-            role="worker",
-            status="active",
-            permissions={"sales:read": True},
-        )
-        db.add(membership)
+        db.add(BusinessMembership(
+            user_id=worker_user.id, business_id=UUID(business_id), role="worker",
+            status="active", permissions={"sales:read": True},
+        ))
         db.commit()
 
     response = client.post(
         f"/businesses/{business_id}/invitations",
         headers=bearer(worker["access_token"]),
-        json={"recipient_email": "someone@example.com", "role": "worker"},
+        json={"role": "worker"},
     )
     assert response.status_code == 403
-
-
-
-def test_expired_invitation_cannot_be_accepted(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    configure_mail(monkeypatch)
-    owner = register(client, "owner-expiry@example.com")
-    recipient = register(client, "expired-recipient@example.com")
-    business_id = make_business(client, owner["access_token"])
-    delivered: dict[str, str] = {}
-
-    def capture_email(
-        email: str,
-        invitation_url: str,
-        workspace_name: str,
-        settings: object,
-    ) -> None:
-        delivered["url"] = invitation_url
-
-    monkeypatch.setattr("app.api.routes.invitations.send_invitation_email", capture_email)
-    created = client.post(
-        f"/businesses/{business_id}/invitations",
-        headers=bearer(owner["access_token"]),
-        json={"recipient_email": "expired-recipient@example.com", "role": "worker"},
+    listing = client.get(
+        f"/businesses/{business_id}/invitation-applications",
+        headers=bearer(worker["access_token"]),
     )
-    assert created.status_code == 201, created.text
-    token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
-
-    with client.app.state.test_session() as db:
-        invitation = db.get(WorkspaceInvitation, UUID(created.json()["id"]))
-        assert invitation is not None
-        invitation.expires_at = datetime.now(UTC) - timedelta(minutes=1)
-        db.commit()
-
-    verify_user_email(client, "expired-recipient@example.com")
-    response = client.post(
-        "/invitations/accept",
-        headers=bearer(recipient["access_token"]),
-        json={"token": token},
-    )
-    assert response.status_code == 400
+    assert listing.status_code == 403
