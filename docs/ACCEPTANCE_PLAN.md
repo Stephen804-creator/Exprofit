@@ -25,15 +25,18 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Business currency is enforced for transaction creation; currency conversion is not yet supported.
 - [ ] Optional idempotency keys are unique within a business.
 - [ ] Voiding preserves the entry instead of deleting its history; void entries cannot be edited.
-- [ ] HTTP endpoints remain unavailable until authentication and authorization are implemented.
+- [ ] Authenticated HTTP endpoints enforce business membership for every transaction operation.
 - [ ] Refund policy, audit history, and additional correction rules still need implementation.
 
 ## Unit 4 — Authentication and authorization
-- [ ] Passwords are securely hashed.
-- [ ] Unauthenticated requests are denied where required.
+- [ ] Registration creates a user, first business workspace, owner membership, and access session atomically.
+- [ ] Passwords are Argon2-hashed and never returned in API responses.
+- [ ] Login rejects invalid credentials without disclosing whether an account exists.
+- [ ] Unauthenticated requests to business and transaction endpoints are denied.
 - [ ] A user cannot read or modify another business's records by changing an ID.
-- [ ] Session expiry and logout behave as documented.
-- [ ] Sensitive actions are auditable without logging secrets.
+- [ ] Access tokens expire after 30 minutes; logout revokes the associated database session.
+- [ ] Authentication, authorization, logout, and transaction lifecycle tests pass in CI.
+- [ ] Login/register rate limiting and security-event auditing are reviewed before production release.
 
 ## Unit 5 — Receipts
 - [ ] Unsupported file types and oversized files are rejected.
