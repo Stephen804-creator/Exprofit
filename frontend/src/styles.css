@@ -144,3 +144,51 @@ h2 { font-family: Manrope, sans-serif; font-size: clamp(24px, 3.5vw, 36px); lett
   .topbar-actions { gap: 8px; }
   .connection { padding: 7px 9px; font-size: 10px; }
 }
+
+
+/* Workspace collaboration controls */
+.collaboration-panel { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 46px; }
+.collaboration-panel > .section-heading { margin-bottom: 20px; }
+.collaboration-panel .section-heading h2 { font-size: 28px; }
+.collaboration-panel .section-heading > p { max-width: 300px; line-height: 1.7; }
+.member-list { display: grid; gap: 10px; }
+.member-card { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 17px 18px; }
+.member-summary { display: flex; justify-content: space-between; align-items: start; gap: 18px; }
+.member-summary strong { font-size: 13px; overflow-wrap: anywhere; }
+.member-summary p { color: var(--muted); font-size: 11px; margin: 6px 0 0; text-transform: capitalize; }
+.member-permission-summary { display: flex; flex-wrap: wrap; justify-content: end; gap: 5px; max-width: 55%; }
+.member-permission-summary span { border: 1px solid #dfe6d9; border-radius: 999px; background: #f5f8f1; color: #566c4f; padding: 4px 7px; font: 500 9px "DM Mono", monospace; }
+.member-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.member-actions .button { padding: 9px 12px; font-size: 11px; gap: 8px; }
+.button--danger { border: 1px solid #e6c8c1; background: #fff7f5; color: #9a3f30; cursor: pointer; }
+.button--danger:disabled { opacity: .55; cursor: wait; }
+.collaboration-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+.collaboration-form, .member-action-settings { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 21px; }
+.collaboration-form { display: flex; flex-direction: column; gap: 9px; }
+.collaboration-form .eyebrow, .member-action-settings .eyebrow { margin-bottom: 0; }
+.collaboration-form h3, .member-action-settings h3 { font-family: Manrope, sans-serif; font-size: 18px; letter-spacing: -.035em; margin: 0 0 6px; }
+.collaboration-form label, .member-action-settings label, .member-edit-form label { color: #34473a; font-size: 11px; font-weight: 700; margin-top: 5px; }
+.collaboration-form label span, .member-action-settings label span { color: #829087; font-weight: 400; }
+.collaboration-form input:not([type="checkbox"]), .collaboration-form select, .member-action-settings input, .member-edit-form input:not([type="checkbox"]), .member-edit-form select { width: 100%; min-height: 42px; border: 1px solid #d4ddd3; border-radius: 7px; padding: 9px 11px; background: #fff; color: #182d24; font: inherit; font-size: 12px; }
+.permission-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 4px; }
+.permission-option { display: flex; align-items: center; gap: 7px; border: 1px solid #e4e9e0; border-radius: 7px; padding: 9px; font-size: 10px !important; font-weight: 500 !important; line-height: 1.45; cursor: pointer; }
+.permission-option input { accent-color: var(--forest); flex-shrink: 0; }
+.member-edit-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 9px; }
+.member-edit-form .permission-grid { margin-top: 3px; }
+.member-action-settings { display: flex; flex-direction: column; gap: 9px; }
+.audit-panel { margin-top: 22px; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 21px; }
+.audit-panel .section-heading { margin-bottom: 12px; }
+.audit-panel h3 { font-family: Manrope, sans-serif; font-size: 18px; margin: 0; }
+.audit-row { display: flex; justify-content: space-between; align-items: start; gap: 18px; border-top: 1px solid #edf0eb; padding: 13px 0; }
+.audit-row strong { color: var(--forest); font-size: 11px; text-transform: capitalize; }
+.audit-row p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.audit-row time { color: #7b897e; font-size: 10px; white-space: nowrap; }
+@media (max-width: 760px) {
+  .collaboration-panel { padding-top: 35px; }
+  .collaboration-columns { grid-template-columns: 1fr; }
+  .member-summary { flex-direction: column; }
+  .member-permission-summary { justify-content: start; max-width: 100%; }
+  .permission-grid { grid-template-columns: 1fr; }
+  .audit-row { flex-direction: column; gap: 5px; }
+  .collaboration-form, .member-action-settings, .audit-panel { padding: 17px; }
+}
