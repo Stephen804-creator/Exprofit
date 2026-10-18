@@ -122,3 +122,8 @@ The database layer now includes SQLAlchemy engine/session plumbing, a shared ORM
 The first transaction layer is committed: SQLAlchemy model and migration, validated Pydantic schemas, and service operations for creating, listing, retrieving, updating, and voiding income/expense entries. Amounts use `NUMERIC(14, 2)`/Python `Decimal`, must be positive, and have a separate income/expense direction. Each entry is tied to a business and must use that business's currency; currency conversion is not implemented. Optional idempotency keys are unique per business. Voiding preserves the record rather than deleting it.
 
 These operations are currently service-level only. Public transaction API routes are intentionally deferred until authentication and authorization are implemented, so a caller cannot manipulate another business's records by supplying a business ID. The automated tests and PostgreSQL migration workflow have been added but are not yet confirmed passing.
+
+
+## Build 4 — authentication foundation (in progress)
+
+User and business-membership models, their database migration, initial account schemas, and password-hashing support have been added. Authentication is not complete: login/registration endpoints, expiring-token validation, server-side business authorization, protected transaction routes, and tests are still outstanding. Do not use this partial state with real financial data. CI and migrations have not been confirmed passing.
