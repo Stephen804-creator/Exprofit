@@ -98,3 +98,10 @@ GitHub Actions run #39137366478 passed on commit `f482f8c8b38a49854451313746c2ee
 Added `POST /businesses/{business_id}/leave` with exact phrase validation (`I want to leave`), password re-authentication, required reason, immediate departure, and optional 1–720-hour notice. Scheduled departure is finalized at the API boundary when its effective time passes and produces an audit event. Owners cannot leave until ownership transfer is supported. Accepting a new invitation clears a previous departure schedule.
 
 GitHub Actions run #39137882951 passed on commit `0fbf0b0dacf723779eb20e829ee890645d6c314d0`: Ruff, 35 backend tests, PostgreSQL 16 migrations, frontend typecheck, and production build passed. The model-index alignment follow-up triggered another CI run. Rate limiting and the frontend leave-management UI are not implemented.
+
+
+### Collaboration and voluntary-leave UI — implementation added, CI verified
+
+The React business workspace panel now shows members and recent audit events to authorized users, creates invitations, edits role/permission grants, and supports suspend/revoke/reinstate actions. It includes a self-service leave form with exact phrase, password re-authentication, reason, and optional notice period. The frontend calls a dedicated own-membership endpoint so a Worker can view their own status without access to the member directory.
+
+GitHub Actions run #39138684168 passed on commit `2884462c60bd233878f4e446dc9db2e3b1bdd764`: Ruff, 35 backend tests, PostgreSQL migrations, frontend typecheck, and production build passed. This is build/test verification, not manual browser or production verification. Rate limiting, notifications, ownership transfer, full transaction/receipt dashboard, audit retention/export controls, and production session hardening remain incomplete.
