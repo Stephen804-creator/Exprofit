@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     auth_secret_key: str = ""
     frontend_base_url: str = "http://localhost:5173"
     email_verification_ttl_minutes: int = 30
+    workspace_invitation_ttl_minutes: int = 30
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
