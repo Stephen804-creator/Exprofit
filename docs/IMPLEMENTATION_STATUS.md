@@ -42,3 +42,8 @@ Committed PostgreSQL configuration, SQLAlchemy engine and request-scoped session
 Added a transaction ORM model with fixed-precision decimal amounts, business foreign key, income/expense direction, draft/posted/void states, currency constraints, date/status indexes, and an optional business-scoped idempotency key. Added Pydantic input/output schemas, service-layer create/list/get/update/void operations, a migration, and tests for lifecycle behavior, business scoping, currency mismatch, invalid values, and duplicate request keys.
 
 Transaction operations are not yet exposed as public HTTP endpoints. This is deliberate: the authentication and authorization unit must be completed before routes can safely accept requests for a business ID. The new tests and PostgreSQL migration step are committed but have not yet been observed passing in GitHub Actions.
+
+
+## Build 4 update — 2026-10-18 (in progress; not accepted)
+
+Added the User and BusinessMembership ORM models, registered them in the model package, added the users/memberships Alembic migration, pinned Argon2 password-hashing and signed-token dependencies, and added an auth-secret setting plus request/response schemas. A password-hashing helper is present. This is only a partial foundation: token issuance/validation, current-user dependencies, registration/login routes, business membership enforcement, protected transaction routes, and authentication tests are not complete or verified. Do not treat Build 4 as complete or deploy this state as an authenticated finance application. The migration and CI remain unverified.
