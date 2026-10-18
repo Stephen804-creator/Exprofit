@@ -43,6 +43,18 @@ type Workspace = {
   timezone: string;
 };
 
+type InvitationApplication = {
+  id: string;
+  invitation_id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  identifying_details: string;
+  role: "admin" | "worker";
+  status: string;
+  created_at: string;
+};
+
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 
 function routeFromPath(): RouteMode {
@@ -105,8 +117,15 @@ export default function App() {
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [collaborationError, setCollaborationError] = useState("");
   const [collaborationLoading, setCollaborationLoading] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "worker">("worker");
+  const [invitationExpiryHours, setInvitationExpiryHours] = useState("24");
+  const [createdInviteUrl, setCreatedInviteUrl] = useState("");
+  const [applications, setApplications] = useState<InvitationApplication[]>([]);
+  const [applicationPhotos, setApplicationPhotos] = useState<Record<string, string>>({});
+  const [applicationFullName, setApplicationFullName] = useState("");
+  const [applicationPhone, setApplicationPhone] = useState("");
+  const [applicationDetails, setApplicationDetails] = useState("");
+  const [applicationPhoto, setApplicationPhoto] = useState("");
   const [invitePermissions, setInvitePermissions] = useState<Record<string, boolean>>({ "sales:read": true });
   const [memberReason, setMemberReason] = useState("");
   const [suspensionHours, setSuspensionHours] = useState("24");
@@ -254,23 +273,79 @@ export default function App() {
     }
   }
 
-  async function acceptInvitation(): Promise<void> {
+  async function submitInvitationApplication(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
     if (!accessToken || !pendingToken) return;
+    if (!applicationPhoto) {
+      setNotice("Capture or select a JPEG face photo before submitting.");
+      return;
+    }
     setBusy(true);
     setNotice("");
     try {
-      const result = await apiRequest<{ business_id: string; role: string; status: string }>(
-        "/invitations/accept",
-        { method: "POST", body: JSON.stringify({ token: pendingToken }) },
+      await apiRequest<InvitationApplication>(
+        "/invitations/apply",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            token: pendingToken,
+            full_name: applicationFullName,
+            phone: applicationPhone || null,
+            identifying_details: applicationDetails,
+            photo_data_url: applicationPhoto,
+          }),
+        },
         accessToken,
       );
       setPendingToken("");
-      setNotice(`Invitation accepted. Your workspace role is ${result.role}.`);
-      window.history.replaceState({}, "", "/");
-      setRouteMode("app");
-      await hydrate(accessToken);
+      setApplicationPhoto("");
+      setNotice("Application submitted. Workspace access will be granted only if the owner approves it.");
     } catch (error) {
       setNotice(messageFromError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadApplicationPhoto(applicationId: string): Promise<void> {
+    if (!accessToken || !selectedWorkspaceId) return;
+    try {
+      const response = await fetch(
+        `${apiBase}/businesses/${selectedWorkspaceId}/invitation-applications/${applicationId}/photo`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (!response.ok) throw new Error("Could not load this private photo.");
+      const objectUrl = URL.createObjectURL(await response.blob());
+      setApplicationPhotos((current) => {
+        const previous = current[applicationId];
+        if (previous) URL.revokeObjectURL(previous);
+        return { ...current, [applicationId]: objectUrl };
+      });
+    } catch (error) {
+      setCollaborationError(messageFromError(error));
+    }
+  }
+
+  async function reviewApplication(applicationId: string, decision: "approve" | "reject"): Promise<void> {
+    if (!accessToken || !selectedWorkspaceId) return;
+    setBusy(true);
+    setCollaborationError("");
+    try {
+      await apiRequest(
+        `/businesses/${selectedWorkspaceId}/invitation-applications/${applicationId}/${decision}`,
+        { method: "POST", body: JSON.stringify({}) },
+        accessToken,
+      );
+      setNotice(decision === "approve" ? "Applicant approved and added to the workspace." : "Application rejected.");
+      setApplicationPhotos((current) => {
+        if (current[applicationId]) URL.revokeObjectURL(current[applicationId]);
+        const next = { ...current };
+        delete next[applicationId];
+        return next;
+      });
+      await refreshCollaboration();
+    } catch (error) {
+      setCollaborationError(messageFromError(error));
     } finally {
       setBusy(false);
     }
@@ -313,16 +388,19 @@ export default function App() {
   async function refreshCollaboration(): Promise<void> {
     if (!accessToken || !selectedWorkspaceId) return;
     try {
-      const [availableMembers, events] = await Promise.all([
+      const [availableMembers, events, pendingApplications] = await Promise.all([
         apiRequest<Member[]>(`/businesses/${selectedWorkspaceId}/members`, {}, accessToken),
         apiRequest<AuditEvent[]>(`/businesses/${selectedWorkspaceId}/audit-events?limit=12`, {}, accessToken),
+        apiRequest<InvitationApplication[]>(`/businesses/${selectedWorkspaceId}/invitation-applications`, {}, accessToken),
       ]);
       setMembers(availableMembers);
       setAuditEvents(events);
+      setApplications(pendingApplications);
       setCollaborationError("");
     } catch (error) {
       setMembers([]);
       setAuditEvents([]);
+      setApplications([]);
       setCollaborationError(messageFromError(error));
     }
   }
@@ -337,20 +415,20 @@ export default function App() {
       Object.entries(invitePermissions).filter(([, granted]) => granted),
     );
     try {
-      const result = await apiRequest<{ id: string; recipient_email: string; expires_at: string }>(
+      const result = await apiRequest<{ id: string; invitation_url: string; expires_at: string }>(
         `/businesses/${selectedWorkspaceId}/invitations`,
         {
           method: "POST",
           body: JSON.stringify({
-            recipient_email: inviteEmail,
             role: inviteRole,
             permissions,
+            expires_in_hours: Number(invitationExpiryHours),
           }),
         },
         accessToken,
       );
-      setNotice(`Invitation sent to ${result.recipient_email}. It expires at ${new Date(result.expires_at).toLocaleString()}.`);
-      setInviteEmail("");
+      setCreatedInviteUrl(result.invitation_url);
+      setNotice(`Invitation link generated. It expires at ${new Date(result.expires_at).toLocaleString()}. Copy and send it yourself.`);
       await refreshCollaboration();
     } catch (error) {
       setCollaborationError(messageFromError(error));
@@ -501,16 +579,19 @@ export default function App() {
     Promise.all([
       apiRequest<Member[]>(`/businesses/${selectedWorkspaceId}/members`, {}, accessToken),
       apiRequest<AuditEvent[]>(`/businesses/${selectedWorkspaceId}/audit-events?limit=12`, {}, accessToken),
+      apiRequest<InvitationApplication[]>(`/businesses/${selectedWorkspaceId}/invitation-applications`, {}, accessToken),
     ])
-      .then(([availableMembers, events]) => {
+      .then(([availableMembers, events, pendingApplications]) => {
         if (cancelled) return;
         setMembers(availableMembers);
         setAuditEvents(events);
+        setApplications(pendingApplications);
         setCollaborationError("");
       })
       .catch((error: unknown) => {
         if (cancelled) return;
         setMembers([]);
+        setApplications([]);
         setCollaborationError(messageFromError(error));
       })
       .finally(() => {
@@ -569,24 +650,41 @@ export default function App() {
           </a>
           <span className={`connection connection--${apiStatus}`}><span className="connection-dot" />{statusLabel[apiStatus]}</span>
         </header>
-        <section className="account-card">
+        <section className="account-card invitation-application-card">
           <p className="eyebrow">BUSINESS WORKSPACE</p>
-          <h1 className="account-title">You’re invited.</h1>
-          <p className="hero-copy">Sign in with the verified email address that received the invitation. The invitation link is private and expires.</p>
-          {user && !user.email_verified && (
-            <div className="verification-notice">
-              <strong>Your email needs verification.</strong>
-              <p>Send a verification email, then open that message to verify this account before accepting.</p>
-              <button className="button button--secondary" type="button" onClick={() => void requestVerification()} disabled={busy}>Send verification email</button>
-            </div>
-          )}
-          {user && user.email_verified && (
-            <button className="button button--primary form-submit" type="button" onClick={() => void acceptInvitation()} disabled={busy || !pendingToken}>
-              {busy ? "Accepting…" : "Accept invitation"}
-            </button>
-          )}
+          <h1 className="account-title">Apply to join.</h1>
+          <p className="hero-copy">The owner will review your details and face photo before granting access. This link alone never grants workspace access.</p>
+          {!pendingToken && <p className="form-message form-message--error" role="alert">The invitation link is missing its token. Ask the owner for a new link.</p>}
           {!user && authForm}
-          {user && <p className="form-hint">Signed in as {user.email}. If this is not the invited address, sign out and use the correct account.</p>}
+          {user && pendingToken && (
+            <>
+              <p className="form-hint">Signed in as {user.email}. No email verification or paid verification service is required.</p>
+              <form className="collaboration-form invitation-application-form" onSubmit={submitInvitationApplication}>
+                <label htmlFor="application-full-name">Your full name</label>
+                <input id="application-full-name" autoComplete="name" value={applicationFullName} onChange={(event) => setApplicationFullName(event.target.value)} maxLength={160} required />
+                <label htmlFor="application-phone">Phone number <span>(optional)</span></label>
+                <input id="application-phone" type="tel" autoComplete="tel" value={applicationPhone} onChange={(event) => setApplicationPhone(event.target.value)} maxLength={40} />
+                <label htmlFor="application-details">Details the owner can use to recognize you</label>
+                <textarea id="application-details" value={applicationDetails} onChange={(event) => setApplicationDetails(event.target.value)} maxLength={1200} rows={4} placeholder="For example, where you met or the role you discussed." required />
+                <label htmlFor="application-photo">Face photo (JPEG, up to 2 MB)</label>
+                <input id="application-photo" type="file" accept="image/jpeg" capture="user" onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) { setApplicationPhoto(""); return; }
+                  if (file.size > 2 * 1024 * 1024 || file.type !== "image/jpeg") {
+                    setApplicationPhoto("");
+                    setNotice("Choose a JPEG photo no larger than 2 MB.");
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => setApplicationPhoto(typeof reader.result === "string" ? reader.result : "");
+                  reader.onerror = () => setNotice("Could not read the selected photo. Please try again.");
+                  reader.readAsDataURL(file);
+                }} required />
+                {applicationPhoto && <p className="form-hint">Photo ready to submit. The owner can view it privately while the application is pending.</p>}
+                <button className="button button--primary form-submit" type="submit" disabled={busy || !pendingToken || !applicationPhoto}>{busy ? "Submitting…" : "Submit for owner review"}</button>
+              </form>
+            </>
+          )}
           {notice && <p className="form-message" role="status">{notice}</p>}
           {user && <button className="text-button" type="button" onClick={() => void logout()}>Sign out</button>}
         </section>
@@ -762,9 +860,7 @@ export default function App() {
                 <div className="collaboration-columns">
                   <form className="collaboration-form" onSubmit={createInvitation}>
                     <p className="eyebrow">INVITE A PERSON</p>
-                    <h3>Send a private invitation</h3>
-                    <label htmlFor="invite-email">Recipient email</label>
-                    <input id="invite-email" type="email" autoComplete="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required />
+                    <h3>Generate a shareable link</h3>
                     <label htmlFor="invite-role">Role</label>
                     <select id="invite-role" value={inviteRole} onChange={(event) => {
                         const role = event.target.value as "admin" | "worker";
@@ -780,7 +876,9 @@ export default function App() {
                       <option value="worker">Worker</option>
                       <option value="admin" disabled={!isWorkspaceOwner}>Admin (Owner only)</option>
                     </select>
-                    <p className="form-hint">The recipient must sign in with this exact address and verify it before accepting.</p>
+                    <label htmlFor="invite-expiry">Link expires after (hours)</label>
+                    <input id="invite-expiry" type="number" min="1" max="720" value={invitationExpiryHours} onChange={(event) => setInvitationExpiryHours(event.target.value)} required />
+                    <p className="form-hint">You choose the expiry period. Anyone with the link may apply, but only the owner can approve access.</p>
                     <div className="permission-grid">
                       {[
                         ["sales:read", "Read sales"],
@@ -802,7 +900,16 @@ export default function App() {
                         </label>
                       ))}
                     </div>
-                    <button className="button button--primary form-submit" type="submit" disabled={busy}>{busy ? "Sending…" : "Send invitation"}</button>
+                    <button className="button button--primary form-submit" type="submit" disabled={busy}>{busy ? "Generating…" : "Generate invitation link"}</button>
+                    {createdInviteUrl && (
+                      <div className="generated-invitation">
+                        <label htmlFor="generated-invitation-url">Copy this link and send it yourself</label>
+                        <input id="generated-invitation-url" value={createdInviteUrl} readOnly onFocus={(event) => event.currentTarget.select()} />
+                        <button className="button button--secondary" type="button" onClick={() => {
+                          void navigator.clipboard?.writeText(createdInviteUrl).then(() => setNotice("Invitation link copied. Send it using your preferred app."));
+                        }}>Copy link</button>
+                      </div>
+                    )}
                   </form>
 
                   <div className="member-action-settings">
@@ -815,6 +922,39 @@ export default function App() {
                     <p className="form-hint">Suspension and revocation take effect immediately. A timed suspension is reinstated automatically after its deadline. Revoked members need a new invitation to return.</p>
                   </div>
                 </div>
+              )}
+
+              {canManageMembers && (
+                <section className="application-review-panel">
+                  <div className="section-heading">
+                    <div><p className="eyebrow">OWNER REVIEW</p><h3>Applications waiting for approval</h3></div>
+                    <p>Review each person's details and photo before granting workspace access.</p>
+                  </div>
+                  {applications.length === 0 && <p className="form-hint">No pending applications.</p>}
+                  <div className="member-list">
+                    {applications.map((application) => (
+                      <article className="member-card" key={application.id}>
+                        <div className="member-summary">
+                          <div>
+                            <strong>{application.full_name}</strong>
+                            <p>{application.email} · {application.role}</p>
+                            {application.phone && <p>{application.phone}</p>}
+                            <p>{application.identifying_details}</p>
+                          </div>
+                        </div>
+                        {applicationPhotos[application.id] ? (
+                          <img className="application-face-photo" src={applicationPhotos[application.id]} alt={`Face photo submitted by ${application.full_name}`} />
+                        ) : (
+                          <button className="button button--secondary" type="button" onClick={() => void loadApplicationPhoto(application.id)}>View private face photo</button>
+                        )}
+                        <div className="member-actions">
+                          <button className="button button--primary" type="button" onClick={() => void reviewApplication(application.id, "approve")} disabled={busy}>Approve and grant access</button>
+                          <button className="button button--danger" type="button" onClick={() => void reviewApplication(application.id, "reject")} disabled={busy}>Reject</button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
               )}
 
               {currentMembership?.role === "owner" && (
