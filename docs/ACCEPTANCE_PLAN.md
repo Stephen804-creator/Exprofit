@@ -160,3 +160,12 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Workspace Owner cannot leave before ownership transfer is supported.
 - [ ] Rejoining through a new invitation clears the old departure schedule.
 - [ ] Frontend departure UX and re-authentication abuse controls are completed before release.
+
+
+## Collaboration UI
+- [ ] Manual browser test invitation creation, verified acceptance, revocation, expiry, and wrong-email rejection.
+- [ ] Manual browser test member role/permission edits and immediate suspend/revoke behavior.
+- [ ] Manual browser test scheduled leave and exact-phrase/password errors on mobile and desktop.
+- [ ] Worker sees their own membership and leave form but not the full member directory or audit log.
+- [ ] Unauthorized UI requests show understandable errors without stale protected data.
+- [ ] Accessibility, keyboard navigation, focus behavior, and responsive layout are reviewed.
