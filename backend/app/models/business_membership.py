@@ -47,3 +47,5 @@ class BusinessMembership(Base):
         DateTime(timezone=True), nullable=True
     )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    leave_effective_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    leave_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
