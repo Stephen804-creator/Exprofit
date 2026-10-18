@@ -29,7 +29,7 @@ This file separates planned work from verified work. A requirement is not marked
 
 ## Verification log
 
-No application behavior is marked verified in this initial documentation commit. As implementation proceeds, record the date, command, environment, result, and any remaining limitation for each completed unit.
+The application shell and initial database code are committed, but automated checks and PostgreSQL migration execution have not yet been confirmed. Record the date, command, environment, result, and any remaining limitation for each completed unit.
 
 
 ## Build 2 update — 2026-10-18
