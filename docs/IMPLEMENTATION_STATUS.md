@@ -51,3 +51,14 @@ Implemented User, BusinessMembership, and revocable AuthSession models with migr
 The two route modules that previously existed as drafts (`backend/app/api/routes/businesses.py` and `backend/app/api/routes/transactions.py`) are now registered in `backend/app/main.py` and implemented behind authentication/authorization. The stale non-revocable `backend/app/auth_tokens.py` helper was removed; `backend/app/access_tokens.py` is the active session-bound token implementation.
 
 **Verification result:** GitHub Actions run #97 passed Ruff, PostgreSQL 16 migrations, 19 pytest tests, frontend typecheck, and frontend production build. One third-party Starlette/AnyIO deprecation warning remains. Login/register rate limiting, security-event auditing, and broader production hardening remain follow-up work; this is not yet a production release.
+
+
+## Workspace collaboration foundation — in progress
+
+Branch: feat/workspace-collaboration-foundation.
+
+Added a workspace collaboration design, schema fields for Solo versus Business workspaces, configurable workspace display identity, membership role/status/permissions fields, and an initial migration. Registration now creates a private Solo workspace by default; creating a shared business is a separate action. Membership listing and protected transaction access reject non-active memberships.
+
+Not yet complete: invitation generation/verification/acceptance/expiry/revocation; granular permission enforcement; workspace switching UI; member management; password-confirmed voluntary leave; reasoned suspension/revocation; timed suspension; notifications; and audit history. Do not describe these as available until implemented and tested.
+
+Verification status: pending CI for this branch. No passing test result is claimed for these changes yet.
