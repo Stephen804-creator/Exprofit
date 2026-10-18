@@ -84,3 +84,10 @@ GitHub Actions run #39136370512 passed on commit `1fbdaae4e7f186627254755bbc6357
 ### Frontend account and workspace switcher — implementation added, CI pending
 
 The React UI now supports registration/sign-in, displays email-verification state and request controls, verifies emailed tokens at `/verify-email`, accepts invitation tokens at `/accept-invitation`, lists the user's active Solo/business workspaces, switches the selected workspace, and creates a separate business workspace. The short-lived bearer token is kept in sessionStorage for the current browser tab; this is still exposed to same-origin JavaScript and is not equivalent to HttpOnly cookie storage. Email and invitation tokens are removed from the visible URL after being captured in memory. The UI is an initial functional slice, not a full financial dashboard. Confirm the latest CI run before considering this frontend slice verified.
+
+
+### Member administration and audit history — implementation added, CI verified
+
+Added a durable audit model/migration and helper, member list/update/suspend/revoke/reinstate endpoints, read-only audit history, and automatic timed-suspension reinstatement at the API boundary. Membership changes require reasons and create audit events in the same transaction. Owner membership and self-management are blocked; Admins can manage Workers only. Revoked memberships require a new invitation to rejoin.
+
+GitHub Actions run #39137366478 passed on commit `f482f8c8b38a49854451313746c2ee80c8c29dea`: Ruff, all 32 backend tests, PostgreSQL 16 migrations, frontend typecheck, and production build passed. One third-party Starlette/AnyIO deprecation warning remains. Notifications, password recovery, rate limiting, audit retention/export controls, full financial dashboard, and production session hardening remain incomplete.
