@@ -115,13 +115,18 @@ def test_owner_reviews_application_before_membership_is_granted(client: TestClie
     assert submitted["status"] == "pending"
 
     with client.app.state.test_session() as db:
-        invitation = db.scalar(select(WorkspaceInvitation).where(WorkspaceInvitation.business_id == UUID(business_id)))
+        invitation = db.scalar(
+            select(WorkspaceInvitation).where(
+                WorkspaceInvitation.business_id == UUID(business_id)
+            )
+        )
         assert invitation is not None
         assert invitation.token_hash != invite_token
         assert len(invitation.token_hash) == 64
         assert db.scalar(select(BusinessMembership).where(
             BusinessMembership.business_id == UUID(business_id),
-            BusinessMembership.user_id == db.scalar(select(User.id).where(User.email == "applicant@example.com")),
+            BusinessMembership.user_id
+            == db.scalar(select(User.id).where(User.email == "applicant@example.com")),
         )) is None
         application = db.get(InvitationApplication, UUID(application_id))
         assert application is not None and application.photo_bytes is not None
