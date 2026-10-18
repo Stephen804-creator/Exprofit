@@ -149,3 +149,8 @@ The current collaboration branch adds registration/sign-in, a workspace selector
 ## Member administration and audit trail
 
 The collaboration API now includes protected member listing, role/permission updates, suspension, revocation, reinstatement, and read-only audit history. Membership actions require a reason and are recorded in an audit table. Timed suspensions reinstate automatically when expired. Admins can manage Worker memberships only; the Owner's membership cannot be changed through these endpoints. Notification workflows and production audit-retention controls are not yet implemented.
+
+
+## Voluntary workspace departure
+
+Members can request immediate departure or schedule it with a notice period. The API requires the exact phrase `I want to leave`, password confirmation, and a reason. Owners are blocked from leaving until ownership transfer is supported. The UI for this workflow and password re-authentication abuse controls remain future work.
