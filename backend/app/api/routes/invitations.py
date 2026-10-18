@@ -16,10 +16,9 @@ from app.config import get_settings
 from app.db.session import get_db
 from app.email_delivery import EmailDeliveryError, send_invitation_email
 from app.models import Business, BusinessMembership, User, WorkspaceInvitation
-from app.permissions import require_permission
+from app.permissions import require_permission, validate_permission_delegation
 from app.services.audit import record_audit_event
 from app.schemas.invitations import (
-    ALLOWED_PERMISSION_KEYS,
     InvitationAccepted,
     InvitationAcceptRequest,
     InvitationCreate,
@@ -32,47 +31,6 @@ router = APIRouter(tags=["workspace invitations"])
 def _utc(value: datetime) -> datetime:
     """Treat naive SQLite timestamps as UTC for consistent expiry checks."""
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value
-
-
-def _validate_delegation(
-    actor: BusinessMembership,
-    requested_role: str,
-    requested_permissions: dict[str, bool],
-) -> dict[str, bool]:
-    """Prevent admins from granting privileges they do not hold themselves."""
-    grants = {key: value for key, value in requested_permissions.items() if value}
-    unknown = set(grants) - ALLOWED_PERMISSION_KEYS
-    if unknown:
-        raise HTTPException(status_code=422, detail="Unsupported permission grant")
-
-    if requested_role == "worker" and any(
-        key.startswith("staff_administration:") for key in grants
-    ):
-        raise HTTPException(
-            status_code=422,
-            detail="Staff Administration permissions can only be granted to authorized admins",
-        )
-
-    if actor.role != "owner":
-        if requested_role != "worker":
-            raise HTTPException(
-                status_code=403,
-                detail="Only the workspace owner can invite an admin",
-            )
-        own_grants = {
-            key for key, value in (actor.permissions or {}).items() if value is True
-        }
-        if not grants.issubset(own_grants):
-            raise HTTPException(
-                status_code=403,
-                detail="You cannot grant permissions you do not hold",
-            )
-        if any(key.startswith("staff_administration:") for key in grants):
-            raise HTTPException(
-                status_code=403,
-                detail="Admins cannot delegate Staff Administration access",
-            )
-    return grants
 
 
 @router.post(
@@ -100,7 +58,7 @@ def create_invitation(
     if business is None or business.workspace_type != "business":
         raise HTTPException(status_code=404, detail="Business workspace not found")
 
-    grants = _validate_delegation(actor, payload.role, payload.permissions)
+    grants = validate_permission_delegation(actor, payload.role, payload.permissions)
     existing_user = db.scalar(select(User).where(User.email == payload.recipient_email))
     if existing_user is not None:
         existing_membership = db.scalar(
