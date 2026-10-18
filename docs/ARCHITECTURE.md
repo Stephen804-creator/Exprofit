@@ -110,3 +110,8 @@ The collaboration branch introduces the first schema/API foundation for one acco
 - Workspace listing returns only active memberships, and protected business operations reject non-active memberships.
 
 This is an initial foundation, not complete team collaboration. Recipient-bound invitations, permission-by-permission enforcement, workspace switching UI, member administration, leave/suspend/revoke workflows, audit events, and invitation notifications remain unfinished until separately implemented and verified. The branch CI must pass before this slice is considered verified.
+
+
+### Permission policy update
+
+The transaction API now uses a centralized server-side permission policy. Permission grants use boolean keys such as `sales:read`, `sales:write`, `expenses:read`, and `expenses:write`. Owners receive workspace financial access by role; Admins and Workers must have explicit grants. Transaction lists are filtered to permitted directions, and individual reads/writes are checked against the transaction's domain. The current transaction model maps income to Sales and expense to Expenses; this does not yet implement Purchases or Inventory workflows. Automated CI verification for this update is pending.
