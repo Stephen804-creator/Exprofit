@@ -139,3 +139,8 @@ The React frontend now connects registration/login to the API, loads `/auth/me` 
 The API exposes member listing, role/permission updates, suspension, revocation, reinstatement, and read-only paginated audit history. These routes require server-side Staff Administration permissions. Admins can manage Worker memberships only; Owner memberships and self-management are blocked. Revoked members rejoin through a new invitation. Timed suspension expiry is enforced on requests, so an expired suspension does not depend on a scheduled job.
 
 The `audit_events` table stores the actor (or null for automatic system transitions), workspace, event type, target, timestamp, optional reason, and safe JSON metadata. Important workspace creation, invitation, and membership changes are recorded in the same database transaction as the state change. No API endpoint edits or deletes audit records. Notifications and production audit-retention controls are not implemented yet.
+
+
+### Voluntary departure
+
+Members can request departure through `POST /businesses/{business_id}/leave` with the exact confirmation phrase, current password, written reason, and optional notice period. Immediate leave revokes access; scheduled leave is finalized at the effective time on the next protected API request or authorized member-list read. The final transition is audited. Owners are blocked from leaving until ownership transfer is implemented. A new accepted invitation clears the old leave schedule and can reactivate a revoked membership. Rate limiting and frontend leave UX remain follow-up work.
