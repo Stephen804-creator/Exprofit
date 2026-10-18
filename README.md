@@ -34,13 +34,11 @@ The first target users are Nigerian microbusinesses, small retailers, and side-h
 
 ## Planned technology
 
-The implementation plan currently targets React + TypeScript + Vite for the web interface, Python + FastAPI for the API, PostgreSQL for persistence, SQLAlchemy and Alembic for data access and migrations, and open-source OCR where practical. Optional AI should sit behind a provider adapter so the core product remains usable without a model API key.
-
-Technology and versions will be pinned in project configuration as implementation begins.
+The current baseline uses React + TypeScript + Vite, Python + FastAPI, and a PostgreSQL data layer built with SQLAlchemy and Alembic. Optional AI and OCR are not implemented yet and will sit behind explicit boundaries.
 
 ## Project status
 
-This repository is the new Exprofit project home. Initial work establishes the product specification, architecture, implementation checkpoints, and acceptance criteria before the core application is built. Features are not considered implemented merely because they appear in the plan.
+This repository is the new Exprofit project home. The application shell and initial database foundation are committed; transactions, authentication, receipt scanning, financial summaries, and MarginGuard are not implemented yet. Features are not considered implemented merely because they appear in the plan.
 
 See:
 - [Product specification](docs/PRODUCT_SPECIFICATION.md)
@@ -112,3 +110,8 @@ When reusing or adapting code from earlier experiments, retain appropriate autho
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+
+## Build 2 — database foundation
+
+The database layer now includes SQLAlchemy engine/session plumbing, a shared ORM base, a Business model, and an initial Alembic migration for the businesses table. The default currency is NGN and the default timezone is Africa/Lagos. Configure PostgreSQL using DATABASE_URL, then from the backend directory run `alembic upgrade head`. This migration has been committed but has not yet been verified against a live PostgreSQL database. CI status is also still unconfirmed.
