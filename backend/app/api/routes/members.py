@@ -125,6 +125,39 @@ def _refresh_target_lifecycle(db: Session, membership: BusinessMembership) -> bo
     return changed
 
 
+@router.get("/membership", response_model=MembershipRead)
+def read_my_membership(
+    business_id: UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, object]:
+    """Return the signed-in user's own membership without exposing the member directory."""
+    _ensure_business_workspace(db, business_id)
+    membership = db.scalar(
+        select(BusinessMembership).where(
+            BusinessMembership.business_id == business_id,
+            BusinessMembership.user_id == user.id,
+        )
+    )
+    if membership is None:
+        raise HTTPException(status_code=404, detail="Business membership not found")
+    _refresh_target_lifecycle(db, membership)
+    if membership.status != "active":
+        raise HTTPException(status_code=404, detail="Business membership not found")
+    return {
+        "membership_id": membership.id,
+        "user_id": membership.user_id,
+        "email": user.email,
+        "role": membership.role,
+        "status": membership.status,
+        "permissions": membership.permissions or {},
+        "created_at": membership.created_at,
+        "suspended_until": membership.suspended_until,
+        "revoked_at": membership.revoked_at,
+        "leave_effective_at": membership.leave_effective_at,
+    }
+
+
 @router.get("/members", response_model=list[MembershipRead])
 def list_members(
     business_id: UUID,
