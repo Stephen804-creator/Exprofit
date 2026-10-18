@@ -91,3 +91,10 @@ The React UI now supports registration/sign-in, displays email-verification stat
 Added a durable audit model/migration and helper, member list/update/suspend/revoke/reinstate endpoints, read-only audit history, and automatic timed-suspension reinstatement at the API boundary. Membership changes require reasons and create audit events in the same transaction. Owner membership and self-management are blocked; Admins can manage Workers only. Revoked memberships require a new invitation to rejoin.
 
 GitHub Actions run #39137366478 passed on commit `f482f8c8b38a49854451313746c2ee80c8c29dea`: Ruff, all 32 backend tests, PostgreSQL 16 migrations, frontend typecheck, and production build passed. One third-party Starlette/AnyIO deprecation warning remains. Notifications, password recovery, rate limiting, audit retention/export controls, full financial dashboard, and production session hardening remain incomplete.
+
+
+### Voluntary leave and timed departure — implementation added, CI verified
+
+Added `POST /businesses/{business_id}/leave` with exact phrase validation (`I want to leave`), password re-authentication, required reason, immediate departure, and optional 1–720-hour notice. Scheduled departure is finalized at the API boundary when its effective time passes and produces an audit event. Owners cannot leave until ownership transfer is supported. Accepting a new invitation clears a previous departure schedule.
+
+GitHub Actions run #39137882951 passed on commit `0fbf0b0dacf723779eb20e829ee890645d6c314d0`: Ruff, 35 backend tests, PostgreSQL 16 migrations, frontend typecheck, and production build passed. The model-index alignment follow-up triggered another CI run. Rate limiting and the frontend leave-management UI are not implemented.
