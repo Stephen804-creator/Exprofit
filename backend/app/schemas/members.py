@@ -67,6 +67,7 @@ class MembershipRead(BaseModel):
     created_at: datetime
     suspended_until: datetime | None
     revoked_at: datetime | None
+    leave_effective_at: datetime | None = None
 
 
 class AuditEventRead(BaseModel):
@@ -81,3 +82,25 @@ class AuditEventRead(BaseModel):
     reason: str | None
     metadata: dict[str, object] = Field(validation_alias="metadata_json")
     created_at: datetime
+
+
+
+class MembershipLeaveRequest(BaseModel):
+    confirmation_phrase: str
+    password: str = Field(min_length=1, max_length=128)
+    reason: str = Field(min_length=1, max_length=500)
+    notice_hours: int | None = Field(default=None, ge=1, le=720)
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("reason cannot be blank")
+        return cleaned
+
+
+class MembershipLeaveResponse(BaseModel):
+    status: str
+    effective_at: datetime | None
+    message: str
