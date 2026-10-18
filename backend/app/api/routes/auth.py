@@ -17,11 +17,11 @@ from app.access_tokens import (
     InvalidTokenError,
     create_access_token,
     decode_access_token,
- )
-from app.config import get_settings
-from app.email_delivery import EmailDeliveryError, send_verification_email
+)
 from app.api.deps import bearer_scheme, get_current_user
+from app.config import get_settings
 from app.db.session import get_db
+from app.email_delivery import EmailDeliveryError, send_verification_email
 from app.models import (
     AuthSession,
     Business,
