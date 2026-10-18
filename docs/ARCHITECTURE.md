@@ -120,3 +120,10 @@ The transaction API now uses a centralized server-side permission policy. Permis
 ### Verified-email identity foundation
 
 The collaboration branch now adds `users.email_verified` and a one-time `email_verification_tokens` table. The verification challenge stores a SHA-256 token digest, expires after a configurable 30-minute default, and is consumed once. SMTP delivery is an adapter configured with environment variables. The authenticated request endpoint does not return the raw token; the token is sent in the email only. Verification is exposed through `POST /auth/verify-email`, and `GET /auth/me` reports the verified state. Email verification is not yet a prerequisite for login, and no invitation acceptance endpoint exists yet. Resend throttling and a frontend verification page remain follow-up work.
+
+
+### Workspace invitation API
+
+The current branch implements invitation creation, acceptance, and revocation. Creation/revocation require the actor's server-verified `staff_administration:write` permission. The Owner alone may invite Admins; Admins may invite Workers only with grants they already hold. Unknown permission keys are rejected, and Workers cannot receive Staff Administration access.
+
+The database stores only a SHA-256 token digest. Invites expire after 30 minutes by default, can be revoked, and are accepted once. Acceptance requires a verified email on the authenticated account that exactly matches the normalized recipient address. The membership change and invitation consumption commit together. The API never returns the raw token. Frontend invite/verification screens, abuse controls, audit events, and notification workflows remain incomplete.
