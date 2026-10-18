@@ -45,7 +45,7 @@ def register(
     payload: RegisterRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenResponse:
-    """Create an account, initial NGN workspace, owner membership, and session."""
+    """Create an account, private Solo workspace, owner membership, and session."""
     if db.scalar(select(User.id).where(User.email == payload.email)) is not None:
         raise HTTPException(status_code=409, detail="An account with this email already exists")
 
@@ -53,14 +53,25 @@ def register(
     try:
         db.add(user)
         db.flush()
-        business = Business(
-            name=payload.business_name,
+        # Preserve the supplied name for compatibility while making the workspace private.
+        solo_name = payload.business_name or "My Solo Workspace"
+        workspace = Business(
+            name=solo_name,
+            workspace_type="solo",
             currency_code="NGN",
             timezone="Africa/Lagos",
         )
-        db.add(business)
+        db.add(workspace)
         db.flush()
-        db.add(BusinessMembership(user_id=user.id, business_id=business.id, role="owner"))
+        db.add(
+            BusinessMembership(
+                user_id=user.id,
+                business_id=workspace.id,
+                role="owner",
+                status="active",
+                permissions={},
+            )
+        )
         db.flush()
         session_id = uuid4()
         token = create_access_token(user.id, session_id)
