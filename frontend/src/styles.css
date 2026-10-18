@@ -1,0 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  font-family: "DM Sans", sans-serif;
+  color: #182d24;
+  background: #f7f8f4;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  --forest: #153e2f;
+  --muted: #65746b;
+  --line: #dfe5dd;
+  --paper: #ffffff;
+  --acid: #d7f36a;
+}
+
+* { box-sizing: border-box; }
+html { min-width: 320px; scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; }
+a { color: inherit; text-decoration: none; }
+.page-shell { width: min(1180px, calc(100% - 64px)); margin: 0 auto; }
+.topbar { height: 88px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-family: Manrope, sans-serif; font-weight: 800; letter-spacing: -0.06em; font-size: 23px; }
+.brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: var(--forest); color: var(--acid); font-family: Manrope, sans-serif; font-size: 23px; line-height: 1; }
+.connection { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.connection-dot { width: 7px; height: 7px; border-radius: 50%; background: #a4ada5; }
+.connection--online .connection-dot { background: #319968; }
+.connection--offline .connection-dot { background: #c78a4b; }
+.hero { padding: 100px 0 88px; max-width: 850px; }
+.eyebrow, .card-number, .card-status { font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: .13em; font-weight: 500; }
+.eyebrow { color: #6d806e; margin: 0 0 22px; }
+h1, h2, h3, p { margin-top: 0; }
+h1 { font-family: Manrope, sans-serif; font-weight: 600; font-size: clamp(38px, 6.4vw, 72px); letter-spacing: -.065em; line-height: 1.08; margin-bottom: 25px; }
+h1 em { color: #66804d; font-style: normal; }
+.hero-copy { color: var(--muted); max-width: 580px; font-size: 17px; line-height: 1.8; }
+.hero-actions { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 32px; }
+.button { display: inline-flex; align-items: center; gap: 22px; border-radius: 7px; padding: 14px 18px; font-size: 13px; font-weight: 700; }
+.button--primary { background: var(--forest); color: #fff; }
+.button--primary span { color: var(--acid); font-size: 17px; }
+.quiet-note { color: #839087; font-size: 11px; }
+.workflow { border-top: 1px solid var(--line); padding: 52px 0 64px; }
+.section-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.section-heading .eyebrow { margin-bottom: 12px; }
+h2 { font-family: Manrope, sans-serif; font-size: clamp(24px, 3.5vw, 36px); letter-spacing: -.045em; font-weight: 600; margin-bottom: 0; }
+.section-heading > p { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+.feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.feature-card { position: relative; min-height: 258px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); padding: 22px; overflow: hidden; }
+.feature-card--featured { background: #edf2e8; border-color: #d9e3d1; }
+.card-number { color: #728071; }
+.feature-icon { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid #dce4d9; border-radius: 12px; margin: 26px 0 19px; font-size: 24px; color: var(--forest); background: #fff9; }
+.feature-card h3 { font-family: Manrope, sans-serif; font-size: 18px; letter-spacing: -.035em; margin-bottom: 9px; }
+.feature-card p { color: var(--muted); font-size: 12px; line-height: 1.75; max-width: 280px; margin-bottom: 25px; }
+.card-status { color: #6f806d; font-size: 9px; }
+.principle-strip { display: grid; grid-template-columns: 46px 1.2fr 1fr; align-items: center; gap: 18px; padding: 28px 30px; border-radius: 10px; background: #e8eddf; }
+.principle-symbol { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--forest); color: var(--acid); font-size: 21px; }
+.principle-strip .eyebrow { margin-bottom: 8px; font-size: 9px; }
+.principle-copy { font-family: Manrope, sans-serif; font-size: 18px; letter-spacing: -.035em; margin: 0; }
+.principle-copy strong { color: #52733d; }
+.principle-detail { margin: 0; color: #65746b; font-size: 12px; line-height: 1.7; }
+.footer { min-height: 100px; display: flex; align-items: center; justify-content: space-between; gap: 18px; color: #7a877d; font-size: 10px; }
+.brand--footer { color: #30463a; font-size: 17px; }
+.brand--footer .brand-mark { width: 24px; height: 24px; border-radius: 7px; font-size: 18px; }
+
+@media (max-width: 760px) {
+  .page-shell { width: min(100% - 36px, 560px); }
+  .topbar { height: 72px; }
+  .hero { padding: 72px 0 64px; }
+  .hero-copy { font-size: 15px; }
+  .section-heading { align-items: start; flex-direction: column; }
+  .feature-grid { grid-template-columns: 1fr; }
+  .feature-card { min-height: 230px; }
+  .feature-icon { margin-top: 19px; }
+  .principle-strip { grid-template-columns: 42px 1fr; padding: 23px 19px; }
+  .principle-detail { grid-column: 2; }
+  .footer { padding: 25px 0; align-items: start; flex-direction: column; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
