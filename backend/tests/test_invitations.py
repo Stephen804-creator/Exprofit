@@ -77,8 +77,8 @@ def verify_user_email(client: TestClient, email: str) -> None:
 
 
 def configure_mail(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SMTP_HOST", "smtp.example.test")
-    monkeypatch.setenv("SMTP_FROM_EMAIL", "no-reply@example.test")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_FROM_EMAIL", "no-reply@example.com")
     monkeypatch.setenv("SMTP_STARTTLS", "false")
     get_settings.cache_clear()
 
@@ -88,9 +88,9 @@ def test_invitation_is_recipient_bound_verified_single_use_and_hashed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     configure_mail(monkeypatch)
-    owner = register(client, "owner@example.test")
-    recipient = register(client, "recipient@example.test")
-    wrong_user = register(client, "wrong@example.test")
+    owner = register(client, "owner@example.com")
+    recipient = register(client, "recipient@example.com")
+    wrong_user = register(client, "wrong@example.com")
     business_id = make_business(client, owner["access_token"])
     delivered: dict[str, str] = {}
 
@@ -114,7 +114,7 @@ def test_invitation_is_recipient_bound_verified_single_use_and_hashed(
         },
     )
     assert created.status_code == 201, created.text
-    assert delivered["email"] == "recipient@example.test"
+    assert delivered["email"] == "recipient@example.com"
     assert "token" not in created.json()
 
     raw_token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
@@ -131,7 +131,7 @@ def test_invitation_is_recipient_bound_verified_single_use_and_hashed(
     )
     assert not_verified.status_code == 403
 
-    verify_user_email(client, "wrong@example.test")
+    verify_user_email(client, "wrong@example.com")
     wrong_email = client.post(
         "/invitations/accept",
         headers=bearer(wrong_user["access_token"]),
@@ -139,7 +139,7 @@ def test_invitation_is_recipient_bound_verified_single_use_and_hashed(
     )
     assert wrong_email.status_code == 403
 
-    verify_user_email(client, "recipient@example.test")
+    verify_user_email(client, "recipient@example.com")
     accepted = client.post(
         "/invitations/accept",
         headers=bearer(recipient["access_token"]),
@@ -157,7 +157,7 @@ def test_invitation_is_recipient_bound_verified_single_use_and_hashed(
             select(BusinessMembership).where(
                 BusinessMembership.business_id == accepted.json()["business_id"],
                 BusinessMembership.user_id == db.scalar(
-                    select(User.id).where(User.email == "recipient@example.test")
+                    select(User.id).where(User.email == "recipient@example.com")
                 ),
             )
         )
@@ -177,8 +177,8 @@ def test_revoked_invitation_cannot_be_accepted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     configure_mail(monkeypatch)
-    owner = register(client, "owner-revoke@example.test")
-    recipient = register(client, "revoked-recipient@example.test")
+    owner = register(client, "owner-revoke@example.com")
+    recipient = register(client, "revoked-recipient@example.com")
     business_id = make_business(client, owner["access_token"])
     delivered: dict[str, str] = {}
 
@@ -194,7 +194,7 @@ def test_revoked_invitation_cannot_be_accepted(
     created = client.post(
         f"/businesses/{business_id}/invitations",
         headers=bearer(owner["access_token"]),
-        json={"recipient_email": "revoked-recipient@example.test", "role": "worker"},
+        json={"recipient_email": "revoked-recipient@example.com", "role": "worker"},
     )
     assert created.status_code == 201, created.text
     token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
@@ -205,7 +205,7 @@ def test_revoked_invitation_cannot_be_accepted(
     )
     assert revoked.status_code == 204
 
-    verify_user_email(client, "revoked-recipient@example.test")
+    verify_user_email(client, "revoked-recipient@example.com")
     accepted = client.post(
         "/invitations/accept",
         headers=bearer(recipient["access_token"]),
@@ -219,11 +219,11 @@ def test_worker_cannot_create_workspace_invitations(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     configure_mail(monkeypatch)
-    owner = register(client, "owner-worker-test@example.test")
-    worker = register(client, "worker@example.test")
+    owner = register(client, "owner-worker-test@example.com")
+    worker = register(client, "worker@example.com")
     business_id = make_business(client, owner["access_token"])
     with client.app.state.test_session() as db:
-        worker_user = db.scalar(select(User).where(User.email == "worker@example.test"))
+        worker_user = db.scalar(select(User).where(User.email == "worker@example.com"))
         assert worker_user is not None
         membership = BusinessMembership(
             user_id=worker_user.id,
@@ -238,7 +238,7 @@ def test_worker_cannot_create_workspace_invitations(
     response = client.post(
         f"/businesses/{business_id}/invitations",
         headers=bearer(worker["access_token"]),
-        json={"recipient_email": "someone@example.test", "role": "worker"},
+        json={"recipient_email": "someone@example.com", "role": "worker"},
     )
     assert response.status_code == 403
 
@@ -249,8 +249,8 @@ def test_expired_invitation_cannot_be_accepted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     configure_mail(monkeypatch)
-    owner = register(client, "owner-expiry@example.test")
-    recipient = register(client, "expired-recipient@example.test")
+    owner = register(client, "owner-expiry@example.com")
+    recipient = register(client, "expired-recipient@example.com")
     business_id = make_business(client, owner["access_token"])
     delivered: dict[str, str] = {}
 
@@ -266,7 +266,7 @@ def test_expired_invitation_cannot_be_accepted(
     created = client.post(
         f"/businesses/{business_id}/invitations",
         headers=bearer(owner["access_token"]),
-        json={"recipient_email": "expired-recipient@example.test", "role": "worker"},
+        json={"recipient_email": "expired-recipient@example.com", "role": "worker"},
     )
     assert created.status_code == 201, created.text
     token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
@@ -277,7 +277,7 @@ def test_expired_invitation_cannot_be_accepted(
         invitation.expires_at = datetime.now(UTC) - timedelta(minutes=1)
         db.commit()
 
-    verify_user_email(client, "expired-recipient@example.test")
+    verify_user_email(client, "expired-recipient@example.com")
     response = client.post(
         "/invitations/accept",
         headers=bearer(recipient["access_token"]),
