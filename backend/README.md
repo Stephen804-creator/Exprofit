@@ -72,3 +72,6 @@ Voluntary departure endpoint:
 - `POST /businesses/{business_id}/leave` with `confirmation_phrase`, `password`, `reason`, and optional `notice_hours` (1–720).
 
 The exact phrase must be `I want to leave`. Immediate departure revokes membership; scheduled departure is finalized when its deadline passes and is recorded in audit history. Owners cannot leave until an ownership-transfer workflow exists.
+
+
+The React client includes initial collaboration controls for authorized administrators and self-service departure for non-owner members. The signed-in user's own membership is available from `GET /businesses/{business_id}/membership`; this endpoint does not expose the member directory. Manual browser/end-to-end testing remains outstanding.
