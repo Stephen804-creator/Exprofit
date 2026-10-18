@@ -21,9 +21,11 @@ class WorkspaceInvitation(Base):
     )
     recipient_email: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
     role: Mapped[str] = mapped_column(String(16), nullable=False)
-    permissions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    permissions: Mapped[dict[str, bool]] = mapped_column(JSON, nullable=False, default=dict)
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
     created_by_user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
