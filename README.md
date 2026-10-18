@@ -20,7 +20,7 @@ Exprofit aims to make those tasks easier without hiding the calculations behind 
 6. **What-if simulator** — test price and cost assumptions without changing real financial records.
 7. **Financial brief** — explain verified changes in plain language. AI is optional and must be grounded in application-calculated results.
 
-The first target users are Nigerian microbusinesses, small retailers, and side-hustle operators. The product should be useful to a solo owner before team features are introduced.
+The first target users are Nigerian microbusinesses, small retailers, and side-hustle operators. Every account starts in private Solo Mode and can later create or join separate Business Workspaces under the same login. Joining a business must never expose the user's Solo Mode records.
 
 ## Principles
 
@@ -41,6 +41,7 @@ The current baseline uses React + TypeScript + Vite, Python + FastAPI, and a Pos
 This repository is the new Exprofit project home. The application shell, database foundation, transaction service, and authentication/API slice are committed. Receipt scanning, financial summaries, the profitability engine, MarginGuard, and what-if simulation remain unimplemented. The latest GitHub Actions run passed the configured checks, including PostgreSQL migrations and backend tests; production hardening remains outstanding.
 
 See:
+- [Workspace collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md)
 - [Product specification](docs/PRODUCT_SPECIFICATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Implementation status](docs/IMPLEMENTATION_STATUS.md)
