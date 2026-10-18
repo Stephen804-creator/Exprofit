@@ -14,9 +14,9 @@ from app.models import AuditEvent, Business, BusinessMembership, User
 from app.permissions import require_permission, validate_permission_delegation
 from app.schemas.members import (
     AuditEventRead,
-    MembershipRead,
     MembershipLeaveRequest,
     MembershipLeaveResponse,
+    MembershipRead,
     MembershipReason,
     MembershipSuspendRequest,
     MembershipUpdate,
@@ -403,7 +403,10 @@ def leave_workspace(
         membership.leave_effective_at = now + timedelta(hours=payload.notice_hours)
         event_type = "membership.leave_scheduled"
         response_status = "scheduled"
-        message = "Your departure is scheduled. Workspace access follows your current membership state until the effective time."
+        message = (
+            "Your departure is scheduled. Workspace access follows your current "
+            "membership state until the effective time."
+        )
     else:
         membership.leave_effective_at = now
         membership.status = "revoked"
