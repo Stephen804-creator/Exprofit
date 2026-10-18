@@ -62,13 +62,13 @@ def require_business_membership(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> BusinessMembership:
-    """Require explicit membership without revealing other workspaces."""
+    """Require an active membership without revealing other workspaces."""
     membership = db.scalar(
         select(BusinessMembership).where(
             BusinessMembership.user_id == user.id,
             BusinessMembership.business_id == business_id,
         )
     )
-    if membership is None:
+    if membership is None or membership.status != "active":
         raise HTTPException(status_code=404, detail="Business not found")
     return membership
