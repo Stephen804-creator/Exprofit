@@ -38,8 +38,13 @@ def get_current_user(
 
     auth_session = db.get(AuthSession, session_id)
     now = datetime.now(UTC)
-    if auth_session is None or auth_session.user_id != user_id or auth_session.revoked_at is not None:
+    if (
+        auth_session is None
+        or auth_session.user_id != user_id
+        or auth_session.revoked_at is not None
+    ):
         raise HTTPException(status_code=401, detail="Access session is unavailable")
+
     expiry = auth_session.expires_at
     if expiry.tzinfo is None:
         expiry = expiry.replace(tzinfo=UTC)
