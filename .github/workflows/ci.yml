@@ -11,8 +11,24 @@ permissions:
 
 jobs:
   backend:
-    name: Backend tests and lint
+    name: Backend tests, lint, and PostgreSQL migrations
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: exprofit_test
+          POSTGRES_USER: exprofit
+          POSTGRES_PASSWORD: exprofit-test-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U exprofit -d exprofit_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg://exprofit:exprofit-test-password@localhost:5432/exprofit_test
     defaults:
       run:
         working-directory: backend
@@ -25,6 +41,7 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: python -m pip install -e ".[dev]"
       - run: ruff check .
+      - run: alembic upgrade head
       - run: pytest
 
   frontend:
