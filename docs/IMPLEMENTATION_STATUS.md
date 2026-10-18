@@ -72,3 +72,10 @@ Added a centralized permission policy and applied it to transaction creation, li
 ### Verified email infrastructure — implementation added, CI pending
 
 Added a user email-verification flag, token model and migration, SMTP configuration/delivery adapter, authenticated request endpoint, and one-time token verification endpoint. Only a SHA-256 digest is stored; tokens expire after 30 minutes by default, older unconsumed tokens are invalidated on a new request, and a consumed token cannot be reused. Tests cover missing delivery configuration, successful verification, hashed storage, and replay rejection. Configure SMTP before using the email flow. The frontend verification page, resend throttling, password recovery, and invitation acceptance are not implemented. Do not mark this slice verified until CI passes on the latest branch head.
+
+
+### Workspace invitations — implementation added; CI verified
+
+Added the invitation model/migration, permission-validated request schemas, SMTP email delivery, and create/accept/revoke endpoints. Owner/Admin authorization is checked server-side; only the Owner can invite Admins, and Admins can only delegate Worker permissions they themselves hold. Invitations use hashed random tokens, a 30-minute default expiry, exact verified-recipient email matching, single-use acceptance, and revocation. Acceptance creates/reactivates membership without transferring Solo records.
+
+GitHub Actions run #39136370512 passed on commit `1fbdaae4e7f186627254755bbc6357f4d917d4c9`: Ruff, backend tests (28 passed), PostgreSQL migrations, frontend typecheck, and production build passed. Frontend invitation/verification screens, rate limiting, audit events, notifications, password recovery, and production hardening are still unfinished. This CI result is not a production-readiness claim.
