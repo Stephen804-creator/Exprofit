@@ -96,3 +96,16 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Environment variables and migration steps are documented.
 - [ ] Demo content is synthetic and contains no personal data.
 - [ ] Known limitations and supported financial assumptions are disclosed.
+
+
+## Workspace collaboration foundation
+- [ ] Registration without a business name creates a private Solo workspace.
+- [ ] Creating a business creates a separate business workspace without copying Solo records.
+- [ ] Workspace identity fields validate correctly; a configured logo URL must use HTTPS.
+- [ ] Workspace listing returns only workspaces with active membership.
+- [ ] Suspended and revoked memberships cannot access business-scoped transactions.
+- [ ] Role/permission enforcement is tested for every protected financial operation.
+- [ ] Invitations are recipient-bound, hashed at rest, single-use, revocable, and expire after the agreed 30-minute initial period.
+- [ ] An invitation cannot be accepted by an account with a different verified email.
+- [ ] Workspace switching never exposes another workspace's transactions, receipts, summaries, or AI retrieval.
+- [ ] Membership changes create audit records and appropriate notifications.
