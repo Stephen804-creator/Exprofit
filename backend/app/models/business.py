@@ -1,6 +1,6 @@
 """Business workspace model; transaction data will be scoped to a business."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import CheckConstraint, DateTime, String, func
