@@ -220,7 +220,6 @@ def update_member(
         "suspended_until": target.suspended_until,
         "revoked_at": target.revoked_at,
         "leave_effective_at": target.leave_effective_at,
-        "leave_effective_at": target.leave_effective_at,
     }
 
 
@@ -287,7 +286,7 @@ def revoke_member(
     require_permission(actor, "staff_administration", "write")
     _ensure_business_workspace(db, business_id)
     target = _target_membership(db, business_id, membership_id)
-    _apply_expired_suspension(db, target)
+    _refresh_target_lifecycle(db, target)
     _check_target_authority(actor, target)
     if target.status == "revoked":
         raise HTTPException(status_code=409, detail="Membership is already revoked")
@@ -333,7 +332,7 @@ def reinstate_member(
     require_permission(actor, "staff_administration", "write")
     _ensure_business_workspace(db, business_id)
     target = _target_membership(db, business_id, membership_id)
-    _apply_expired_suspension(db, target)
+    _refresh_target_lifecycle(db, target)
     _check_target_authority(actor, target)
     if target.status != "suspended":
         raise HTTPException(status_code=409, detail="Only suspended members can be reinstated")
