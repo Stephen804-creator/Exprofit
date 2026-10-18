@@ -19,8 +19,8 @@ from app.models import Business, BusinessMembership, User, WorkspaceInvitation
 from app.permissions import require_permission
 from app.schemas.invitations import (
     ALLOWED_PERMISSION_KEYS,
-    InvitationAcceptRequest,
     InvitationAccepted,
+    InvitationAcceptRequest,
     InvitationCreate,
     InvitationRead,
 )
