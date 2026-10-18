@@ -53,7 +53,10 @@ def create(
         _raise_service_error(exc)
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Transaction conflicts with an existing record") from exc
+        raise HTTPException(
+            status_code=409,
+            detail="Transaction conflicts with an existing record",
+        ) from exc
 
 
 @router.get("", response_model=list[TransactionRead])
@@ -61,7 +64,9 @@ def list_entries(
     business_id: UUID,
     _: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
-    status_filter: Annotated[str | None, Query(alias="status", pattern="^(draft|posted|void)$")] = None,
+    status_filter: Annotated[
+        str | None, Query(alias="status", pattern="^(draft|posted|void)$")
+    ] = None,
     start_date: date | None = None,
     end_date: date | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 100,
