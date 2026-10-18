@@ -113,6 +113,8 @@ def update_transaction(
         raise InvalidTransactionStateError("Voided transactions cannot be edited")
 
     for field, value in payload.model_dump(exclude_unset=True).items():
+        if value is None and field != "category":
+            continue
         setattr(transaction, field, value)
 
     db.commit()
