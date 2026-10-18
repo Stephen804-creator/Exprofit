@@ -199,6 +199,13 @@ def test_worker_cannot_view_member_directory_or_audit_log(client: TestClient) ->
     business_id = make_business(client, owner["access_token"])
     worker, _ = add_worker(client, business_id, "directory-worker@example.com")
 
+    own_membership = client.get(
+        f"/businesses/{business_id}/membership",
+        headers=bearer(worker["access_token"]),
+    )
+    assert own_membership.status_code == 200, own_membership.text
+    assert own_membership.json()["role"] == "worker"
+
     members = client.get(
         f"/businesses/{business_id}/members",
         headers=bearer(worker["access_token"]),
