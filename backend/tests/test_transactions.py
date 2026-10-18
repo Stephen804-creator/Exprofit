@@ -121,7 +121,6 @@ def test_currency_is_normalized() -> None:
     assert payload.currency_code == "NGN"
 
 
-
 def test_duplicate_idempotency_key_is_rejected(db_session: Session) -> None:
     business = make_business(db_session)
     payload = make_payload(business.id, idempotency_key="request-001")
