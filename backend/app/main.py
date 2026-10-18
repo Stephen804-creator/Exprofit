@@ -3,6 +3,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.auth import router as auth_router
+from app.api.routes.businesses import router as businesses_router
+from app.api.routes.transactions import router as transactions_router
 from app.config import get_settings
 
 settings = get_settings()
@@ -19,6 +22,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
 )
+
+app.include_router(auth_router)
+app.include_router(businesses_router)
+app.include_router(transactions_router)
 
 
 @app.get("/health", tags=["operations"])
