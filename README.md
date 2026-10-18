@@ -134,3 +134,8 @@ The API now includes registration, login, current-user, logout, business-workspa
 ## Email verification foundation
 
 The collaboration branch adds account email verification endpoints. To use them, configure `FRONTEND_BASE_URL`, `EMAIL_VERIFICATION_TTL_MINUTES`, and the `SMTP_*` variables from `.env.example`. Sign in, call `POST /auth/request-email-verification`, then submit the token from the email to `POST /auth/verify-email` as JSON: `{"token":"..." }`. `GET /auth/me` reports `email_verified`. SMTP must be configured; the API does not return verification tokens. The frontend verification page and resend rate limiting are not yet implemented.
+
+
+## Workspace invitations
+
+The collaboration branch adds recipient-bound workspace invitations. Owners/Admins with the required Staff Administration permission can create invitations; the Owner alone can invite Admins. The API stores token hashes, uses a 30-minute default expiry, and requires the authenticated account's verified email to match the invited address. Endpoints are listed in `backend/README.md`. The invitation and verification frontend screens, rate limiting, audit events, and notification UX remain unfinished. CI run #39136370512 passed for the invitation API slice.
