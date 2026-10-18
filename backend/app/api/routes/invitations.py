@@ -16,7 +16,13 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, require_business_membership
 from app.config import get_settings
 from app.db.session import get_db
-from app.models import (\n    Business,\n    BusinessMembership,\n    InvitationApplication,\n    User,\n    WorkspaceInvitation,\n)
+from app.models import (
+    Business,
+    BusinessMembership,
+    InvitationApplication,
+    User,
+    WorkspaceInvitation,
+)
 from app.permissions import require_permission, validate_permission_delegation
 from app.schemas.invitations import (
     InvitationApplicationCreate,
@@ -37,7 +43,12 @@ def _utc(value: datetime) -> datetime:
 
 
 def _unavailable(invitation: WorkspaceInvitation | None, now: datetime) -> bool:
-    return (\n        invitation is None\n        or invitation.accepted_at is not None\n        or invitation.revoked_at is not None\n        or _utc(invitation.expires_at) <= now\n    )
+    return (
+        invitation is None
+        or invitation.accepted_at is not None
+        or invitation.revoked_at is not None
+        or _utc(invitation.expires_at) <= now
+    )
 
 
 def _decode_photo(data_url: str) -> bytes:
@@ -53,7 +64,11 @@ def _decode_photo(data_url: str) -> bytes:
     return photo
 
 
-def _read_application(\n    db: Session,\n    application: InvitationApplication,\n    invitation: WorkspaceInvitation,\n) -> InvitationApplicationRead:
+def _read_application(
+    db: Session,
+    application: InvitationApplication,
+    invitation: WorkspaceInvitation,
+) -> InvitationApplicationRead:
     user = db.get(User, application.user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Applicant account not found")
@@ -64,7 +79,11 @@ def _read_application(\n    db: Session,\n    application: InvitationApplication
     )
 
 
-@router.post(\n    "/businesses/{business_id}/invitations",\n    response_model=InvitationRead,\n    status_code=status.HTTP_201_CREATED,\n)
+@router.post(
+    "/businesses/{business_id}/invitations",
+    response_model=InvitationRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_invitation(
     business_id: UUID, payload: InvitationCreate,
     actor: Annotated[BusinessMembership, Depends(require_business_membership)],
@@ -107,7 +126,11 @@ def submit_application(
 ) -> InvitationApplicationRead:
     """Submit identifying details and a private photo; no access is granted yet."""
     token_hash = sha256(payload.token.encode()).hexdigest()
-    invitation = db.scalar(\n        select(WorkspaceInvitation)\n        .where(WorkspaceInvitation.token_hash == token_hash)\n        .with_for_update()\n    )
+    invitation = db.scalar(
+        select(WorkspaceInvitation)
+        .where(WorkspaceInvitation.token_hash == token_hash)
+        .with_for_update()
+    )
     now = datetime.now(UTC)
     if _unavailable(invitation, now):
         raise HTTPException(status_code=400, detail="Invalid, expired, or unavailable invitation")
@@ -135,12 +158,18 @@ def submit_application(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(\n            status_code=409,\n            detail="An application has already been submitted for this invitation",\n        ) from exc
+        raise HTTPException(
+            status_code=409,
+            detail="An application has already been submitted for this invitation",
+        ) from exc
     db.refresh(application)
     return _read_application(db, application, invitation)
 
 
-@router.get(\n    "/businesses/{business_id}/invitation-applications",\n    response_model=list[InvitationApplicationRead],\n)
+@router.get(
+    "/businesses/{business_id}/invitation-applications",
+    response_model=list[InvitationApplicationRead],
+)
 def list_applications(
     business_id: UUID, actor: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
@@ -155,7 +184,8 @@ def list_applications(
         select(InvitationApplication, WorkspaceInvitation)
         .join(WorkspaceInvitation, WorkspaceInvitation.id == InvitationApplication.invitation_id)
         .where(
-            WorkspaceInvitation.business_id == business_id,\n            InvitationApplication.status == "pending",
+            WorkspaceInvitation.business_id == business_id,
+            InvitationApplication.status == "pending",
             WorkspaceInvitation.accepted_at.is_(None), WorkspaceInvitation.revoked_at.is_(None),
             WorkspaceInvitation.expires_at > now,
         ).order_by(InvitationApplication.created_at.desc())
@@ -183,7 +213,10 @@ def read_application_photo(
                     headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
 
 
-@router.post(\n    "/businesses/{business_id}/invitation-applications/{application_id}/approve",\n    response_model=InvitationApplicationDecisionRead,\n)
+@router.post(
+    "/businesses/{business_id}/invitation-applications/{application_id}/approve",
+    response_model=InvitationApplicationDecisionRead,
+)
 def approve_application(
     business_id: UUID, application_id: UUID,
     actor: Annotated[BusinessMembership, Depends(require_business_membership)],
@@ -194,7 +227,10 @@ def approve_application(
     application = db.scalar(
         select(InvitationApplication)
         .join(WorkspaceInvitation, WorkspaceInvitation.id == InvitationApplication.invitation_id)
-        .where(\n            InvitationApplication.id == application_id,\n            WorkspaceInvitation.business_id == business_id,\n        )
+        .where(
+            InvitationApplication.id == application_id,
+            WorkspaceInvitation.business_id == business_id,
+        )
         .with_for_update()
     )
     if application is None:
@@ -204,7 +240,10 @@ def approve_application(
     invitation = db.get(WorkspaceInvitation, application.invitation_id)
     now = datetime.now(UTC)
     if _unavailable(invitation, now):
-        raise HTTPException(\n            status_code=409,\n            detail="Invitation is expired, revoked, or already used",\n        )
+        raise HTTPException(
+            status_code=409,
+            detail="Invitation is expired, revoked, or already used",
+        )
     assert invitation is not None
     applicant = db.get(User, application.user_id)
     if applicant is None or not applicant.is_active:
@@ -250,7 +289,10 @@ def approve_application(
     )
 
 
-@router.post(\n    "/businesses/{business_id}/invitation-applications/{application_id}/reject",\n    response_model=InvitationApplicationDecisionRead,\n)
+@router.post(
+    "/businesses/{business_id}/invitation-applications/{application_id}/reject",
+    response_model=InvitationApplicationDecisionRead,
+)
 def reject_application(
     business_id: UUID, application_id: UUID, payload: InvitationApplicationDecision,
     actor: Annotated[BusinessMembership, Depends(require_business_membership)],
@@ -289,7 +331,10 @@ def reject_application(
     )
 
 
-@router.post(\n    "/businesses/{business_id}/invitations/{invitation_id}/revoke",\n    status_code=status.HTTP_204_NO_CONTENT,\n)
+@router.post(
+    "/businesses/{business_id}/invitations/{invitation_id}/revoke",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 def revoke_invitation(
     business_id: UUID, invitation_id: UUID,
     actor: Annotated[BusinessMembership, Depends(require_business_membership)],
@@ -317,7 +362,9 @@ def revoke_invitation(
             application.photo_bytes = None
         record_audit_event(
             db, business_id=business_id, actor_user_id=actor.user_id,
-            event_type="invitation.revoked",\n            target_type="workspace_invitation",\n            target_id=invitation.id,
+            event_type="invitation.revoked",
+            target_type="workspace_invitation",
+            target_id=invitation.id,
         )
         db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
