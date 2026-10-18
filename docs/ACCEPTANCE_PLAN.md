@@ -149,3 +149,14 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Membership and invitation state changes write audit records atomically.
 - [ ] Audit history has no ordinary update/delete API and paginates safely.
 - [ ] Notification delivery, retention policy, export controls, and production audit integrity are reviewed before release.
+
+
+## Voluntary departure
+- [ ] Exact phrase mismatch is rejected.
+- [ ] Wrong password is rejected without changing membership.
+- [ ] Immediate departure revokes access and preserves financial history.
+- [ ] Scheduled departure remains pending until its deadline and then revokes access.
+- [ ] Scheduled departure completion is audited exactly once.
+- [ ] Workspace Owner cannot leave before ownership transfer is supported.
+- [ ] Rejoining through a new invitation clears the old departure schedule.
+- [ ] Frontend departure UX and re-authentication abuse controls are completed before release.
