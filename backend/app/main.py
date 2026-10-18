@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.businesses import router as businesses_router
+from app.api.routes.invitations import router as invitations_router
+from app.api.routes.members import router as members_router
 from app.api.routes.transactions import router as transactions_router
 from app.config import get_settings
 
@@ -25,6 +27,8 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(businesses_router)
+app.include_router(invitations_router)
+app.include_router(members_router)
 app.include_router(transactions_router)
 
 

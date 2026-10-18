@@ -1,6 +1,9 @@
 """API-level tests for authentication, logout, and business isolation."""
 
 from collections.abc import Generator
+from hashlib import sha256
+from urllib.parse import parse_qs, urlparse
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -32,9 +35,11 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]
             yield db
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.test_session = test_session
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+    del app.state.test_session
     engine.dispose()
     get_settings.cache_clear()
 
@@ -178,3 +183,212 @@ def test_invalid_and_expired_access_tokens_are_rejected(
     monkeypatch.setattr("app.access_tokens.TOKEN_TTL_SECONDS", -1)
     response = client.get("/auth/me", headers=bearer(result["access_token"]))
     assert response.status_code == 401
+
+
+
+def test_registration_defaults_to_private_solo_and_business_is_separate(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "solo@example.com",
+            "password": "correct-horse-battery-7",
+        },
+    )
+    assert response.status_code == 201, response.text
+    headers = bearer(response.json()["access_token"])
+
+    initial = client.get("/businesses", headers=headers)
+    assert initial.status_code == 200
+    assert len(initial.json()) == 1
+    solo = initial.json()[0]
+    assert solo["workspace_type"] == "solo"
+    assert solo["name"] == "My Solo Workspace"
+
+    created = client.post(
+        "/businesses",
+        headers=headers,
+        json={
+            "name": "Goggles CEO Trading",
+            "display_name": "Goggles CEO",
+            "organization_label": "Teams",
+            "currency_code": "NGN",
+            "timezone": "Africa/Lagos",
+        },
+    )
+    assert created.status_code == 201, created.text
+    business = created.json()
+    assert business["workspace_type"] == "business"
+    assert business["name"] == "Goggles CEO Trading"
+    assert business["display_name"] == "Goggles CEO"
+    assert business["organization_label"] == "Teams"
+
+    workspaces = client.get("/businesses", headers=headers).json()
+    assert len(workspaces) == 2
+    assert {workspace["workspace_type"] for workspace in workspaces} == {"solo", "business"}
+    assert solo["id"] in {workspace["id"] for workspace in workspaces}
+
+
+
+def test_worker_permissions_limit_transaction_reads_and_writes(
+    client: TestClient,
+) -> None:
+    from sqlalchemy import select
+
+    from app.models import BusinessMembership
+
+    account = register(client, "worker-permissions@example.com")
+    headers = bearer(account["access_token"])
+    business = client.get("/businesses", headers=headers).json()[0]
+    business_id = business["id"]
+
+    income = {
+        "business_id": business_id,
+        "direction": "income",
+        "amount": "200.00",
+        "currency_code": "NGN",
+        "transaction_date": "2026-10-18",
+        "description": "Recorded sale",
+        "category": "Sales",
+        "status": "posted",
+    }
+    expense = {
+        **income,
+        "direction": "expense",
+        "description": "Private expense",
+        "category": "Supplies",
+    }
+    created_income = client.post(
+        f"/businesses/{business_id}/transactions", headers=headers, json=income
+    )
+    created_expense = client.post(
+        f"/businesses/{business_id}/transactions", headers=headers, json=expense
+    )
+    assert created_income.status_code == 201, created_income.text
+    assert created_expense.status_code == 201, created_expense.text
+
+    with client.app.state.test_session() as db:
+        membership = db.scalar(
+            select(BusinessMembership).where(
+                BusinessMembership.business_id == UUID(business_id)
+            )
+        )
+        assert membership is not None
+        membership.role = "worker"
+        membership.permissions = {"sales:read": True, "sales:write": True}
+        db.commit()
+        expense_id = created_expense.json()["id"]
+
+    listed = client.get(f"/businesses/{business_id}/transactions", headers=headers)
+    assert listed.status_code == 200, listed.text
+    assert [item["direction"] for item in listed.json()] == ["income"]
+
+    denied_read = client.get(
+        f"/businesses/{business_id}/transactions/{expense_id}", headers=headers
+    )
+    assert denied_read.status_code == 403
+
+    denied_expense_create = client.post(
+        f"/businesses/{business_id}/transactions",
+        headers=headers,
+        json={**expense, "description": "Attempted unauthorized expense"},
+    )
+    assert denied_expense_create.status_code == 403
+
+    allowed_income_create = client.post(
+        f"/businesses/{business_id}/transactions",
+        headers=headers,
+        json={**income, "description": "Authorized additional sale"},
+    )
+    assert allowed_income_create.status_code == 201, allowed_income_create.text
+
+    denied_expense_update = client.patch(
+        f"/businesses/{business_id}/transactions/{expense_id}",
+        headers=headers,
+        json={"description": "Unauthorized change"},
+    )
+    assert denied_expense_update.status_code == 403
+
+    denied_expense_void = client.post(
+        f"/businesses/{business_id}/transactions/{expense_id}/void",
+        headers=headers,
+    )
+    assert denied_expense_void.status_code == 403
+
+
+
+def test_email_verification_requires_delivery_configuration(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    account = register(client, "email-config@example.com")
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    monkeypatch.delenv("SMTP_FROM_EMAIL", raising=False)
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/auth/request-email-verification",
+        headers=bearer(account["access_token"]),
+    )
+    assert response.status_code == 503
+    assert client.get("/auth/me", headers=bearer(account["access_token"])).json()[
+        "email_verified"
+    ] is False
+
+
+def test_email_verification_token_is_hashed_single_use_and_updates_identity(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    account = register(client, "verified@example.com")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.test")
+    monkeypatch.setenv("SMTP_FROM_EMAIL", "no-reply@example.test")
+    monkeypatch.setenv("SMTP_STARTTLS", "false")
+    get_settings.cache_clear()
+
+    delivered: dict[str, str] = {}
+
+    def capture_email(recipient: str, verification_url: str, settings: object) -> None:
+        delivered["recipient"] = recipient
+        delivered["url"] = verification_url
+
+    monkeypatch.setattr(
+        "app.api.routes.auth.send_verification_email",
+        capture_email,
+    )
+    requested = client.post(
+        "/auth/request-email-verification",
+        headers=bearer(account["access_token"]),
+    )
+    assert requested.status_code == 202, requested.text
+    assert delivered["recipient"] == "verified@example.com"
+
+    raw_token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
+    assert len(raw_token) >= 32
+    with client.app.state.test_session() as db:
+        from sqlalchemy import select
+
+        from app.models import EmailVerificationToken
+
+        record = db.scalar(select(EmailVerificationToken))
+        assert record is not None
+        assert record.token_hash == sha256(raw_token.encode("utf-8")).hexdigest()
+        assert record.token_hash != raw_token
+
+    verified = client.post("/auth/verify-email", json={"token": raw_token})
+    assert verified.status_code == 200, verified.text
+    identity = client.get("/auth/me", headers=bearer(account["access_token"]))
+    assert identity.status_code == 200
+    assert identity.json()["email_verified"] is True
+
+    replay = client.post("/auth/verify-email", json={"token": raw_token})
+    assert replay.status_code == 400
+
+
+def test_email_verification_rejects_unknown_token(client: TestClient) -> None:
+    response = client.post(
+        "/auth/verify-email",
+        json={"token": "x" * 48},
+    )
+    assert response.status_code == 400

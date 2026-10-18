@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.access_tokens import InvalidTokenError, decode_access_token
 from app.db.session import get_db
 from app.models import AuthSession, BusinessMembership, User
+from app.services.audit import record_audit_event
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -62,7 +63,7 @@ def require_business_membership(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> BusinessMembership:
-    """Require explicit membership without revealing other workspaces."""
+    """Require an active membership without revealing other workspaces."""
     membership = db.scalar(
         select(BusinessMembership).where(
             BusinessMembership.user_id == user.id,
@@ -70,5 +71,46 @@ def require_business_membership(
         )
     )
     if membership is None:
+        raise HTTPException(status_code=404, detail="Business not found")
+
+    if membership.status != "revoked" and membership.leave_effective_at is not None:
+        leave_effective_at = membership.leave_effective_at
+        if leave_effective_at.tzinfo is None:
+            leave_effective_at = leave_effective_at.replace(tzinfo=UTC)
+        if leave_effective_at <= datetime.now(UTC):
+            membership.status = "revoked"
+            membership.revoked_at = datetime.now(UTC)
+            membership.suspended_until = None
+            record_audit_event(
+                db,
+                business_id=business_id,
+                actor_user_id=membership.user_id,
+                event_type="membership.left",
+                target_type="business_membership",
+                target_id=membership.id,
+                reason=membership.leave_reason or "Scheduled voluntary departure",
+            )
+            db.commit()
+
+    if membership.status == "suspended" and membership.suspended_until is not None:
+        suspended_until = membership.suspended_until
+        if suspended_until.tzinfo is None:
+            suspended_until = suspended_until.replace(tzinfo=UTC)
+        if suspended_until <= datetime.now(UTC):
+            membership.status = "active"
+            membership.suspended_until = None
+            membership.revoked_at = None
+            record_audit_event(
+                db,
+                business_id=business_id,
+                actor_user_id=None,
+                event_type="membership.auto_reinstated",
+                target_type="business_membership",
+                target_id=membership.id,
+                reason="Timed suspension expired",
+            )
+            db.commit()
+
+    if membership.status != "active":
         raise HTTPException(status_code=404, detail="Business not found")
     return membership

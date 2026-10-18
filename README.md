@@ -20,7 +20,7 @@ Exprofit aims to make those tasks easier without hiding the calculations behind 
 6. **What-if simulator** — test price and cost assumptions without changing real financial records.
 7. **Financial brief** — explain verified changes in plain language. AI is optional and must be grounded in application-calculated results.
 
-The first target users are Nigerian microbusinesses, small retailers, and side-hustle operators. The product should be useful to a solo owner before team features are introduced.
+The first target users are Nigerian microbusinesses, small retailers, and side-hustle operators. Every account starts in private Solo Mode and can later create or join separate Business Workspaces under the same login. Joining a business must never expose the user's Solo Mode records.
 
 ## Principles
 
@@ -41,6 +41,7 @@ The current baseline uses React + TypeScript + Vite, Python + FastAPI, and a Pos
 This repository is the new Exprofit project home. The application shell, database foundation, transaction service, and authentication/API slice are committed. Receipt scanning, financial summaries, the profitability engine, MarginGuard, and what-if simulation remain unimplemented. The latest GitHub Actions run passed the configured checks, including PostgreSQL migrations and backend tests; production hardening remains outstanding.
 
 See:
+- [Workspace collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md)
 - [Product specification](docs/PRODUCT_SPECIFICATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Implementation status](docs/IMPLEMENTATION_STATUS.md)
@@ -128,3 +129,36 @@ Authenticated transaction HTTP routes are now registered. Every route requires a
 ## Build 4 — authentication and access control (implemented; verification pending)
 
 The API now includes registration, login, current-user, logout, business-workspace, and business-scoped transaction routes. Passwords are Argon2-hashed; signed access tokens expire after 30 minutes and are linked to database sessions that can be revoked on logout. Registration creates an NGN/Africa-Lagos workspace and owner membership. Business and transaction routes check membership server-side. A test suite covers registration, login failures, logout revocation, duplicate email, cross-business isolation, and a transaction lifecycle. CI run #97 passed the PostgreSQL migrations, Ruff, all 19 backend tests, frontend typecheck, and production build. Rate limiting and broader production security hardening remain follow-up work. Set `AUTH_SECRET_KEY` to a unique random value of at least 32 bytes; do not reuse the example placeholder or commit a real secret.
+
+
+## Email verification foundation
+
+The collaboration branch adds account email verification endpoints. To use them, configure `FRONTEND_BASE_URL`, `EMAIL_VERIFICATION_TTL_MINUTES`, and the `SMTP_*` variables from `.env.example`. Sign in, call `POST /auth/request-email-verification`, then submit the token from the email to `POST /auth/verify-email` as JSON: `{"token":"..." }`. `GET /auth/me` reports `email_verified`. SMTP must be configured; the API does not return verification tokens. The frontend verification page and resend rate limiting are not yet implemented.
+
+
+## Workspace invitations
+
+The invitation flow does not require SMTP or email verification. The workspace Owner creates a unique link, chooses its expiry period (1–720 hours), and copies the link to share through any channel. The applicant signs in, submits identifying details and a JPEG face photo, and waits for owner review. Only the workspace Owner can approve or reject, and approval grants the assigned workspace role and permissions. Tokens are hashed at rest, and pending photos are private and deleted after approval, rejection, or revocation. The photo supports manual recognition only; it is not biometric authentication. See [the collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md) and [roadmap](docs/ROADMAP.md).
+
+
+## Frontend account workflow
+
+The current collaboration branch adds registration/sign-in, a workspace selector, business workspace creation, shareable invitation link creation/copying, applicant details/photo submission with explicit consent, and owner review/approval/rejection. Invitations do not require SMTP or email verification. API access still uses a short-lived bearer token held in tab-scoped sessionStorage. This is an early workflow UI, not yet the full transaction and receipt dashboard; review the implementation status before deploying.
+
+
+## Member administration and audit trail
+
+The collaboration API now includes protected member listing, role/permission updates, suspension, revocation, reinstatement, and read-only audit history. Membership actions require a reason and are recorded in an audit table. Timed suspensions reinstate automatically when expired. Admins can manage Worker memberships only; the Owner's membership cannot be changed through these endpoints. Notification workflows and production audit-retention controls are not yet implemented.
+
+
+## Voluntary workspace departure
+
+Members can request immediate departure or schedule it with a notice period. The API requires the exact phrase `I want to leave`, password confirmation, and a reason. Owners are blocked from leaving until ownership transfer is supported. The UI for this workflow and password re-authentication abuse controls remain future work.
+
+
+The collaboration interface now includes initial member administration, invitation controls, audit history, and self-service leave for non-owner members. These workflows have automated typecheck/build coverage; manual browser testing and production hardening are still required.
+
+
+## Roadmap
+
+The [project roadmap](docs/ROADMAP.md) records the features intentionally deferred until after the current core release, including departments, messaging, notifications, advanced identity checks, receipts, financial summaries, MarginGuard, and optional AI.

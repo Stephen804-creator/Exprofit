@@ -1,4 +1,4 @@
-"""Business-scoped transaction endpoints; every operation checks membership."""
+"""Business-scoped transaction endpoints with server-side domain permission checks."""
 
 from datetime import date
 from typing import Annotated
@@ -12,6 +12,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_business_membership
 from app.db.session import get_db
 from app.models import BusinessMembership, Transaction
+from app.permissions import (
+    allowed_transaction_directions,
+    require_permission,
+    transaction_domain,
+)
 from app.schemas.transactions import TransactionCreate, TransactionRead, TransactionUpdate
 from app.services.transactions import (
     BusinessNotFoundError,
@@ -42,11 +47,12 @@ def _raise_service_error(exc: Exception) -> None:
 def create(
     business_id: UUID,
     payload: TransactionCreate,
-    _: Annotated[BusinessMembership, Depends(require_business_membership)],
+    membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Transaction:
     if payload.business_id != business_id:
         raise HTTPException(status_code=400, detail="business_id in body must match URL")
+    require_permission(membership, transaction_domain(payload.direction), "write")
     try:
         return create_transaction(db, payload)
     except (BusinessNotFoundError, CurrencyMismatchError, DuplicateTransactionRequestError) as exc:
@@ -62,7 +68,7 @@ def create(
 @router.get("", response_model=list[TransactionRead])
 def list_entries(
     business_id: UUID,
-    _: Annotated[BusinessMembership, Depends(require_business_membership)],
+    membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
     status_filter: Annotated[
         str | None, Query(alias="status", pattern="^(draft|posted|void)$")
@@ -74,16 +80,22 @@ def list_entries(
 ) -> list[Transaction]:
     if start_date is not None and end_date is not None and start_date > end_date:
         raise HTTPException(status_code=422, detail="start_date must be on or before end_date")
-    query = select(Transaction).where(Transaction.business_id == business_id)
+    directions = allowed_transaction_directions(membership, "read")
+    query = select(Transaction).where(
+        Transaction.business_id == business_id,
+        Transaction.direction.in_(directions),
+    )
     if status_filter is not None:
         query = query.where(Transaction.status == status_filter)
     if start_date is not None:
         query = query.where(Transaction.transaction_date >= start_date)
     if end_date is not None:
         query = query.where(Transaction.transaction_date <= end_date)
-    query = query.order_by(
-        Transaction.transaction_date.desc(), Transaction.created_at.desc()
-    ).offset(offset).limit(limit)
+    query = (
+        query.order_by(Transaction.transaction_date.desc(), Transaction.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     return list(db.scalars(query).all())
 
 
@@ -91,11 +103,13 @@ def list_entries(
 def read_entry(
     business_id: UUID,
     transaction_id: UUID,
-    _: Annotated[BusinessMembership, Depends(require_business_membership)],
+    membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Transaction:
     try:
-        return get_transaction(db, business_id, transaction_id)
+        transaction = get_transaction(db, business_id, transaction_id)
+        require_permission(membership, transaction_domain(transaction.direction), "read")
+        return transaction
     except TransactionNotFoundError as exc:
         _raise_service_error(exc)
 
@@ -105,10 +119,14 @@ def update_entry(
     business_id: UUID,
     transaction_id: UUID,
     payload: TransactionUpdate,
-    _: Annotated[BusinessMembership, Depends(require_business_membership)],
+    membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Transaction:
     try:
+        existing = get_transaction(db, business_id, transaction_id)
+        require_permission(membership, transaction_domain(existing.direction), "write")
+        if payload.direction is not None:
+            require_permission(membership, transaction_domain(payload.direction), "write")
         return update_transaction(db, business_id, transaction_id, payload)
     except (TransactionNotFoundError, InvalidTransactionStateError) as exc:
         _raise_service_error(exc)
@@ -118,10 +136,12 @@ def update_entry(
 def void_entry(
     business_id: UUID,
     transaction_id: UUID,
-    _: Annotated[BusinessMembership, Depends(require_business_membership)],
+    membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Transaction:
     try:
+        existing = get_transaction(db, business_id, transaction_id)
+        require_permission(membership, transaction_domain(existing.direction), "write")
         return void_transaction(db, business_id, transaction_id)
     except (TransactionNotFoundError, InvalidTransactionStateError) as exc:
         _raise_service_error(exc)

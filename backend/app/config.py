@@ -13,8 +13,22 @@ class Settings(BaseSettings):
         "postgresql+psycopg://exprofit:change-me@localhost:5432/exprofit"
     )
     auth_secret_key: str = ""
+    frontend_base_url: str = "http://localhost:5173"
+    email_verification_ttl_minutes: int = 30
+    workspace_invitation_ttl_minutes: int = 30
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_starttls: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+
+    @property
+    def email_delivery_configured(self) -> bool:
+        """Return whether all required SMTP sender settings are present."""
+        return bool(self.smtp_host.strip() and self.smtp_from_email.strip())
 
     @property
     def allowed_origins(self) -> list[str]:

@@ -98,3 +98,54 @@ The initial local development path should be reproducible from documented prereq
 The FastAPI app registers `/auth/register`, `/auth/login`, `/auth/me`, `/auth/logout`, `/businesses`, and `/businesses/{business_id}/transactions` routes. User passwords are hashed with Argon2. Access tokens are signed with `AUTH_SECRET_KEY`, expire after 30 minutes, and identify a persisted `AuthSession` row; logout revokes that row. Every business/transaction route checks the current user’s `BusinessMembership` on the server. Registration creates the first NGN workspace using the `Africa/Lagos` timezone. Transaction listing applies status/date filters and pagination in the database query.
 
 CI run #97 passed Ruff, the PostgreSQL migration chain, 19 backend tests, frontend typecheck, and production build. One third-party Starlette/AnyIO deprecation warning remains. Distributed login rate limiting, broader audit-event recording, account recovery, and production deployment controls remain follow-up work before a public production launch.
+
+
+## 10. Workspace collaboration implementation slice
+
+The collaboration branch introduces the first schema/API foundation for one account with multiple workspaces:
+- Registration creates a private workspace of type solo by default.
+- POST /businesses creates a separate shared business workspace under the same account.
+- Workspaces have an original name, optional display name, organization label, optional HTTPS logo URL, currency, and timezone.
+- Membership records now include role, lifecycle status, and a permissions object. Supported role values are owner/admin/worker; lifecycle values are active/suspended/revoked.
+- Workspace listing returns only active memberships, and protected business operations reject non-active memberships.
+
+This is an initial foundation, not complete team collaboration. Recipient-bound invitations, permission-by-permission enforcement, workspace switching UI, member administration, leave/suspend/revoke workflows, audit events, and invitation notifications remain unfinished until separately implemented and verified. The branch CI must pass before this slice is considered verified.
+
+
+### Permission policy update
+
+The transaction API now uses a centralized server-side permission policy. Permission grants use boolean keys such as `sales:read`, `sales:write`, `expenses:read`, and `expenses:write`. Owners receive workspace financial access by role; Admins and Workers must have explicit grants. Transaction lists are filtered to permitted directions, and individual reads/writes are checked against the transaction's domain. The current transaction model maps income to Sales and expense to Expenses; this does not yet implement Purchases or Inventory workflows. Automated CI verification for this update is pending.
+
+
+### Verified-email identity foundation
+
+The collaboration branch now adds `users.email_verified` and a one-time `email_verification_tokens` table. The verification challenge stores a SHA-256 token digest, expires after a configurable 30-minute default, and is consumed once. SMTP delivery is an adapter configured with environment variables. The authenticated request endpoint does not return the raw token; the token is sent in the email only. Verification is exposed through `POST /auth/verify-email`, and `GET /auth/me` reports the verified state. Email verification is not yet a prerequisite for login, and no invitation acceptance endpoint exists yet. Resend throttling and a frontend verification page remain follow-up work.
+
+
+### Workspace invitation API
+
+The current branch implements invitation creation, acceptance, and revocation. Creation/revocation require the actor's server-verified `staff_administration:write` permission. The Owner alone may invite Admins; Admins may invite Workers only with grants they already hold. Unknown permission keys are rejected, and Workers cannot receive Staff Administration access.
+
+The database stores only a SHA-256 token digest. Invites expire after 30 minutes by default, can be revoked, and are accepted once. Acceptance requires a verified email on the authenticated account that exactly matches the normalized recipient address. The membership change and invitation consumption commit together. The API never returns the raw token. Frontend invite/verification screens, abuse controls, audit events, and notification workflows remain incomplete.
+
+
+### Frontend account and workspace context
+
+The React frontend now connects registration/login to the API, loads `/auth/me` and `/businesses`, and lets a user switch between active Solo and business workspaces. It includes basic email-verification and invitation-acceptance screens and can create a separate business workspace. The API remains the authorization boundary; selecting a workspace in the UI does not grant access. The bearer token is held in tab-scoped sessionStorage, which remains readable by same-origin JavaScript; production hardening should evaluate a secure HttpOnly session-cookie design and XSS protections. This is not yet a full transaction/receipt dashboard.
+
+
+### Member administration and audit history
+
+The API exposes member listing, role/permission updates, suspension, revocation, reinstatement, and read-only paginated audit history. These routes require server-side Staff Administration permissions. Admins can manage Worker memberships only; Owner memberships and self-management are blocked. Revoked members rejoin through a new invitation. Timed suspension expiry is enforced on requests, so an expired suspension does not depend on a scheduled job.
+
+The `audit_events` table stores the actor (or null for automatic system transitions), workspace, event type, target, timestamp, optional reason, and safe JSON metadata. Important workspace creation, invitation, and membership changes are recorded in the same database transaction as the state change. No API endpoint edits or deletes audit records. Notifications and production audit-retention controls are not implemented yet.
+
+
+### Voluntary departure
+
+Members can request departure through `POST /businesses/{business_id}/leave` with the exact confirmation phrase, current password, written reason, and optional notice period. Immediate leave revokes access; scheduled leave is finalized at the effective time on the next protected API request or authorized member-list read. The final transition is audited. Owners are blocked from leaving until ownership transfer is implemented. A new accepted invitation clears the old leave schedule and can reactivate a revoked membership. Rate limiting and frontend leave UX remain follow-up work.
+
+
+### Collaboration UI
+
+The frontend provides a business collaboration panel for member listing, invitation creation, role/permission editing, suspend/revoke/reinstate actions, and recent audit history. It also includes a voluntary departure form requiring the exact phrase, password, reason, and optional notice hours. The current user's own membership is fetched separately from the protected member directory, so ordinary Workers can view their own status without seeing other employees. UI controls are convenience only; all permission decisions remain on the backend. Browser end-to-end, accessibility, and production security reviews remain outstanding.

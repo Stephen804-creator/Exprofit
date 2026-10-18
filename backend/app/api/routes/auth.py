@@ -1,6 +1,8 @@
 """Registration, login, current-user, and logout endpoints."""
 
+import secrets
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from typing import Annotated
 from uuid import uuid4
 
@@ -17,10 +19,20 @@ from app.access_tokens import (
     decode_access_token,
 )
 from app.api.deps import bearer_scheme, get_current_user
+from app.config import get_settings
 from app.db.session import get_db
-from app.models import AuthSession, Business, BusinessMembership, User
+from app.email_delivery import EmailDeliveryError, send_verification_email
+from app.models import (
+    AuthSession,
+    Business,
+    BusinessMembership,
+    EmailVerificationToken,
+    User,
+)
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserRead
+from app.schemas.email_verification import MessageResponse, VerifyEmailRequest
 from app.security import hash_password, verify_password
+from app.services.audit import record_audit_event
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -45,7 +57,7 @@ def register(
     payload: RegisterRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenResponse:
-    """Create an account, initial NGN workspace, owner membership, and session."""
+    """Create an account, private Solo workspace, owner membership, and session."""
     if db.scalar(select(User.id).where(User.email == payload.email)) is not None:
         raise HTTPException(status_code=409, detail="An account with this email already exists")
 
@@ -53,15 +65,35 @@ def register(
     try:
         db.add(user)
         db.flush()
-        business = Business(
-            name=payload.business_name,
+        # Preserve the supplied name for compatibility while making the workspace private.
+        solo_name = payload.business_name or "My Solo Workspace"
+        workspace = Business(
+            name=solo_name,
+            workspace_type="solo",
             currency_code="NGN",
             timezone="Africa/Lagos",
         )
-        db.add(business)
+        db.add(workspace)
         db.flush()
-        db.add(BusinessMembership(user_id=user.id, business_id=business.id, role="owner"))
+        db.add(
+            BusinessMembership(
+                user_id=user.id,
+                business_id=workspace.id,
+                role="owner",
+                status="active",
+                permissions={},
+            )
+        )
         db.flush()
+        record_audit_event(
+            db,
+            business_id=workspace.id,
+            actor_user_id=user.id,
+            event_type="workspace.created",
+            target_type="business",
+            target_id=workspace.id,
+            metadata={"workspace_type": "solo"},
+        )
         session_id = uuid4()
         token = create_access_token(user.id, session_id)
         db.add(
@@ -128,3 +160,105 @@ def logout(
         session.revoked_at = datetime.now(UTC)
         db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/request-email-verification",
+    response_model=MessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def request_email_verification(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> MessageResponse:
+    """Email a short-lived verification link to the signed-in account owner."""
+    if user.email_verified:
+        return MessageResponse(message="If verification is needed, an email will be sent.")
+
+    settings = get_settings()
+    if not settings.email_delivery_configured:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Email verification delivery is not configured",
+        )
+
+    now = datetime.now(UTC)
+    previous_tokens = db.scalars(
+        select(EmailVerificationToken)
+        .where(
+            EmailVerificationToken.user_id == user.id,
+            EmailVerificationToken.consumed_at.is_(None),
+        )
+        .with_for_update()
+    ).all()
+    for previous in previous_tokens:
+        previous.consumed_at = now
+
+    raw_token = secrets.token_urlsafe(32)
+    token_record = EmailVerificationToken(
+        user_id=user.id,
+        token_hash=sha256(raw_token.encode("utf-8")).hexdigest(),
+        expires_at=now + timedelta(minutes=settings.email_verification_ttl_minutes),
+    )
+    db.add(token_record)
+    db.commit()
+
+    verification_url = (
+        f"{settings.frontend_base_url.rstrip('/')}/verify-email?token={raw_token}"
+    )
+    try:
+        send_verification_email(user.email, verification_url, settings)
+    except EmailDeliveryError as exc:
+        token_record.consumed_at = datetime.now(UTC)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Verification email could not be sent. Please try again later.",
+        ) from exc
+
+    return MessageResponse(message="If verification is needed, an email will be sent.")
+
+
+@router.post("/verify-email", response_model=MessageResponse)
+def verify_email(
+    payload: VerifyEmailRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> MessageResponse:
+    """Consume a valid single-use challenge and mark the associated email verified."""
+    token_hash = sha256(payload.token.encode("utf-8")).hexdigest()
+    token_record = db.scalar(
+        select(EmailVerificationToken)
+        .where(EmailVerificationToken.token_hash == token_hash)
+        .with_for_update()
+    )
+    now = datetime.now(UTC)
+    if token_record is None or token_record.consumed_at is not None:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+
+    expires_at = token_record.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    if expires_at <= now:
+        token_record.consumed_at = now
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+
+    user = db.get(User, token_record.user_id)
+    if user is None or not user.is_active:
+        token_record.consumed_at = now
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+
+    user.email_verified = True
+    token_record.consumed_at = now
+    other_tokens = db.scalars(
+        select(EmailVerificationToken).where(
+            EmailVerificationToken.user_id == user.id,
+            EmailVerificationToken.id != token_record.id,
+            EmailVerificationToken.consumed_at.is_(None),
+        )
+    ).all()
+    for other in other_tokens:
+        other.consumed_at = now
+    db.commit()
+    return MessageResponse(message="Email address verified successfully.")

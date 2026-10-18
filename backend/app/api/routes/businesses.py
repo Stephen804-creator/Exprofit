@@ -1,4 +1,4 @@
-"""Business workspace endpoints with server-side membership checks."""
+"""Workspace endpoints with server-side membership checks."""
 
 from typing import Annotated
 
@@ -10,8 +10,9 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import Business, BusinessMembership, User
 from app.schemas.businesses import BusinessCreate, BusinessRead
+from app.services.audit import record_audit_event
 
-router = APIRouter(prefix="/businesses", tags=["businesses"])
+router = APIRouter(prefix="/businesses", tags=["workspaces"])
 
 
 @router.get("", response_model=list[BusinessRead])
@@ -23,7 +24,10 @@ def list_businesses(
     query = (
         select(Business)
         .join(BusinessMembership, BusinessMembership.business_id == Business.id)
-        .where(BusinessMembership.user_id == user.id)
+        .where(
+            BusinessMembership.user_id == user.id,
+            BusinessMembership.status == "active",
+        )
         .order_by(Business.created_at.asc())
     )
     return list(db.scalars(query).all())
@@ -35,15 +39,37 @@ def create_business(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Business:
-    """Create another workspace and grant its creator the owner role."""
+    """Create a shared business workspace without changing the user's Solo workspace."""
     business = Business(
         name=payload.name,
+        display_name=payload.display_name,
+        workspace_type="business",
+        organization_label=payload.organization_label,
+        logo_url=str(payload.logo_url) if payload.logo_url else None,
         currency_code=payload.currency_code,
         timezone=payload.timezone,
     )
     db.add(business)
     db.flush()
-    db.add(BusinessMembership(user_id=user.id, business_id=business.id, role="owner"))
+    db.add(
+        BusinessMembership(
+            user_id=user.id,
+            business_id=business.id,
+            role="owner",
+            status="active",
+            permissions={},
+        )
+    )
+    db.flush()
+    record_audit_event(
+        db,
+        business_id=business.id,
+        actor_user_id=user.id,
+        event_type="workspace.created",
+        target_type="business",
+        target_id=business.id,
+        metadata={"workspace_type": "business"},
+    )
     db.commit()
     db.refresh(business)
     return business

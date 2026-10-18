@@ -96,3 +96,86 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Environment variables and migration steps are documented.
 - [ ] Demo content is synthetic and contains no personal data.
 - [ ] Known limitations and supported financial assumptions are disclosed.
+
+
+## Workspace collaboration foundation
+- [ ] Registration without a business name creates a private Solo workspace.
+- [ ] Creating a business creates a separate business workspace without copying Solo records.
+- [ ] Workspace identity fields validate correctly; a configured logo URL must use HTTPS.
+- [ ] Workspace listing returns only workspaces with active membership.
+- [ ] Suspended and revoked memberships cannot access business-scoped transactions.
+- [ ] Role/permission enforcement is tested for every protected financial operation.
+- [ ] Invitations are recipient-bound, hashed at rest, single-use, revocable, and expire after the agreed 30-minute initial period.
+- [ ] An invitation cannot be accepted by an account with a different verified email.
+- [ ] Workspace switching never exposes another workspace's transactions, receipts, summaries, or AI retrieval.
+- [ ] Membership changes create audit records and appropriate notifications.
+
+
+## Email verification
+- [ ] Verification challenges store only a token digest, never the raw token.
+- [ ] Verification links expire and are single-use.
+- [ ] A new challenge invalidates earlier unconsumed challenges.
+- [ ] Missing SMTP configuration fails clearly without exposing tokens.
+- [ ] Invalid, expired, and reused tokens are rejected.
+- [ ] Email verification UI, delivery retry behavior, and resend abuse controls are completed before production.
+- [ ] Invitation acceptance requires the authenticated account's verified email to match the invite recipient.
+
+
+## Workspace invitations — current acceptance gates
+
+- [x] Only the workspace Owner can create/revoke a shareable link with an owner-selected expiry between 1 and 720 hours.
+- [x] Raw token is returned at creation only; only a SHA-256 digest is stored.
+- [x] Invitation creation does not send email and does not require verified email.
+- [x] Applicant must authenticate and submit a name, identifying details, optional phone, and JPEG face photo (up to 2 MB).
+- [x] Applicant must explicitly consent before submitting identity details and a photo; consent time is persisted.
+- [x] Application submission alone does not create membership or grant workspace access.
+- [x] Only the workspace Owner can list pending applications and retrieve their private photos.
+- [x] Approval creates membership using the invitation's role and permission set.
+- [x] Rejection, revocation, expiry, and repeated submission/acceptance attempts cannot grant access.
+- [x] Pending photos are deleted after approval, rejection, revocation, or expiry cleanup.
+- [ ] Add rate limiting to invitation/application endpoints and abuse monitoring.
+- [ ] Add end-to-end/browser tests for link creation, camera upload, owner review, and cross-workspace denial.
+- [ ] Review the privacy notice and operational retention policy before production.
+
+The face photo is for manual owner-assisted recognition only; it is not biometric authentication or proof of liveness. Optional account email-verification endpoints are separate and not required for invitations.
+
+
+## Frontend account and workspace context
+- [ ] Authentication state recovers safely after expiry and server errors.
+- [ ] Verification and invitation tokens are removed from the visible URL and never logged.
+- [ ] Workspace switching cannot display data from another workspace after a denied API response.
+- [ ] Sign-out clears the browser-tab bearer token and selected workspace.
+- [ ] UI communicates unverified email, delivery failures, expired invitations, and permission errors accessibly.
+- [ ] Production session storage/XSS trade-offs are reviewed before release.
+
+
+## Member administration and audit history
+- [ ] Only authorized Owner/Admin users can view member lists and audit history.
+- [ ] Admins cannot manage Admin/Owner memberships or grant permissions they do not hold.
+- [ ] Owner memberships and self-management cannot be changed through member endpoints.
+- [ ] Suspension/revocation immediately blocks protected workspace access.
+- [ ] Timed suspension automatically reinstates after expiry and records an audit event.
+- [ ] Voluntary leave, if added, requires exact phrase, reason, and password re-authentication.
+- [ ] Membership and invitation state changes write audit records atomically.
+- [ ] Audit history has no ordinary update/delete API and paginates safely.
+- [ ] Notification delivery, retention policy, export controls, and production audit integrity are reviewed before release.
+
+
+## Voluntary departure
+- [ ] Exact phrase mismatch is rejected.
+- [ ] Wrong password is rejected without changing membership.
+- [ ] Immediate departure revokes access and preserves financial history.
+- [ ] Scheduled departure remains pending until its deadline and then revokes access.
+- [ ] Scheduled departure completion is audited exactly once.
+- [ ] Workspace Owner cannot leave before ownership transfer is supported.
+- [ ] Rejoining through a new invitation clears the old departure schedule.
+- [ ] Frontend departure UX and re-authentication abuse controls are completed before release.
+
+
+## Collaboration UI
+- [ ] Manual browser test owner-only link creation, applicant details/photo/consent submission, approval/rejection, revocation, and expiry.
+- [ ] Manual browser test member role/permission edits and immediate suspend/revoke behavior.
+- [ ] Manual browser test scheduled leave and exact-phrase/password errors on mobile and desktop.
+- [ ] Worker sees their own membership and leave form but not the full member directory or audit log.
+- [ ] Unauthorized UI requests show understandable errors without stale protected data.
+- [ ] Accessibility, keyboard navigation, focus behavior, and responsive layout are reviewed.
