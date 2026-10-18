@@ -199,6 +199,8 @@ def accept_invitation(
         membership.status = "active"
         membership.suspended_until = None
         membership.revoked_at = None
+        membership.leave_effective_at = None
+        membership.leave_reason = None
 
     invitation.accepted_at = now
     invitation.accepted_by_user_id = user.id
