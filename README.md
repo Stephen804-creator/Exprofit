@@ -144,3 +144,8 @@ The collaboration branch adds recipient-bound workspace invitations. Owners/Admi
 ## Frontend account workflow
 
 The current collaboration branch adds registration/sign-in, a workspace selector, business workspace creation, email-verification link handling, and invitation acceptance UI. API access still uses a short-lived bearer token held in tab-scoped sessionStorage. This is an early workflow UI, not yet the full transaction and receipt dashboard; review the implementation status before deploying.
+
+
+## Member administration and audit trail
+
+The collaboration API now includes protected member listing, role/permission updates, suspension, revocation, reinstatement, and read-only audit history. Membership actions require a reason and are recorded in an audit table. Timed suspensions reinstate automatically when expired. Admins can manage Worker memberships only; the Owner's membership cannot be changed through these endpoints. Notification workflows and production audit-retention controls are not yet implemented.
