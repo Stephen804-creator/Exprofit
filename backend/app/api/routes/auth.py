@@ -1,8 +1,8 @@
 """Registration, login, current-user, and logout endpoints."""
 
+import secrets
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
-import secrets
 from typing import Annotated
 from uuid import uuid4
 
@@ -12,14 +12,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
-from app.email_delivery import EmailDeliveryError, send_verification_email
 from app.access_tokens import (
     TOKEN_TTL_SECONDS,
     InvalidTokenError,
     create_access_token,
     decode_access_token,
-)
+ )
+from app.config import get_settings
+from app.email_delivery import EmailDeliveryError, send_verification_email
 from app.api.deps import bearer_scheme, get_current_user
 from app.db.session import get_db
 from app.models import (
