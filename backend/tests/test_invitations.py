@@ -1,6 +1,8 @@
 """Security tests for recipient-bound workspace invitations."""
 
 from collections.abc import Generator
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -225,7 +227,7 @@ def test_worker_cannot_create_workspace_invitations(
         assert worker_user is not None
         membership = BusinessMembership(
             user_id=worker_user.id,
-            business_id=__import__("uuid").UUID(business_id),
+            business_id=UUID(business_id),
             role="worker",
             status="active",
             permissions={"sales:read": True},
@@ -239,3 +241,46 @@ def test_worker_cannot_create_workspace_invitations(
         json={"recipient_email": "someone@example.test", "role": "worker"},
     )
     assert response.status_code == 403
+
+
+
+def test_expired_invitation_cannot_be_accepted(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configure_mail(monkeypatch)
+    owner = register(client, "owner-expiry@example.test")
+    recipient = register(client, "expired-recipient@example.test")
+    business_id = make_business(client, owner["access_token"])
+    delivered: dict[str, str] = {}
+
+    def capture_email(
+        email: str,
+        invitation_url: str,
+        workspace_name: str,
+        settings: object,
+    ) -> None:
+        delivered["url"] = invitation_url
+
+    monkeypatch.setattr("app.api.routes.invitations.send_invitation_email", capture_email)
+    created = client.post(
+        f"/businesses/{business_id}/invitations",
+        headers=bearer(owner["access_token"]),
+        json={"recipient_email": "expired-recipient@example.test", "role": "worker"},
+    )
+    assert created.status_code == 201, created.text
+    token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
+
+    with client.app.state.test_session() as db:
+        invitation = db.get(WorkspaceInvitation, created.json()["id"])
+        assert invitation is not None
+        invitation.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+        db.commit()
+
+    verify_user_email(client, "expired-recipient@example.test")
+    response = client.post(
+        "/invitations/accept",
+        headers=bearer(recipient["access_token"]),
+        json={"token": token},
+    )
+    assert response.status_code == 400
