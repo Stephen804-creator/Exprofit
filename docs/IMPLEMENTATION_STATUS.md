@@ -29,7 +29,7 @@ This file separates planned work from verified work. A requirement is not marked
 
 ## Verification log
 
-The application shell and initial database code are committed, but automated checks and PostgreSQL migration execution have not yet been confirmed. Record the date, command, environment, result, and any remaining limitation for each completed unit.
+The latest verification is GitHub Actions run #97 on commit `7af4001f429b76416928d8f27d8f911326d6475c` (2026-10-18): Ruff passed, `alembic upgrade head` passed against PostgreSQL 16, 19 pytest tests passed, and frontend typecheck/build passed. One third-party Starlette/AnyIO deprecation warning was emitted. Continue recording any new verification with the exact commit and environment.
 
 
 ## Build 2 update — 2026-10-18
@@ -41,13 +41,13 @@ Committed PostgreSQL configuration, SQLAlchemy engine and request-scoped session
 
 Added a transaction ORM model with fixed-precision decimal amounts, business foreign key, income/expense direction, draft/posted/void states, currency constraints, date/status indexes, and an optional business-scoped idempotency key. Added Pydantic input/output schemas, service-layer create/list/get/update/void operations, a migration, and tests for lifecycle behavior, business scoping, currency mismatch, invalid values, and duplicate request keys.
 
-Transaction operations are not yet exposed as public HTTP endpoints. This is deliberate: the authentication and authorization unit must be completed before routes can safely accept requests for a business ID. The new tests and PostgreSQL migration step are committed but have not yet been observed passing in GitHub Actions.
+Transaction operations are not yet exposed as public HTTP endpoints. This is deliberate: the authentication and authorization unit must be completed before routes can safely accept requests for a business ID. The latest CI run #97 later confirmed Ruff, the PostgreSQL migration chain, and all backend tests pass.
 
 
 ## Build 4 update — 2026-10-18 (implemented; verification pending)
 
 Implemented User, BusinessMembership, and revocable AuthSession models with migrations; Argon2 password hashing; signed, 30-minute access tokens bound to persisted sessions; registration, login, current-user, and logout endpoints; business workspace endpoints; and protected business-scoped transaction endpoints. Logout revokes the session in the database. Registration creates the user's first NGN/Africa-Lagos workspace and owner membership. Authorization checks membership server-side and returns 404 for workspaces the user cannot access. Added API tests for registration, login failure, duplicate email, logout revocation, cross-business isolation, and the transaction lifecycle. Added `email-validator` for Pydantic `EmailStr` and documented `AUTH_SECRET_KEY`.
 
-The two route modules that previously existed as drafts (`backend/app/api/routes/businesses.py` and `backend/app/api/routes/transactions.py`) are now registered in `backend/app/main.py` and are implemented behind authentication/authorization. The stale non-revocable `backend/app/auth_tokens.py` helper was removed; `backend/app/access_tokens.py` is the active session-bound token implementation.
+The two route modules that previously existed as drafts (`backend/app/api/routes/businesses.py` and `backend/app/api/routes/transactions.py`) are now registered in `backend/app/main.py` and implemented behind authentication/authorization. The stale non-revocable `backend/app/auth_tokens.py` helper was removed; `backend/app/access_tokens.py` is the active session-bound token implementation.
 
-**Verification remains pending:** no successful CI run or live PostgreSQL migration has yet been confirmed. Do not mark this unit accepted until Ruff, pytest, Alembic upgrade, and the frontend checks complete successfully. Login/register rate limiting and broader production security hardening remain follow-up work; do not expose this as production-ready until those controls and deployment requirements are reviewed.
+**Verification result:** GitHub Actions run #97 passed Ruff, PostgreSQL 16 migrations, 19 pytest tests, frontend typecheck, and frontend production build. One third-party Starlette/AnyIO deprecation warning remains. Login/register rate limiting, security-event auditing, and broader production hardening remain follow-up work; this is not yet a production release.
