@@ -101,6 +101,7 @@ export default function App() {
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceDisplayName, setWorkspaceDisplayName] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
+  const [myMembership, setMyMembership] = useState<Member | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [collaborationError, setCollaborationError] = useState("");
   const [collaborationLoading, setCollaborationLoading] = useState(false);
@@ -112,6 +113,10 @@ export default function App() {
   const [editingMemberId, setEditingMemberId] = useState("");
   const [editRole, setEditRole] = useState<"admin" | "worker">("worker");
   const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
+  const [leavePhrase, setLeavePhrase] = useState("");
+  const [leavePassword, setLeavePassword] = useState("");
+  const [leaveReason, setLeaveReason] = useState("");
+  const [leaveNoticeHours, setLeaveNoticeHours] = useState("");
 
   async function hydrate(token: string): Promise<void> {
     const [identity, availableWorkspaces] = await Promise.all([
@@ -418,25 +423,67 @@ export default function App() {
     }
   }
 
+
+  async function requestLeave(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!accessToken || !selectedWorkspaceId) return;
+    setBusy(true);
+    setNotice("");
+    setCollaborationError("");
+    try {
+      const result = await apiRequest<{ status: string; effective_at: string | null; message: string }>(
+        `/businesses/${selectedWorkspaceId}/leave`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            confirmation_phrase: leavePhrase,
+            password: leavePassword,
+            reason: leaveReason,
+            notice_hours: leaveNoticeHours ? Number(leaveNoticeHours) : null,
+          }),
+        },
+        accessToken,
+      );
+      setNotice(result.message);
+      setLeavePassword("");
+      setLeavePhrase("");
+      setLeaveReason("");
+      setLeaveNoticeHours("");
+      if (result.status === "revoked") {
+        await hydrate(accessToken);
+      } else {
+        await refreshCollaboration();
+      }
+    } catch (error) {
+      setCollaborationError(messageFromError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function selectWorkspace(id: string): void {
     setSelectedWorkspaceId(id);
     sessionStorage.setItem("exprofit_workspace_id", id);
   }
 
   const selectedWorkspace = workspaces.find((item) => item.id === selectedWorkspaceId);
-  const currentMembership = members.find((member) => member.user_id === user?.id);
+  const currentMembership = myMembership;
   const isWorkspaceOwner = currentMembership?.role === "owner";
   const canManageMembers = isWorkspaceOwner || currentMembership?.permissions["staff_administration:write"] === true;
 
   useEffect(() => {
     if (!accessToken || !selectedWorkspaceId || selectedWorkspace?.workspace_type !== "business") {
       setMembers([]);
+      setMyMembership(null);
       setAuditEvents([]);
       setCollaborationError("");
       return;
     }
     let cancelled = false;
     setCollaborationLoading(true);
+    apiRequest<Member>(`/businesses/${selectedWorkspaceId}/membership`, {}, accessToken)
+      .then((membership) => { if (!cancelled) setMyMembership(membership); })
+      .catch(() => { if (!cancelled) setMyMembership(null); });
     Promise.all([
       apiRequest<Member[]>(`/businesses/${selectedWorkspaceId}/members`, {}, accessToken),
       apiRequest<AuditEvent[]>(`/businesses/${selectedWorkspaceId}/audit-events?limit=12`, {}, accessToken),
@@ -450,7 +497,6 @@ export default function App() {
       .catch((error: unknown) => {
         if (cancelled) return;
         setMembers([]);
-        setAuditEvents([]);
         setCollaborationError(messageFromError(error));
       })
       .finally(() => {
