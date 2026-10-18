@@ -459,7 +459,9 @@ export default function App() {
       if (result.status === "revoked") {
         await hydrate(accessToken);
       } else {
-        await refreshCollaboration();
+        if (isWorkspaceOwner || currentMembership?.permissions["staff_administration:read"] === true) {
+          await refreshCollaboration();
+        }
         const membership = await apiRequest<Member>(`/businesses/${selectedWorkspaceId}/membership`, {}, accessToken);
         setMyMembership(membership);
       }
@@ -478,7 +480,10 @@ export default function App() {
   const selectedWorkspace = workspaces.find((item) => item.id === selectedWorkspaceId);
   const currentMembership = myMembership;
   const isWorkspaceOwner = currentMembership?.role === "owner";
-  const canManageMembers = isWorkspaceOwner || currentMembership?.permissions["staff_administration:write"] === true;
+  const canManageMembers = isWorkspaceOwner || (
+    currentMembership?.permissions["staff_administration:read"] === true &&
+    currentMembership?.permissions["staff_administration:write"] === true
+  );
 
   useEffect(() => {
     if (!accessToken || !selectedWorkspaceId || selectedWorkspace?.workspace_type !== "business") {
