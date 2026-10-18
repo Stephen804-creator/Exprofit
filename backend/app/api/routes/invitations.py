@@ -367,9 +367,12 @@ def revoke_invitation(
     if invitation.revoked_at is None:
         now = datetime.now(UTC)
         invitation.revoked_at = now
-        application = db.scalar(select(InvitationApplication).where(
-            InvitationApplication.invitation_id == invitation.id, InvitationApplication.status == "pending"
-        ))
+        application = db.scalar(
+            select(InvitationApplication).where(
+                InvitationApplication.invitation_id == invitation.id,
+                InvitationApplication.status == "pending",
+            )
+        )
         if application is not None:
             application.status = "rejected"
             application.reviewed_by_user_id = actor.user_id
