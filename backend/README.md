@@ -44,3 +44,11 @@ Email verification endpoints:
 - `POST /auth/verify-email` accepts JSON with a `token` field and consumes a valid challenge.
 
 Configure `FRONTEND_BASE_URL`, `EMAIL_VERIFICATION_TTL_MINUTES`, and the `SMTP_*` settings in the root `.env.example`. Tokens are hashed in the database and are not returned by the API. Email verification does not yet gate login; it must be required by the future invitation acceptance endpoint.
+
+
+Workspace invitation endpoints:
+- `POST /businesses/{business_id}/invitations` creates and emails a recipient-bound invite.
+- `POST /invitations/accept` accepts a pending invite using JSON `{"token":"..." }`.
+- `POST /businesses/{business_id}/invitations/{invitation_id}/revoke` revokes a pending invite.
+
+Invitation acceptance requires the authenticated account's email to be verified and to match the invited recipient exactly. Configure SMTP, `FRONTEND_BASE_URL`, and `WORKSPACE_INVITATION_TTL_MINUTES=30`. Raw invite tokens are never returned by the API or stored in the database. The UI, rate limiting, audit events, and notification workflows are not implemented yet.
