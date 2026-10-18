@@ -97,3 +97,18 @@ Only Owner/Admin actors with `staff_administration:write` may create or revoke i
 Invitations store only a SHA-256 token digest, expire after 30 minutes by default, invalidate earlier pending invitations for the same workspace/email, and are single-use and revocable. Acceptance requires an active authenticated account, verified email, an exact normalized email match, a valid unexpired non-revoked invitation, and a business workspace. Acceptance creates or reactivates the recipient's membership without moving Solo records. The raw token is sent by email and is not included in the API response.
 
 Still outstanding: invitation and verification frontend screens, abuse/rate limiting, durable audit events, notification UX, and broader end-to-end tests. SMTP must be configured. Do not expose these endpoints as production-ready until those remaining security and UX controls are reviewed.
+
+
+## Member administration and audit implementation slice
+
+The API now supports:
+- `GET /businesses/{business_id}/members` for authorized administrators.
+- `PATCH /businesses/{business_id}/members/{membership_id}` for reasoned role/permission updates.
+- `POST /businesses/{business_id}/members/{membership_id}/suspend` for immediate or timed suspension (1–720 hours when timed).
+- `POST /businesses/{business_id}/members/{membership_id}/revoke` for immediate access revocation.
+- `POST /businesses/{business_id}/members/{membership_id}/reinstate` for suspended members.
+- `GET /businesses/{business_id}/audit-events` for read-only, paginated audit history.
+
+Only Owner/Admin actors with explicit Staff Administration permissions may use these endpoints. Admins may manage Worker memberships only; Owner memberships cannot be changed through these routes, and an actor cannot change their own membership. Revoked members must accept a new invitation rather than use the suspension-reinstatement endpoint. Timed suspensions are checked at the API boundary and automatically reinstate when their deadline passes.
+
+The new append-only audit table records workspace creation, invitation lifecycle actions, membership updates, suspension, revocation, manual reinstatement, and timed reinstatement. Audit records are committed with the corresponding state change. Notifications, audit retention/exports, and broader tamper-resistance controls are still future work.
