@@ -81,6 +81,49 @@ def _read_application(
     )
 
 
+def _expire_pending_applications(
+    db: Session,
+    business_id: UUID,
+    now: datetime,
+) -> int:
+    """Clear private applicant photos when their invitation is no longer usable."""
+    rows = db.execute(
+        select(InvitationApplication, WorkspaceInvitation)
+        .join(
+            WorkspaceInvitation,
+            WorkspaceInvitation.id == InvitationApplication.invitation_id,
+        )
+        .where(
+            WorkspaceInvitation.business_id == business_id,
+            InvitationApplication.status == "pending",
+        )
+    ).all()
+    expired_count = 0
+    for application, invitation in rows:
+        if (
+            invitation.revoked_at is None
+            and invitation.accepted_at is None
+            and _utc(invitation.expires_at) > now
+        ):
+            continue
+        application.status = "rejected"
+        application.reviewed_at = now
+        application.photo_bytes = None
+        record_audit_event(
+            db,
+            business_id=business_id,
+            actor_user_id=None,
+            event_type="invitation.application_expired",
+            target_type="invitation_application",
+            target_id=application.id,
+            reason="Invitation expired, was revoked, or was already used",
+        )
+        expired_count += 1
+    if expired_count:
+        db.commit()
+    return expired_count
+
+
 @router.post(
     "/businesses/{business_id}/invitations",
     response_model=InvitationRead,
@@ -135,6 +178,8 @@ def submit_application(
     )
     now = datetime.now(UTC)
     if _unavailable(invitation, now):
+        if invitation is not None:
+            _expire_pending_applications(db, invitation.business_id, now)
         raise HTTPException(status_code=400, detail="Invalid, expired, or unavailable invitation")
     assert invitation is not None
     business = db.get(Business, invitation.business_id)
@@ -149,9 +194,12 @@ def submit_application(
     application = InvitationApplication(
         invitation_id=invitation.id, user_id=user.id, full_name=payload.full_name,
         phone=payload.phone, identifying_details=payload.identifying_details,
-        photo_bytes=_decode_photo(payload.photo_data_url), status="pending",
+        photo_bytes=_decode_photo(payload.photo_data_url),
+        status="pending",
+        consent_given_at=now,
     )
     db.add(application)
+    db.flush()
     record_audit_event(
         db, business_id=invitation.business_id, actor_user_id=user.id,
         event_type="invitation.application_submitted", target_type="invitation_application",
@@ -179,6 +227,7 @@ def list_applications(
 ) -> list[InvitationApplicationRead]:
     """List pending applications for authorized workspace administrators."""
     require_permission(actor, "staff_administration", "read")
+    _expire_pending_applications(db, business_id, datetime.now(UTC))
     business = db.get(Business, business_id)
     if business is None or business.workspace_type != "business":
         raise HTTPException(status_code=404, detail="Business workspace not found")
@@ -204,6 +253,7 @@ def read_application_photo(
 ) -> Response:
     """Only authorized administrators can view a pending applicant's photo."""
     require_permission(actor, "staff_administration", "read")
+    _expire_pending_applications(db, business_id, datetime.now(UTC))
     application = db.scalar(
         select(InvitationApplication)
         .join(WorkspaceInvitation, WorkspaceInvitation.id == InvitationApplication.invitation_id)
@@ -236,6 +286,7 @@ def approve_application(
 ) -> InvitationApplicationDecisionRead:
     """Approve an application and activate the invited member."""
     require_permission(actor, "staff_administration", "write")
+    _expire_pending_applications(db, business_id, datetime.now(UTC))
     application = db.scalar(
         select(InvitationApplication)
         .join(WorkspaceInvitation, WorkspaceInvitation.id == InvitationApplication.invitation_id)
@@ -312,6 +363,7 @@ def reject_application(
 ) -> InvitationApplicationDecisionRead:
     """Reject an application, revoke its link, and discard its photo."""
     require_permission(actor, "staff_administration", "write")
+    _expire_pending_applications(db, business_id, datetime.now(UTC))
     application = db.scalar(
         select(InvitationApplication)
         .join(WorkspaceInvitation, WorkspaceInvitation.id == InvitationApplication.invitation_id)
