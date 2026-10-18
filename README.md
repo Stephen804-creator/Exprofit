@@ -139,3 +139,8 @@ The collaboration branch adds account email verification endpoints. To use them,
 ## Workspace invitations
 
 The collaboration branch adds recipient-bound workspace invitations. Owners/Admins with the required Staff Administration permission can create invitations; the Owner alone can invite Admins. The API stores token hashes, uses a 30-minute default expiry, and requires the authenticated account's verified email to match the invited address. Endpoints are listed in `backend/README.md`. The invitation and verification frontend screens, rate limiting, audit events, and notification UX remain unfinished. CI run #39136370512 passed for the invitation API slice.
+
+
+## Frontend account workflow
+
+The current collaboration branch adds registration/sign-in, a workspace selector, business workspace creation, email-verification link handling, and invitation acceptance UI. API access still uses a short-lived bearer token held in tab-scoped sessionStorage. This is an early workflow UI, not yet the full transaction and receipt dashboard; review the implementation status before deploying.
