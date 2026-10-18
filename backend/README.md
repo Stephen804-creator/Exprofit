@@ -36,4 +36,4 @@ python -m pytest
 alembic upgrade head
 ```
 
-The repository CI is configured to run backend lint/tests and PostgreSQL migrations, but a passing run has not yet been confirmed. The root README and `docs/IMPLEMENTATION_STATUS.md` track the wider product plan and current verification state.
+CI run [#97](https://github.com/Stephen804-creator/Exprofit/actions/runs/39121683770) passed Ruff, PostgreSQL migrations, 19 backend tests, frontend typecheck, and frontend production build. One third-party Starlette/AnyIO deprecation warning remains. The root README and `docs/IMPLEMENTATION_STATUS.md` track the wider product plan and current verification state.
