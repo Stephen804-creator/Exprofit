@@ -23,7 +23,7 @@ from app.models import (
     User,
     WorkspaceInvitation,
 )
-from app.permissions import require_permission, validate_permission_delegation
+from app.permissions import validate_permission_delegation
 from app.schemas.invitations import (
     InvitationApplicationCreate,
     InvitationApplicationDecision,
@@ -40,6 +40,15 @@ MAX_PHOTO_BYTES = 2 * 1024 * 1024
 
 def _utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value
+
+
+def _require_owner(actor: BusinessMembership) -> None:
+    """Only the workspace owner may issue links or make identity-review decisions."""
+    if actor.role != "owner":
+        raise HTTPException(
+            status_code=403,
+            detail="Only the workspace owner can manage invitations and review applicants",
+        )
 
 
 def _unavailable(invitation: WorkspaceInvitation | None, now: datetime) -> bool:
@@ -135,7 +144,7 @@ def create_invitation(
     user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)],
 ) -> InvitationRead:
     """Create a unique link the owner can copy and share through any channel."""
-    require_permission(actor, "staff_administration", "write")
+    _require_owner(actor)
     business = db.get(Business, business_id)
     if business is None or business.workspace_type != "business":
         raise HTTPException(status_code=404, detail="Business workspace not found")
@@ -226,7 +235,7 @@ def list_applications(
     db: Annotated[Session, Depends(get_db)],
 ) -> list[InvitationApplicationRead]:
     """List pending applications for authorized workspace administrators."""
-    require_permission(actor, "staff_administration", "read")
+    _require_owner(actor)
     _expire_pending_applications(db, business_id, datetime.now(UTC))
     business = db.get(Business, business_id)
     if business is None or business.workspace_type != "business":
@@ -252,7 +261,7 @@ def read_application_photo(
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
     """Only authorized administrators can view a pending applicant's photo."""
-    require_permission(actor, "staff_administration", "read")
+    _require_owner(actor)
     _expire_pending_applications(db, business_id, datetime.now(UTC))
     application = db.scalar(
         select(InvitationApplication)
@@ -285,7 +294,7 @@ def approve_application(
     db: Annotated[Session, Depends(get_db)],
 ) -> InvitationApplicationDecisionRead:
     """Approve an application and activate the invited member."""
-    require_permission(actor, "staff_administration", "write")
+    _require_owner(actor)
     _expire_pending_applications(db, business_id, datetime.now(UTC))
     application = db.scalar(
         select(InvitationApplication)
@@ -362,7 +371,7 @@ def reject_application(
     db: Annotated[Session, Depends(get_db)],
 ) -> InvitationApplicationDecisionRead:
     """Reject an application, revoke its link, and discard its photo."""
-    require_permission(actor, "staff_administration", "write")
+    _require_owner(actor)
     _expire_pending_applications(db, business_id, datetime.now(UTC))
     application = db.scalar(
         select(InvitationApplication)
@@ -408,7 +417,7 @@ def revoke_invitation(
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
     """Revoke a link and discard any pending photo application."""
-    require_permission(actor, "staff_administration", "write")
+    _require_owner(actor)
     invitation = db.scalar(select(WorkspaceInvitation).where(
         WorkspaceInvitation.id == invitation_id, WorkspaceInvitation.business_id == business_id
     ).with_for_update())

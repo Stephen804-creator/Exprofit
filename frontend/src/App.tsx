@@ -803,6 +803,7 @@ export default function App() {
 
               {canManageMembers && (
                 <div className="collaboration-columns">
+                  {isWorkspaceOwner && (
                   <form className="collaboration-form" onSubmit={createInvitation}>
                     <p className="eyebrow">INVITE A PERSON</p>
                     <h3>Generate a shareable link</h3>
@@ -856,6 +857,7 @@ export default function App() {
                       </div>
                     )}
                   </form>
+                  )}
 
                   <div className="member-action-settings">
                     <p className="eyebrow">MEMBERSHIP SAFETY</p>
@@ -869,7 +871,7 @@ export default function App() {
                 </div>
               )}
 
-              {canManageMembers && (
+              {isWorkspaceOwner && (
                 <section className="application-review-panel">
                   <div className="section-heading">
                     <div><p className="eyebrow">OWNER REVIEW</p><h3>Applications waiting for approval</h3></div>
