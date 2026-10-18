@@ -1,6 +1,7 @@
 """API-level tests for authentication, logout, and business isolation."""
 
 from collections.abc import Generator
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -268,7 +269,7 @@ def test_worker_permissions_limit_transaction_reads_and_writes(
     with client.app.state.test_session() as db:
         membership = db.scalar(
             select(BusinessMembership).where(
-                BusinessMembership.business_id == business_id
+                BusinessMembership.business_id == UUID(business_id)
             )
         )
         assert membership is not None
