@@ -127,3 +127,8 @@ The collaboration branch now adds `users.email_verified` and a one-time `email_v
 The current branch implements invitation creation, acceptance, and revocation. Creation/revocation require the actor's server-verified `staff_administration:write` permission. The Owner alone may invite Admins; Admins may invite Workers only with grants they already hold. Unknown permission keys are rejected, and Workers cannot receive Staff Administration access.
 
 The database stores only a SHA-256 token digest. Invites expire after 30 minutes by default, can be revoked, and are accepted once. Acceptance requires a verified email on the authenticated account that exactly matches the normalized recipient address. The membership change and invitation consumption commit together. The API never returns the raw token. Frontend invite/verification screens, abuse controls, audit events, and notification workflows remain incomplete.
+
+
+### Frontend account and workspace context
+
+The React frontend now connects registration/login to the API, loads `/auth/me` and `/businesses`, and lets a user switch between active Solo and business workspaces. It includes basic email-verification and invitation-acceptance screens and can create a separate business workspace. The API remains the authorization boundary; selecting a workspace in the UI does not grant access. The bearer token is held in tab-scoped sessionStorage, which remains readable by same-origin JavaScript; production hardening should evaluate a secure HttpOnly session-cookie design and XSS protections. This is not yet a full transaction/receipt dashboard.
