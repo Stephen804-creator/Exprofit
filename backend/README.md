@@ -19,9 +19,9 @@ The configured `DATABASE_URL` must point to a PostgreSQL database. Do not commit
 
 ## Implemented API slice
 
-- `POST /auth/register` creates an account and first NGN business workspace.
+- `POST /auth/register` creates an account and private Solo workspace.
 - `POST /auth/login` authenticates an account.
-- `GET /auth/me` returns the current identity.
+- `GET /auth/me` returns the current identity, including whether its email is verified.
 - `POST /auth/logout` revokes the current access session.
 - `GET/POST /businesses` lists or creates the caller's business workspaces.
 - `/businesses/{business_id}/transactions` supports authenticated transaction create/list/read/update/void operations.
@@ -37,3 +37,10 @@ alembic upgrade head
 ```
 
 CI run [#97](https://github.com/Stephen804-creator/Exprofit/actions/runs/39121683770) passed Ruff, PostgreSQL migrations, 19 backend tests, frontend typecheck, and frontend production build. One third-party Starlette/AnyIO deprecation warning remains. The root README and `docs/IMPLEMENTATION_STATUS.md` track the wider product plan and current verification state.
+
+
+Email verification endpoints:
+- `POST /auth/request-email-verification` sends a single-use verification link to the authenticated account when SMTP is configured.
+- `POST /auth/verify-email` accepts JSON with a `token` field and consumes a valid challenge.
+
+Configure `FRONTEND_BASE_URL`, `EMAIL_VERIFICATION_TTL_MINUTES`, and the `SMTP_*` settings in the root `.env.example`. Tokens are hashed in the database and are not returned by the API. Email verification does not yet gate login; it must be required by the future invitation acceptance endpoint.
