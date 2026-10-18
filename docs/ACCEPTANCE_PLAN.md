@@ -119,3 +119,12 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Invalid, expired, and reused tokens are rejected.
 - [ ] Email verification UI, delivery retry behavior, and resend abuse controls are completed before production.
 - [ ] Invitation acceptance requires the authenticated account's verified email to match the invite recipient.
+
+
+## Workspace invitations — remaining acceptance work
+- [ ] Invitation and email-verification screens work on mobile and desktop.
+- [ ] Invitation creation/revocation and verification requests have abuse controls.
+- [ ] Invitation lifecycle actions are written to durable audit history.
+- [ ] Expired invitations are safely cleaned up or remain unusable without a scheduled job.
+- [ ] Invitation acceptance is covered by PostgreSQL-backed and end-to-end tests.
+- [ ] Delivery failures, email-provider outages, and retries produce safe, understandable UI feedback.
