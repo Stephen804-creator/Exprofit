@@ -178,3 +178,48 @@ def test_invalid_and_expired_access_tokens_are_rejected(
     monkeypatch.setattr("app.access_tokens.TOKEN_TTL_SECONDS", -1)
     response = client.get("/auth/me", headers=bearer(result["access_token"]))
     assert response.status_code == 401
+
+
+
+def test_registration_defaults_to_private_solo_and_business_is_separate(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "solo@example.com",
+            "password": "correct-horse-battery-7",
+        },
+    )
+    assert response.status_code == 201, response.text
+    headers = bearer(response.json()["access_token"])
+
+    initial = client.get("/businesses", headers=headers)
+    assert initial.status_code == 200
+    assert len(initial.json()) == 1
+    solo = initial.json()[0]
+    assert solo["workspace_type"] == "solo"
+    assert solo["name"] == "My Solo Workspace"
+
+    created = client.post(
+        "/businesses",
+        headers=headers,
+        json={
+            "name": "Goggles CEO Trading",
+            "display_name": "Goggles CEO",
+            "organization_label": "Teams",
+            "currency_code": "NGN",
+            "timezone": "Africa/Lagos",
+        },
+    )
+    assert created.status_code == 201, created.text
+    business = created.json()
+    assert business["workspace_type"] == "business"
+    assert business["name"] == "Goggles CEO Trading"
+    assert business["display_name"] == "Goggles CEO"
+    assert business["organization_label"] == "Teams"
+
+    workspaces = client.get("/businesses", headers=headers).json()
+    assert len(workspaces) == 2
+    assert {workspace["workspace_type"] for workspace in workspaces} == {"solo", "business"}
+    assert solo["id"] in {workspace["id"] for workspace in workspaces}
