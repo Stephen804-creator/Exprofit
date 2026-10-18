@@ -137,3 +137,15 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Sign-out clears the browser-tab bearer token and selected workspace.
 - [ ] UI communicates unverified email, delivery failures, expired invitations, and permission errors accessibly.
 - [ ] Production session storage/XSS trade-offs are reviewed before release.
+
+
+## Member administration and audit history
+- [ ] Only authorized Owner/Admin users can view member lists and audit history.
+- [ ] Admins cannot manage Admin/Owner memberships or grant permissions they do not hold.
+- [ ] Owner memberships and self-management cannot be changed through member endpoints.
+- [ ] Suspension/revocation immediately blocks protected workspace access.
+- [ ] Timed suspension automatically reinstates after expiry and records an audit event.
+- [ ] Voluntary leave, if added, requires exact phrase, reason, and password re-authentication.
+- [ ] Membership and invitation state changes write audit records atomically.
+- [ ] Audit history has no ordinary update/delete API and paginates safely.
+- [ ] Notification delivery, retention policy, export controls, and production audit integrity are reviewed before release.
