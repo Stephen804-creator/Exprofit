@@ -17,7 +17,7 @@ def _serializer() -> URLSafeTimedSerializer:
     secret = get_settings().auth_secret_key
     if len(secret.encode("utf-8")) < 32 or "replace-with" in secret.lower():
         raise RuntimeError(
-            "AUTH_SECRET_KEY must be a unique random secret of at least 32 bytes; replace the example value"
+            "AUTH_SECRET_KEY must be unique, random, and at least 32 bytes; replace the example value"
         )
     return URLSafeTimedSerializer(secret, salt="exprofit-session-v1")
 
