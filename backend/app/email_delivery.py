@@ -41,3 +41,39 @@ def send_verification_email(
             server.send_message(message)
     except (OSError, smtplib.SMTPException) as exc:
         raise EmailDeliveryError("Verification email could not be sent") from exc
+
+
+def send_invitation_email(
+    recipient: str,
+    invitation_url: str,
+    workspace_name: str,
+    settings: Settings,
+) -> None:
+    """Send a recipient-bound invitation without exposing the token in API output."""
+    if not settings.email_delivery_configured:
+        raise EmailDeliveryError("Email delivery is not configured")
+
+    message = EmailMessage()
+    message["Subject"] = f"Invitation to join {workspace_name} on Exprofit"
+    message["From"] = settings.smtp_from_email
+    message["To"] = recipient
+    message.set_content(
+        f"You have been invited to join the {workspace_name} workspace on Exprofit.\n\n"
+        f"Review and accept the invitation here: {invitation_url}\n\n"
+        f"This invitation expires in {settings.email_verification_ttl_minutes} minutes. "
+        "You must sign in with the exact email address that received this invitation, "
+        "and that email address must be verified. If you were not expecting this invite, "
+        "you can ignore this message."
+    )
+
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+            server.ehlo()
+            if settings.smtp_starttls:
+                server.starttls()
+                server.ehlo()
+            if settings.smtp_username:
+                server.login(settings.smtp_username, settings.smtp_password)
+            server.send_message(message)
+    except (OSError, smtplib.SMTPException) as exc:
+        raise EmailDeliveryError("Invitation email could not be sent") from exc
