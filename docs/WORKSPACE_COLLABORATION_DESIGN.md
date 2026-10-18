@@ -83,3 +83,17 @@ API endpoints:
 - `GET /auth/me` — includes the `email_verified` state.
 
 This does not yet add email verification UI, resend throttling, account recovery, or invitation acceptance. Collaboration invitations must remain disabled until verified-email identity is enforced in the invitation acceptance path and delivery is configured in the deployment.
+
+
+## Invitation API implementation slice
+
+The feature branch now includes:
+- `POST /businesses/{business_id}/invitations` to create and email a recipient-bound invite.
+- `POST /invitations/accept` to accept it while authenticated.
+- `POST /businesses/{business_id}/invitations/{invitation_id}/revoke` to revoke a pending invite.
+
+Only Owner/Admin actors with `staff_administration:write` may create or revoke invitations. Only the Owner may invite an Admin. Admins can invite Workers only with permissions they themselves hold, and cannot delegate Staff Administration. Workers cannot hold Staff Administration access. The request schema rejects unknown permission keys.
+
+Invitations store only a SHA-256 token digest, expire after 30 minutes by default, invalidate earlier pending invitations for the same workspace/email, and are single-use and revocable. Acceptance requires an active authenticated account, verified email, an exact normalized email match, a valid unexpired non-revoked invitation, and a business workspace. Acceptance creates or reactivates the recipient's membership without moving Solo records. The raw token is sent by email and is not included in the API response.
+
+Still outstanding: invitation and verification frontend screens, abuse/rate limiting, durable audit events, notification UX, and broader end-to-end tests. SMTP must be configured. Do not expose these endpoints as production-ready until those remaining security and UX controls are reviewed.
