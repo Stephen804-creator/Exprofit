@@ -91,3 +91,10 @@ Unit tests cover arithmetic, currency grouping, refunds, zero revenue, missing c
 ## 9. Deployment
 
 The initial local development path should be reproducible from documented prerequisites and example environment files. Production deployment must use TLS, managed/private database access, private durable receipt storage, backups, and secret configuration outside source control. Deployment targets will be selected after a verified local baseline exists.
+
+
+## Current implemented slice — Build 4
+
+The FastAPI app registers `/auth/register`, `/auth/login`, `/auth/me`, `/auth/logout`, `/businesses`, and `/businesses/{business_id}/transactions` routes. User passwords are hashed with Argon2. Access tokens are signed with `AUTH_SECRET_KEY`, expire after 30 minutes, and identify a persisted `AuthSession` row; logout revokes that row. Every business/transaction route checks the current user’s `BusinessMembership` on the server. Registration creates the first NGN workspace using the `Africa/Lagos` timezone. Transaction listing applies status/date filters and pagination in the database query.
+
+This is implemented code, not yet a verified release: CI and PostgreSQL migration success must be observed before acceptance. Distributed login rate limiting, broader audit-event recording, account recovery, and production deployment controls remain out of scope for this build and must be addressed before a public production launch.
