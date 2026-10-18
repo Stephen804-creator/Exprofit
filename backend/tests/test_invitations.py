@@ -108,7 +108,7 @@ def test_invitation_is_recipient_bound_verified_single_use_and_hashed(
         f"/businesses/{business_id}/invitations",
         headers=bearer(owner["access_token"]),
         json={
-            "recipient_email": "Recipient@Example.test",
+            "recipient_email": "Recipient@Example.com",
             "role": "worker",
             "permissions": {"sales:read": True, "sales:write": True},
         },
@@ -119,7 +119,7 @@ def test_invitation_is_recipient_bound_verified_single_use_and_hashed(
 
     raw_token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
     with client.app.state.test_session() as db:
-        record = db.get(WorkspaceInvitation, created.json()["id"])
+        record = db.get(WorkspaceInvitation, UUID(created.json()["id"]))
         assert record is not None
         assert record.token_hash != raw_token
         assert len(record.token_hash) == 64
@@ -155,7 +155,7 @@ def test_invitation_is_recipient_bound_verified_single_use_and_hashed(
     with client.app.state.test_session() as db:
         membership = db.scalar(
             select(BusinessMembership).where(
-                BusinessMembership.business_id == accepted.json()["business_id"],
+                BusinessMembership.business_id == UUID(accepted.json()["business_id"]),
                 BusinessMembership.user_id == db.scalar(
                     select(User.id).where(User.email == "recipient@example.com")
                 ),
