@@ -167,3 +167,14 @@ def test_transaction_routes_require_auth_and_support_lifecycle(
     )
     assert voided.status_code == 200
     assert voided.json()["status"] == "void"
+
+
+def test_invalid_and_expired_access_tokens_are_rejected(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert client.get("/auth/me", headers=bearer("not-a-valid-token")).status_code == 401
+    result = register(client, "expiry@example.com")
+    monkeypatch.setattr("app.access_tokens.TOKEN_TTL_SECONDS", -1)
+    response = client.get("/auth/me", headers=bearer(result["access_token"]))
+    assert response.status_code == 401
