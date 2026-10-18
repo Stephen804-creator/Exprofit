@@ -115,7 +115,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Build 2 — database foundation
 
-The database layer now includes SQLAlchemy engine/session plumbing, a shared ORM base, a Business model, and an initial Alembic migration for the businesses table. The default currency is NGN and the default timezone is Africa/Lagos. Configure PostgreSQL using DATABASE_URL, then from the backend directory run `alembic upgrade head`. This migration has been committed but has not yet been verified against a live PostgreSQL database. CI status is also still unconfirmed.
+The database layer includes SQLAlchemy engine/session plumbing, a shared ORM base, a Business model, and Alembic migrations. The default currency is NGN and timezone is Africa/Lagos. Configure PostgreSQL using `DATABASE_URL`, then from the backend directory run `alembic upgrade head`. The complete migration chain was subsequently verified against PostgreSQL 16 in CI run #97.
 
 
 ## Build 3 — transaction integrity
