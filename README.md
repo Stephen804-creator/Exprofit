@@ -48,6 +48,61 @@ See:
 - [Implementation status](docs/IMPLEMENTATION_STATUS.md)
 - [Acceptance plan](docs/ACCEPTANCE_PLAN.md)
 
+
+## Build 1 — application foundation
+
+The initial application shell and verification workflow are now committed. This is a starting point, not a production-ready financial application.
+
+### Requirements
+
+- Python 3.11+
+- Node.js 20+
+- npm
+
+### Start the API
+
+```bash
+cd backend
+python -m venv .venv
+# Windows PowerShell: .venv\\Scripts\\Activate.ps1
+# macOS/Linux: source .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m uvicorn app.main:app --reload
+```
+
+The API is available at `http://127.0.0.1:8000`; check `/health` and open `/docs` for the API schema. The health endpoint is a liveness check and does not require a database.
+
+### Start the frontend
+
+In a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the Vite URL shown in the terminal. The frontend checks the API at `http://127.0.0.1:8000` by default. To change it, copy `frontend/.env.example` to `frontend/.env.local` and set `VITE_API_BASE_URL`. Only public browser configuration belongs in variables prefixed with `VITE_`; never put credentials there.
+
+### Checks
+
+```bash
+cd backend
+python -m ruff check .
+python -m pytest
+```
+
+In another terminal:
+
+```bash
+cd frontend
+npm run typecheck
+npm run build
+```
+
+GitHub Actions runs the backend lint/tests and frontend type/build checks on pushes and pull requests to `main`. These checks have been configured but have not yet been observed passing in GitHub Actions. The npm lockfile is not yet committed; dependency versions are pinned in `frontend/package.json`, and lockfile-based installs are a follow-up reproducibility task.
+
+
 ## Development status and contributions
 
 The project is under active development. Until a runnable baseline and automated checks are committed, treat this repository as an early project foundation rather than a production-ready finance application.
