@@ -109,3 +109,13 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] An invitation cannot be accepted by an account with a different verified email.
 - [ ] Workspace switching never exposes another workspace's transactions, receipts, summaries, or AI retrieval.
 - [ ] Membership changes create audit records and appropriate notifications.
+
+
+## Email verification
+- [ ] Verification challenges store only a token digest, never the raw token.
+- [ ] Verification links expire and are single-use.
+- [ ] A new challenge invalidates earlier unconsumed challenges.
+- [ ] Missing SMTP configuration fails clearly without exposing tokens.
+- [ ] Invalid, expired, and reused tokens are rejected.
+- [ ] Email verification UI, delivery retry behavior, and resend abuse controls are completed before production.
+- [ ] Invitation acceptance requires the authenticated account's verified email to match the invite recipient.
