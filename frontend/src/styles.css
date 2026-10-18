@@ -192,3 +192,12 @@ h2 { font-family: Manrope, sans-serif; font-size: clamp(24px, 3.5vw, 36px); lett
   .audit-row { flex-direction: column; gap: 5px; }
   .collaboration-form, .member-action-settings, .audit-panel { padding: 17px; }
 }
+
+
+.leave-workspace-card { margin-top: 18px; border: 1px solid #e6d6c7; border-radius: 10px; background: #fffaf6; padding: 21px; max-width: 720px; }
+.leave-workspace-card h3 { font-family: Manrope, sans-serif; font-size: 20px; margin: 0 0 9px; }
+.leave-form { display: grid; gap: 9px; margin-top: 16px; max-width: 460px; }
+.leave-form label { color: #34473a; font-size: 11px; font-weight: 700; margin-top: 4px; }
+.leave-form label span { color: #829087; font-weight: 400; }
+.leave-form input, .leave-form textarea { width: 100%; border: 1px solid #decfc3; border-radius: 7px; padding: 10px 11px; background: #fff; color: #182d24; font: inherit; font-size: 12px; resize: vertical; }
+.leave-form input:focus, .leave-form textarea:focus { outline: 3px solid #f6dfca; border-color: #9b6a4a; }
