@@ -67,3 +67,8 @@ Verification result: GitHub Actions run #107 passed on commit 25342ccb6bbf491ded
 ### Permission policy slice — implementation added, CI pending
 
 Added a centralized permission policy and applied it to transaction creation, listing, reading, editing, and voiding. Owners have workspace financial access by role; Admins and Workers require explicit domain/action grants. Transaction lists filter out domains the member cannot read. New API coverage verifies a worker with Sales-only access cannot read or mutate expense records. The implementation uses keys such as `sales:read` and `sales:write`; email verification, invitations, member administration, audit events, and workspace UI remain unfinished. Do not mark this slice verified until CI passes on the current branch head.
+
+
+### Verified email infrastructure — implementation added, CI pending
+
+Added a user email-verification flag, token model and migration, SMTP configuration/delivery adapter, authenticated request endpoint, and one-time token verification endpoint. Only a SHA-256 digest is stored; tokens expire after 30 minutes by default, older unconsumed tokens are invalidated on a new request, and a consumed token cannot be reused. Tests cover missing delivery configuration, successful verification, hashed storage, and replay rejection. Configure SMTP before using the email flow. The frontend verification page, resend throttling, password recovery, and invitation acceptance are not implemented. Do not mark this slice verified until CI passes on the latest branch head.
