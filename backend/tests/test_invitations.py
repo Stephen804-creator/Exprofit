@@ -98,6 +98,7 @@ def submit_application(client: TestClient, token: str, invite_token: str) -> dic
             "phone": "+2348000000000",
             "identifying_details": "We met at the shop on Monday and discussed the cashier role.",
             "photo_data_url": photo_data_url(),
+            "consent": True,
         },
     )
     assert response.status_code == 201, response.text
@@ -168,6 +169,7 @@ def test_owner_reviews_application_before_membership_is_granted(client: TestClie
             "full_name": "Test Applicant",
             "identifying_details": "Repeated application attempt",
             "photo_data_url": photo_data_url(),
+            "consent": True,
         },
     )
     assert replay.status_code == 400
@@ -198,6 +200,7 @@ def test_invitation_link_can_be_revoked_without_email_setup(client: TestClient) 
             "full_name": "Applicant",
             "identifying_details": "We agreed to meet at the shop",
             "photo_data_url": photo_data_url(),
+            "consent": True,
         },
     )
     assert rejected.status_code == 400
@@ -225,6 +228,7 @@ def test_expired_invitation_is_unusable(client: TestClient) -> None:
             "full_name": "Applicant",
             "identifying_details": "We agreed to meet at the shop",
             "photo_data_url": photo_data_url(),
+            "consent": True,
         },
     )
     assert response.status_code == 400

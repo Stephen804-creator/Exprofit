@@ -214,3 +214,6 @@ h2 { font-family: Manrope, sans-serif; font-size: clamp(24px, 3.5vw, 36px); lett
 .application-review-panel .section-heading { margin-bottom: 16px; }
 .application-review-panel h3 { font-family: Manrope, sans-serif; font-size: 20px; margin: 0; }
 .application-face-photo { display: block; width: min(100%, 280px); max-height: 340px; object-fit: contain; margin-top: 14px; border: 1px solid var(--line); border-radius: 9px; background: #f6f7f3; }
+
+.consent-option { display: flex; align-items: start; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #f8faf5; color: #405144; font-size: 11px; line-height: 1.6; cursor: pointer; }
+.consent-option input { margin-top: 3px; flex-shrink: 0; }

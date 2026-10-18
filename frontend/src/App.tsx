@@ -124,6 +124,7 @@ export default function App() {
   const [applicationPhone, setApplicationPhone] = useState("");
   const [applicationDetails, setApplicationDetails] = useState("");
   const [applicationPhoto, setApplicationPhoto] = useState("");
+  const [applicationConsent, setApplicationConsent] = useState(false);
   const [invitePermissions, setInvitePermissions] = useState<Record<string, boolean>>({ "sales:read": true });
   const [memberReason, setMemberReason] = useState("");
   const [suspensionHours, setSuspensionHours] = useState("24");
@@ -256,12 +257,14 @@ export default function App() {
             phone: applicationPhone || null,
             identifying_details: applicationDetails,
             photo_data_url: applicationPhoto,
+            consent: applicationConsent,
           }),
         },
         accessToken,
       );
       setPendingToken("");
       setApplicationPhoto("");
+      setApplicationConsent(false);
       setNotice("Application submitted. Workspace access will be granted only if the owner approves it.");
     } catch (error) {
       setNotice(messageFromError(error));
@@ -626,7 +629,11 @@ export default function App() {
                   reader.readAsDataURL(file);
                 }} required />
                 {applicationPhoto && <p className="form-hint">Photo ready to submit. The owner can view it privately while the application is pending.</p>}
-                <button className="button button--primary form-submit" type="submit" disabled={busy || !pendingToken || !applicationPhoto}>{busy ? "Submitting…" : "Submit for owner review"}</button>
+                <label className="consent-option">
+                  <input type="checkbox" checked={applicationConsent} onChange={(event) => setApplicationConsent(event.target.checked)} required />
+                  <span>I consent to the workspace owner reviewing my submitted details and face photo for this invitation. The photo is stored privately while the application is pending and deleted after a decision or expiry cleanup.</span>
+                </label>
+                <button className="button button--primary form-submit" type="submit" disabled={busy || !pendingToken || !applicationPhoto || !applicationConsent}>{busy ? "Submitting…" : "Submit for owner review"}</button>
               </form>
             </>
           )}
