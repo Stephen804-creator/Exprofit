@@ -154,3 +154,6 @@ The collaboration API now includes protected member listing, role/permission upd
 ## Voluntary workspace departure
 
 Members can request immediate departure or schedule it with a notice period. The API requires the exact phrase `I want to leave`, password confirmation, and a reason. Owners are blocked from leaving until ownership transfer is supported. The UI for this workflow and password re-authentication abuse controls remain future work.
+
+
+The collaboration interface now includes initial member administration, invitation controls, audit history, and self-service leave for non-owner members. These workflows have automated typecheck/build coverage; manual browser testing and production hardening are still required.
