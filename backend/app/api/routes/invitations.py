@@ -38,11 +38,6 @@ router = APIRouter(tags=["workspace invitations"])
 MAX_PHOTO_BYTES = 2 * 1024 * 1024
 
 
-def _require_owner(actor: BusinessMembership) -> None:
-    if actor.role != "owner":
-        raise HTTPException(status_code=403, detail="Only the workspace owner can review invitations")
-
-
 def _utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
