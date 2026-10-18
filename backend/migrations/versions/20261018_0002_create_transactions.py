@@ -1,6 +1,6 @@
 """Create the transactions table for business-scoped ledger entries."""
 
-from typing import Sequence
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
