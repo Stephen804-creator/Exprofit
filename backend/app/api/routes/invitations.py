@@ -137,6 +137,7 @@ def create_invitation(
         created_by_user_id=user.id,
     )
     db.add(invitation)
+    db.flush()
     record_audit_event(
         db,
         business_id=business_id,
