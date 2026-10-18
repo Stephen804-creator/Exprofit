@@ -10,11 +10,13 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] CI runs backend tests/lint and frontend type/build checks.
 
 ## Unit 2 — Database
-- [ ] Migrations create the schema from an empty test database.
-- [ ] A second migration run is safe.
+- [ ] SQLAlchemy engine and request-scoped session dependency use configured database settings.
+- [ ] Migrations create the schema from an empty PostgreSQL test database.
+- [ ] A second migration run leaves the database at the current revision without errors.
+- [ ] The initial Business model persists UUID, name, currency code, timezone, and timestamps.
 - [ ] Database credentials are not committed.
-- [ ] Monetary and quantity fields use suitable decimal precision.
-- [ ] Business-scoped relationships cannot accidentally reference another business's records.
+- [ ] Monetary and quantity fields use suitable decimal precision when transaction models are added.
+- [ ] Business-scoped relationships cannot accidentally reference another business's records when ownership and transaction models are added.
 
 ## Unit 3 — Transactions
 - [ ] Valid income and expense records can be created, read, updated, and corrected according to policy.
