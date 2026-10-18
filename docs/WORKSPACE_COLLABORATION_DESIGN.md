@@ -23,16 +23,16 @@ Exprofit uses one account per person and multiple isolated workspaces. A user ca
 
 ## Invitations
 
-Invitations are restricted, recipient-bound invitations to one business—not public join links. The initial policy is a 30-minute expiry. Each invitation must:
-- identify one business and one intended email address;
-- carry a role and an explicit permission set;
-- store only a hash of its high-entropy token;
-- be single-use, expiring, and revocable;
-- require the invitee to authenticate and verify the invited email before acceptance;
-- avoid revealing private business data before membership is created;
-- record creation, acceptance, expiry/revocation, and membership changes for accountability.
+The current invitation slice is a simple, owner-controlled application flow with no required email delivery or paid identity service.
 
-Possession of a forwarded link alone must never grant access. Verification questions are not a substitute for email/account verification.
+1. An authorized Owner/Admin creates a unique shareable link, chooses the role and permissions, and selects an expiry from 1 to 720 hours.
+2. The owner copies and sends the link through any channel. Exprofit does not send email for this workflow.
+3. The recipient signs in or creates an account, submits their name, optional phone, identifying details, and a JPEG face photo.
+4. The application remains pending. Link possession and application submission do not grant workspace access.
+5. An authorized owner/admin reviews the submitted details and photo, then approves or rejects. Approval creates membership with only the role and permissions attached to the invitation.
+6. Links are hashed at rest, single-use after approval, expiring, and revocable. Rejection/revocation disables the link and deletes the pending photo.
+
+The photo is stored as a private binary value in the application database for this first version; only authorized workspace administrators can retrieve a pending photo. The photo is deleted after a decision. This is owner-assisted visual review, not biometric authentication or proof of liveness. No email verification is required to apply or be approved.
 
 ## Membership lifecycle
 
@@ -73,30 +73,25 @@ Business records, receipts, summaries, AI retrieval, and messages are scoped to 
 - Do not claim invitation or collaboration features are complete until automated tests and CI verify them.
 
 
-## Verified email foundation
+## Account email verification
 
-The current feature branch adds an email-verification state to accounts and a persisted challenge table. Challenges use a cryptographically random token, store only its SHA-256 digest, expire according to `EMAIL_VERIFICATION_TTL_MINUTES` (30 minutes by default), and are consumed once. Requesting a new challenge invalidates older unconsumed challenges for that account. SMTP delivery is configured through environment variables; the raw token is sent only in the verification email and is not returned by the API.
+Legacy account email-verification endpoints remain separate from workspace invitations. They are not required to create, apply for, or approve a workspace invitation. The invitation workflow does not depend on SMTP, email verification, or a paid external service.
 
-API endpoints:
-- `POST /auth/request-email-verification` — authenticated; sends a verification email when SMTP is configured.
-- `POST /auth/verify-email` — consumes a supplied token and marks the account email as verified.
-- `GET /auth/me` — includes the `email_verified` state.
-
-This does not yet add email verification UI, resend throttling, account recovery, or invitation acceptance. Collaboration invitations must remain disabled until verified-email identity is enforced in the invitation acceptance path and delivery is configured in the deployment.
 
 
 ## Invitation API implementation slice
 
-The feature branch now includes:
-- `POST /businesses/{business_id}/invitations` to create and email a recipient-bound invite.
-- `POST /invitations/accept` to accept it while authenticated.
-- `POST /businesses/{business_id}/invitations/{invitation_id}/revoke` to revoke a pending invite.
+The invitation endpoints now generate shareable links, accept applications, expose private pending photos to authorized reviewers, and support approval/rejection/revocation:
+- `POST /businesses/{business_id}/invitations` — create a link and choose expiry.
+- `POST /invitations/apply` — authenticated applicant submits details and a JPEG photo.
+- `GET /businesses/{business_id}/invitation-applications` — authorized administrators list pending applications.
+- `GET /businesses/{business_id}/invitation-applications/{application_id}/photo` — authorized administrators view a pending photo.
+- `POST /businesses/{business_id}/invitation-applications/{application_id}/approve` — approve and create membership.
+- `POST /businesses/{business_id}/invitation-applications/{application_id}/reject` — reject and revoke the invitation.
+- `POST /businesses/{business_id}/invitations/{invitation_id}/revoke` — revoke a pending link.
 
-Only Owner/Admin actors with `staff_administration:write` may create or revoke invitations. Only the Owner may invite an Admin. Admins can invite Workers only with permissions they themselves hold, and cannot delegate Staff Administration. Workers cannot hold Staff Administration access. The request schema rejects unknown permission keys.
+The raw invitation token is returned only with the creation response; only its SHA-256 digest is stored. The owner chooses an expiry between 1 and 720 hours. The database stores a pending JPEG up to 2 MB; the photo endpoint is private and sends no-store headers. The photo is deleted after approval, rejection, or revocation. Application submission does not grant access, and the link becomes used only when approved. Automated CI and manual browser checks still need confirmation on the latest branch head.
 
-Invitations store only a SHA-256 token digest, expire after 30 minutes by default, invalidate earlier pending invitations for the same workspace/email, and are single-use and revocable. Acceptance requires an active authenticated account, verified email, an exact normalized email match, a valid unexpired non-revoked invitation, and a business workspace. Acceptance creates or reactivates the recipient's membership without moving Solo records. The raw token is sent by email and is not included in the API response.
-
-Still outstanding: invitation and verification frontend screens, abuse/rate limiting, durable audit events, notification UX, and broader end-to-end tests. SMTP must be configured. Do not expose these endpoints as production-ready until those remaining security and UX controls are reviewed.
 
 
 ## Member administration and audit implementation slice
@@ -126,3 +121,6 @@ Password re-authentication is implemented, but abuse throttling and a frontend l
 The React interface now provides a business-workspace collaboration panel for authorized administrators: member list, invitation creation, role/permission editing, suspension, revocation, reinstatement, and recent audit events. A signed-in member can view their own membership without gaining access to the full directory and can request voluntary departure with exact-phrase confirmation, password re-authentication, reason, and optional notice period. Owners see the ownership-transfer restriction.
 
 The UI hides management controls unless the current membership grants both Staff Administration read and write (Owners are authorized by role). API permissions remain authoritative. These screens have typecheck/build coverage but still require manual browser/end-to-end verification and accessibility review.
+
+
+See [the roadmap](ROADMAP.md) for departments, messaging, notifications, advanced identity checks, private object-storage migration, receipt scanning, financial summaries, MarginGuard, and other deferred work.

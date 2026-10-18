@@ -105,3 +105,10 @@ GitHub Actions run #39137882951 passed on commit `0fbf0b0dacf723779eb20e829ee890
 The React business workspace panel now shows members and recent audit events to authorized users, creates invitations, edits role/permission grants, and supports suspend/revoke/reinstate actions. It includes a self-service leave form with exact phrase, password re-authentication, reason, and optional notice period. The frontend calls a dedicated own-membership endpoint so a Worker can view their own status without access to the member directory.
 
 GitHub Actions run #39138684168 passed on commit `2884462c60bd233878f4e446dc9db2e3b1bdd764`: Ruff, 35 backend tests, PostgreSQL migrations, frontend typecheck, and production build passed. This is build/test verification, not manual browser or production verification. Rate limiting, notifications, ownership transfer, full transaction/receipt dashboard, audit retention/export controls, and production session hardening remain incomplete.
+
+
+### Shareable invitation and owner-review flow — implementation added; verification pending
+
+The invitation flow has been revised to remove mandatory SMTP delivery and verified-email matching. An authorized owner/admin creates a shareable link and chooses its expiry (1–720 hours). The applicant must authenticate, submit their name, identifying details, optional phone, and a JPEG photo (maximum 2 MB). The application stays pending until an authorized reviewer approves or rejects it. Approval creates the assigned membership; rejection, revocation, expiry, or link possession alone never grants access. Raw link tokens are returned only at creation; the database stores a SHA-256 digest. Pending photos are stored privately in PostgreSQL and deleted after approval, rejection, or revocation. This is manual owner-assisted visual review, not biometric authentication. Current-head CI and manual browser checks are still pending.
+
+See [ROADMAP.md](ROADMAP.md) for deferred departments, messaging, notifications, advanced identity verification, private object storage, receipts, financial summaries, profitability, MarginGuard, simulation, and optional AI.

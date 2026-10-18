@@ -138,7 +138,7 @@ The collaboration branch adds account email verification endpoints. To use them,
 
 ## Workspace invitations
 
-The collaboration branch adds recipient-bound workspace invitations. Owners/Admins with the required Staff Administration permission can create invitations; the Owner alone can invite Admins. The API stores token hashes, uses a 30-minute default expiry, and requires the authenticated account's verified email to match the invited address. Endpoints are listed in `backend/README.md`. The invitation and verification frontend screens, rate limiting, audit events, and notification UX remain unfinished. CI run #39136370512 passed for the invitation API slice.
+The invitation flow does not require SMTP or email verification. An authorized owner/admin creates a unique link, chooses its expiry period (1–720 hours), and copies the link to share through any channel. The applicant signs in, submits identifying details and a JPEG face photo, and waits for owner review. Only approval grants the assigned workspace role and permissions. Tokens are hashed at rest, and pending photos are private and deleted after approval, rejection, or revocation. The photo supports manual recognition only; it is not biometric authentication. See [the collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md) and [roadmap](docs/ROADMAP.md).
 
 
 ## Frontend account workflow
@@ -157,3 +157,8 @@ Members can request immediate departure or schedule it with a notice period. The
 
 
 The collaboration interface now includes initial member administration, invitation controls, audit history, and self-service leave for non-owner members. These workflows have automated typecheck/build coverage; manual browser testing and production hardening are still required.
+
+
+## Roadmap
+
+The [project roadmap](docs/ROADMAP.md) records the features intentionally deferred until after the current core release, including departments, messaging, notifications, advanced identity checks, receipts, financial summaries, MarginGuard, and optional AI.

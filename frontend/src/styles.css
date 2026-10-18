@@ -201,3 +201,16 @@ h2 { font-family: Manrope, sans-serif; font-size: clamp(24px, 3.5vw, 36px); lett
 .leave-form label span { color: #829087; font-weight: 400; }
 .leave-form input, .leave-form textarea { width: 100%; border: 1px solid #decfc3; border-radius: 7px; padding: 10px 11px; background: #fff; color: #182d24; font: inherit; font-size: 12px; resize: vertical; }
 .leave-form input:focus, .leave-form textarea:focus { outline: 3px solid #f6dfca; border-color: #9b6a4a; }
+
+
+/* Owner-reviewed invitation applications */
+.invitation-application-card { max-width: 620px; }
+.invitation-application-form { margin-top: 20px; }
+.invitation-application-form textarea { width: 100%; border: 1px solid #d4ddd3; border-radius: 7px; padding: 10px 11px; background: #fff; color: #182d24; font: inherit; font-size: 12px; resize: vertical; }
+.invitation-application-form input[type="file"] { width: 100%; min-height: 42px; font-size: 12px; }
+.generated-invitation { display: grid; gap: 8px; margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.generated-invitation input { overflow-wrap: anywhere; }
+.application-review-panel { margin-top: 24px; padding-top: 26px; border-top: 1px solid var(--line); }
+.application-review-panel .section-heading { margin-bottom: 16px; }
+.application-review-panel h3 { font-family: Manrope, sans-serif; font-size: 20px; margin: 0; }
+.application-face-photo { display: block; width: min(100%, 280px); max-height: 340px; object-fit: contain; margin-top: 14px; border: 1px solid var(--line); border-radius: 9px; background: #f6f7f3; }
