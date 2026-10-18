@@ -138,12 +138,12 @@ The collaboration branch adds account email verification endpoints. To use them,
 
 ## Workspace invitations
 
-The invitation flow does not require SMTP or email verification. An authorized owner/admin creates a unique link, chooses its expiry period (1–720 hours), and copies the link to share through any channel. The applicant signs in, submits identifying details and a JPEG face photo, and waits for owner review. Only approval grants the assigned workspace role and permissions. Tokens are hashed at rest, and pending photos are private and deleted after approval, rejection, or revocation. The photo supports manual recognition only; it is not biometric authentication. See [the collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md) and [roadmap](docs/ROADMAP.md).
+The invitation flow does not require SMTP or email verification. The workspace Owner creates a unique link, chooses its expiry period (1–720 hours), and copies the link to share through any channel. The applicant signs in, submits identifying details and a JPEG face photo, and waits for owner review. Only the workspace Owner can approve or reject, and approval grants the assigned workspace role and permissions. Tokens are hashed at rest, and pending photos are private and deleted after approval, rejection, or revocation. The photo supports manual recognition only; it is not biometric authentication. See [the collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md) and [roadmap](docs/ROADMAP.md).
 
 
 ## Frontend account workflow
 
-The current collaboration branch adds registration/sign-in, a workspace selector, business workspace creation, email-verification link handling, and invitation acceptance UI. API access still uses a short-lived bearer token held in tab-scoped sessionStorage. This is an early workflow UI, not yet the full transaction and receipt dashboard; review the implementation status before deploying.
+The current collaboration branch adds registration/sign-in, a workspace selector, business workspace creation, shareable invitation link creation/copying, applicant details/photo submission with explicit consent, and owner review/approval/rejection. Invitations do not require SMTP or email verification. API access still uses a short-lived bearer token held in tab-scoped sessionStorage. This is an early workflow UI, not yet the full transaction and receipt dashboard; review the implementation status before deploying.
 
 
 ## Member administration and audit trail
