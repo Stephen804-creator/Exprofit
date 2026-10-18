@@ -1,7 +1,9 @@
 """Request and response schemas for account access."""
 
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -16,10 +18,11 @@ class RegisterRequest(BaseModel):
     @field_validator("business_name")
     @classmethod
     def normalize_business_name(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
+        cleaned = value.strip()
+        if not cleaned:
             raise ValueError("business_name cannot be blank")
-        return value
+        return cleaned
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -30,12 +33,16 @@ class LoginRequest(BaseModel):
     def normalize_email(cls, value: str) -> str:
         return value.strip().lower()
 
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int = 1800
 
+
 class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     email: EmailStr
     is_active: bool
