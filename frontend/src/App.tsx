@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 type ApiStatus = "checking" | "online" | "offline";
 type RouteMode = "app" | "verify-email" | "accept-invitation";
@@ -146,7 +146,7 @@ export default function App() {
     }
   }, []);
 
-  async function submitAuth(event: React.FormEvent<HTMLFormElement>): Promise<void> {
+  async function submitAuth(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setBusy(true);
     setAuthError("");
