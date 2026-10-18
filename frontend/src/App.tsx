@@ -163,6 +163,9 @@ export default function App() {
         setAccessToken(null);
         setUser(null);
         setWorkspaces([]);
+        setMembers([]);
+        setMyMembership(null);
+        setAuditEvents([]);
       });
     }
 
@@ -223,6 +226,10 @@ export default function App() {
       setAccessToken(null);
       setUser(null);
       setWorkspaces([]);
+      setMembers([]);
+      setMyMembership(null);
+      setAuditEvents([]);
+      setCollaborationError("");
       setSelectedWorkspaceId("");
       setNotice("You have signed out.");
       setBusy(false);
@@ -453,6 +460,8 @@ export default function App() {
         await hydrate(accessToken);
       } else {
         await refreshCollaboration();
+        const membership = await apiRequest<Member>(`/businesses/${selectedWorkspaceId}/membership`, {}, accessToken);
+        setMyMembership(membership);
       }
     } catch (error) {
       setCollaborationError(messageFromError(error));
@@ -801,6 +810,37 @@ export default function App() {
                     <p className="form-hint">Suspension and revocation take effect immediately. A timed suspension is reinstated automatically after its deadline. Revoked members need a new invitation to return.</p>
                   </div>
                 </div>
+              )}
+
+              {currentMembership?.role === "owner" && (
+                <div className="verification-notice">
+                  <div><strong>Owner departure is restricted</strong><p>Transfer workspace ownership first. Ownership transfer is not available in this release.</p></div>
+                </div>
+              )}
+              {currentMembership && currentMembership.role !== "owner" && (
+                <section className="leave-workspace-card">
+                  <p className="eyebrow">YOUR MEMBERSHIP</p>
+                  <h3>Leave this workspace</h3>
+                  {currentMembership.leave_effective_at ? (
+                    <p className="form-hint">Your departure is scheduled for {new Date(currentMembership.leave_effective_at).toLocaleString()}. An administrator can still revoke access immediately.</p>
+                  ) : (
+                    <>
+                      {currentMembership.status === "suspended" && <p className="form-hint">Your access is currently suspended, but you can still request to leave.</p>}
+                      <p className="form-hint">Confirm with your password. Leaving does not delete historical financial records.</p>
+                      <form className="leave-form" onSubmit={requestLeave}>
+                        <label htmlFor="leave-phrase">Type exactly: I want to leave</label>
+                        <input id="leave-phrase" value={leavePhrase} onChange={(event) => setLeavePhrase(event.target.value)} autoCapitalize="off" spellCheck={false} required />
+                        <label htmlFor="leave-password">Confirm your password</label>
+                        <input id="leave-password" type="password" autoComplete="current-password" value={leavePassword} onChange={(event) => setLeavePassword(event.target.value)} required />
+                        <label htmlFor="leave-reason">Reason for leaving</label>
+                        <textarea id="leave-reason" value={leaveReason} onChange={(event) => setLeaveReason(event.target.value)} maxLength={500} rows={3} required />
+                        <label htmlFor="leave-notice">Notice period in hours <span>(blank = leave immediately)</span></label>
+                        <input id="leave-notice" type="number" min="1" max="720" value={leaveNoticeHours} onChange={(event) => setLeaveNoticeHours(event.target.value)} />
+                        <button className="button button--danger form-submit" type="submit" disabled={busy}>{busy ? "Processing…" : "Confirm departure"}</button>
+                      </form>
+                    </>
+                  )}
+                </section>
               )}
 
               <section className="audit-panel">
