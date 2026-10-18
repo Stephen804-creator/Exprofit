@@ -744,7 +744,7 @@ export default function App() {
                 {auditEvents.length === 0 && !collaborationError && <p className="form-hint">No audit events to show.</p>}
                 {auditEvents.map((event) => (
                   <div className="audit-row" key={event.id}>
-                    <div><strong>{event.event_type.replaceAll(".", " ")}</strong><p>{event.reason || event.target_type}</p></div>
+                    <div><strong>{event.event_type.replace(/\./g, " ")}</strong><p>{event.reason || event.target_type}</p></div>
                     <time dateTime={event.created_at}>{new Date(event.created_at).toLocaleString()}</time>
                   </div>
                 ))}
