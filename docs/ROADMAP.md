@@ -15,7 +15,8 @@ This roadmap preserves deferred ideas and distinguishes plans from implemented, 
 - [x] Owner can view the pending photo and approve or reject; approval creates/activates membership.
 - [x] Tokens are random and stored as hashes; expired, revoked, or used invitations cannot be reused.
 - [x] Applicant photo is removed after approval, rejection, or revocation of a pending application.
-- [ ] Verify the newest invitation/consent changes against CI and manually test the complete flow before calling this slice release-ready.
+- [x] Verify the newest invitation/consent changes against GitHub Actions CI (Ruff, backend tests, PostgreSQL migrations, frontend typecheck, and production build).
+- [ ] Manually test the complete invitation flow on mobile before calling this slice release-ready.
 - [ ] Add focused security tests for invalid/replayed links, expiry, duplicate applications, owner-only review, and privilege escalation.
 - [ ] Add auth/sensitive-route rate limits, production security checks, and a frontend lockfile.
 - [ ] Build receipt capture and review with private file access and user confirmation before transaction creation.
