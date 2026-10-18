@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://exprofit:change-me@localhost:5432/exprofit"
     )
+    auth_secret_key: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
