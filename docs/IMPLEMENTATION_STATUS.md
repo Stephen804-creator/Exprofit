@@ -62,3 +62,8 @@ Added a workspace collaboration design, schema fields for Solo versus Business w
 Not yet complete: invitation generation/verification/acceptance/expiry/revocation; granular permission enforcement; workspace switching UI; member management; password-confirmed voluntary leave; reasoned suspension/revocation; timed suspension; notifications; and audit history. Do not describe these as available until implemented and tested.
 
 Verification result: GitHub Actions run #107 passed on commit 25342ccb6bbf491dedf79c9a66fb1841848dfdc7. Ruff passed, the PostgreSQL 16 migration chain applied, all 20 backend tests passed, and frontend typecheck/production build passed. One existing third-party Starlette/AnyIO deprecation warning remains. This verifies the branch checks, not the unfinished invitation or granular-permission features.
+
+
+### Permission policy slice — implementation added, CI pending
+
+Added a centralized permission policy and applied it to transaction creation, listing, reading, editing, and voiding. Owners have workspace financial access by role; Admins and Workers require explicit domain/action grants. Transaction lists filter out domains the member cannot read. New API coverage verifies a worker with Sales-only access cannot read or mutate expense records. The implementation uses keys such as `sales:read` and `sales:write`; email verification, invitations, member administration, audit events, and workspace UI remain unfinished. Do not mark this slice verified until CI passes on the current branch head.
