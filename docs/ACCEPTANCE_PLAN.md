@@ -123,13 +123,13 @@ Use this checklist to decide whether a feature is actually complete. Record test
 
 ## Workspace invitations — current acceptance gates
 
-- [x] Owner/Admin can create a shareable link with an owner-selected expiry between 1 and 720 hours.
+- [x] Only the workspace Owner can create/revoke a shareable link with an owner-selected expiry between 1 and 720 hours.
 - [x] Raw token is returned at creation only; only a SHA-256 digest is stored.
 - [x] Invitation creation does not send email and does not require verified email.
 - [x] Applicant must authenticate and submit a name, identifying details, optional phone, and JPEG face photo (up to 2 MB).
 - [x] Applicant must explicitly consent before submitting identity details and a photo; consent time is persisted.
 - [x] Application submission alone does not create membership or grant workspace access.
-- [x] Only authorized workspace administrators can list pending applications and retrieve their private photos.
+- [x] Only the workspace Owner can list pending applications and retrieve their private photos.
 - [x] Approval creates membership using the invitation's role and permission set.
 - [x] Rejection, revocation, expiry, and repeated submission/acceptance attempts cannot grant access.
 - [x] Pending photos are deleted after approval, rejection, revocation, or expiry cleanup.
@@ -173,7 +173,7 @@ The face photo is for manual owner-assisted recognition only; it is not biometri
 
 
 ## Collaboration UI
-- [ ] Manual browser test invitation creation, verified acceptance, revocation, expiry, and wrong-email rejection.
+- [ ] Manual browser test owner-only link creation, applicant details/photo/consent submission, approval/rejection, revocation, and expiry.
 - [ ] Manual browser test member role/permission edits and immediate suspend/revoke behavior.
 - [ ] Manual browser test scheduled leave and exact-phrase/password errors on mobile and desktop.
 - [ ] Worker sees their own membership and leave form but not the full member directory or audit log.
