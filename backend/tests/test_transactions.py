@@ -118,3 +118,25 @@ def test_amount_must_be_positive() -> None:
 def test_currency_is_normalized() -> None:
     payload = make_payload(uuid4(), currency_code="ngn")
     assert payload.currency_code == "NGN"
+
+
+
+def test_duplicate_idempotency_key_is_rejected(db_session: Session) -> None:
+    from app.services.transactions import DuplicateTransactionRequestError
+
+    business = make_business(db_session)
+    payload = make_payload(business.id, idempotency_key="request-001")
+    create_transaction(db_session, payload)
+
+    with pytest.raises(DuplicateTransactionRequestError):
+        create_transaction(db_session, payload)
+
+
+def test_blank_description_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        make_payload(uuid4(), description="   ")
+
+
+def test_invalid_currency_code_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        make_payload(uuid4(), currency_code="12$")
