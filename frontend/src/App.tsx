@@ -1,14 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 type ApiStatus = "checking" | "online" | "offline";
-type RouteMode = "app" | "verify-email" | "accept-invitation";
+type RouteMode = "app" | "accept-invitation";
 type AuthMode = "login" | "register";
 
 type User = {
   id: string;
   email: string;
   is_active: boolean;
-  email_verified: boolean;
 };
 
 type Member = {
@@ -58,7 +57,6 @@ type InvitationApplication = {
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 
 function routeFromPath(): RouteMode {
-  if (window.location.pathname === "/verify-email") return "verify-email";
   if (window.location.pathname === "/accept-invitation") return "accept-invitation";
   return "app";
 }
@@ -188,23 +186,6 @@ export default function App() {
       });
     }
 
-    if (routeMode === "verify-email") {
-      if (!pendingToken) {
-        setNotice("This verification link is missing its token. Request a new email from your account.");
-        return;
-      }
-      void apiRequest<{ message: string }>("/auth/verify-email", {
-        method: "POST",
-        body: JSON.stringify({ token: pendingToken }),
-      })
-        .then((result) => {
-          setNotice(result.message);
-          setPendingToken("");
-          const savedToken = sessionStorage.getItem("exprofit_access_token");
-          if (savedToken) void hydrate(savedToken).catch(() => undefined);
-        })
-        .catch((error: unknown) => setNotice(messageFromError(error)));
-    }
   }, []);
 
   async function submitAuth(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -251,24 +232,6 @@ export default function App() {
       setCollaborationError("");
       setSelectedWorkspaceId("");
       setNotice("You have signed out.");
-      setBusy(false);
-    }
-  }
-
-  async function requestVerification(): Promise<void> {
-    if (!accessToken) return;
-    setBusy(true);
-    setNotice("");
-    try {
-      const result = await apiRequest<{ message: string }>(
-        "/auth/request-email-verification",
-        { method: "POST" },
-        accessToken,
-      );
-      setNotice(result.message);
-    } catch (error) {
-      setNotice(messageFromError(error));
-    } finally {
       setBusy(false);
     }
   }
@@ -623,24 +586,6 @@ export default function App() {
     </form>
   );
 
-  if (routeMode === "verify-email") {
-    return (
-      <main className="page-shell account-page">
-        <header className="topbar">
-          <a className="brand" href="/" onClick={(event) => { event.preventDefault(); window.history.replaceState({}, "", "/"); setRouteMode("app"); }}>
-            <span className="brand-mark" aria-hidden="true">e</span><span>exprofit</span>
-          </a>
-        </header>
-        <section className="account-card">
-          <p className="eyebrow">ACCOUNT SECURITY</p>
-          <h1 className="account-title">Verify your email.</h1>
-          <p className="hero-copy">{notice || "Checking your verification link…"}</p>
-          <button className="button button--primary" onClick={() => { window.history.replaceState({}, "", "/"); setRouteMode("app"); }}>Return to Exprofit</button>
-        </section>
-      </main>
-    );
-  }
-
   if (routeMode === "accept-invitation") {
     return (
       <main className="page-shell account-page">
@@ -714,15 +659,8 @@ export default function App() {
               <h1 className="account-title">Your workspaces.</h1>
               <p className="hero-copy">Signed in as {user.email}. Each workspace keeps its own records and access rules.</p>
             </div>
-            <span className={user.email_verified ? "status-pill status-pill--good" : "status-pill"}>{user.email_verified ? "Email verified" : "Email not verified"}</span>
           </div>
 
-          {!user.email_verified && (
-            <div className="verification-notice">
-              <div><strong>Verify your email address</strong><p>Verified email is required before accepting business invitations.</p></div>
-              <button className="button button--secondary" type="button" onClick={() => void requestVerification()} disabled={busy}>Send verification email</button>
-            </div>
-          )}
           {notice && <p className="form-message" role="status">{notice}</p>}
 
           <section className="workspace-picker">
