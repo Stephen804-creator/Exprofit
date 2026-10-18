@@ -119,3 +119,10 @@ The new append-only audit table records workspace creation, invitation lifecycle
 `POST /businesses/{business_id}/leave` now requires the exact phrase `I want to leave`, password re-authentication, and a written reason. The user may leave immediately or set a notice period of 1–720 hours. Immediate departure revokes membership access immediately; scheduled departure remains recorded and is finalized at the deadline when a protected request or authorized member-list read reaches the API. Finalization is audited. Workspace Owners cannot leave through this route until ownership transfer is supported, preventing an accidental orphaned workspace. A new valid invitation can re-establish a previously revoked membership and clears any old leave schedule.
 
 Password re-authentication is implemented, but abuse throttling and a frontend leave screen remain outstanding.
+
+
+## Collaboration UI implementation slice
+
+The React interface now provides a business-workspace collaboration panel for authorized administrators: member list, invitation creation, role/permission editing, suspension, revocation, reinstatement, and recent audit events. A signed-in member can view their own membership without gaining access to the full directory and can request voluntary departure with exact-phrase confirmation, password re-authentication, reason, and optional notice period. Owners see the ownership-transfer restriction.
+
+The UI hides management controls unless the current membership grants both Staff Administration read and write (Owners are authorized by role). API permissions remain authoritative. These screens have typecheck/build coverage but still require manual browser/end-to-end verification and accessibility review.
