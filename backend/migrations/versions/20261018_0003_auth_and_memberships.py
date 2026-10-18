@@ -1,6 +1,6 @@
 """Add users and explicit business memberships."""
 
-from typing import Sequence
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
