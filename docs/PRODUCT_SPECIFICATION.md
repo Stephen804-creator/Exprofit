@@ -95,3 +95,18 @@ Payroll, tax filing, bank integrations, automatic payment execution, inventory f
 ## 5. Success criteria
 
 A new user can record a transaction, review a receipt extraction, understand a period summary, inspect a profitability result with traceable evidence, and run a what-if scenario. Tests demonstrate correct arithmetic for key edge cases, and documentation makes setup, limitations, and security assumptions explicit.
+
+
+## 3.9 Solo Mode and Business Workspaces
+
+Every account starts with a private Solo workspace. A user can record supported financial activity there without creating a company, adding departments, or inviting staff. The Solo workspace remains private when the user creates or joins other workspaces.
+
+A user can create multiple Business Workspaces and join other businesses through recipient-bound invitations. The application provides one account and a workspace switcher; it must never merge records between workspaces. Every financial record and AI retrieval request is scoped to the selected workspace and authorized membership.
+
+Business workspaces have a permanent internal identity and separately configurable display name, organization label (for example Departments, Teams, or Units), optional HTTPS logo URL, currency, and timezone. Defaults are NGN and Africa/Lagos. Financial categories are distinct from departments or teams.
+
+Membership roles are Owner, Admin, and Worker. Role and permission checks are enforced on the backend. Financial permissions are independent of department membership and communication access. Membership lifecycle states are Active, Suspended, and Revoked; suspended or revoked members lose protected access immediately.
+
+Invitations are recipient-bound, single-use, revocable, and expiring. The agreed initial expiry is 30 minutes. Invitees must authenticate and verify the intended email before accepting. Possession of a forwarded link alone never grants access. The full invitation lifecycle is not considered implemented until token hashing, verification, expiry, reuse/revocation checks, membership creation, and tests are complete.
+
+See [Workspace Collaboration Design](WORKSPACE_COLLABORATION_DESIGN.md) for security rules and delivery order.
