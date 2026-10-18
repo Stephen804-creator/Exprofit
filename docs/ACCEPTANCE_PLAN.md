@@ -19,11 +19,14 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Business-scoped relationships cannot accidentally reference another business's records when ownership and transaction models are added.
 
 ## Unit 3 — Transactions
-- [ ] Valid income and expense records can be created, read, updated, and corrected according to policy.
-- [ ] Invalid amounts, dates, types, and currencies are rejected.
-- [ ] Duplicate submissions do not silently create duplicate records.
-- [ ] Refunds, voids, and corrections follow documented rules.
-- [ ] Search and date/category filters return only authorized records.
+- [ ] Service-level create, list, read, update, and void operations are implemented for income and expense records.
+- [ ] Amounts use fixed-precision decimal storage and must be greater than zero.
+- [ ] Invalid direction, currency codes, blank descriptions, and amounts are rejected by validation/database constraints.
+- [ ] Business currency is enforced for transaction creation; currency conversion is not yet supported.
+- [ ] Optional idempotency keys are unique within a business.
+- [ ] Voiding preserves the entry instead of deleting its history; void entries cannot be edited.
+- [ ] HTTP endpoints remain unavailable until authentication and authorization are implemented.
+- [ ] Refund policy, audit history, and additional correction rules still need implementation.
 
 ## Unit 4 — Authentication and authorization
 - [ ] Passwords are securely hashed.
