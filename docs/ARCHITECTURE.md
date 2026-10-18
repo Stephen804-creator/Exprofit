@@ -115,3 +115,8 @@ This is an initial foundation, not complete team collaboration. Recipient-bound 
 ### Permission policy update
 
 The transaction API now uses a centralized server-side permission policy. Permission grants use boolean keys such as `sales:read`, `sales:write`, `expenses:read`, and `expenses:write`. Owners receive workspace financial access by role; Admins and Workers must have explicit grants. Transaction lists are filtered to permitted directions, and individual reads/writes are checked against the transaction's domain. The current transaction model maps income to Sales and expense to Expenses; this does not yet implement Purchases or Inventory workflows. Automated CI verification for this update is pending.
+
+
+### Verified-email identity foundation
+
+The collaboration branch now adds `users.email_verified` and a one-time `email_verification_tokens` table. The verification challenge stores a SHA-256 token digest, expires after a configurable 30-minute default, and is consumed once. SMTP delivery is an adapter configured with environment variables. The authenticated request endpoint does not return the raw token; the token is sent in the email only. Verification is exposed through `POST /auth/verify-email`, and `GET /auth/me` reports the verified state. Email verification is not yet a prerequisite for login, and no invitation acceptance endpoint exists yet. Resend throttling and a frontend verification page remain follow-up work.
