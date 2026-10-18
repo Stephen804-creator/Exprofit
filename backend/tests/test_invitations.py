@@ -272,7 +272,7 @@ def test_expired_invitation_cannot_be_accepted(
     token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
 
     with client.app.state.test_session() as db:
-        invitation = db.get(WorkspaceInvitation, created.json()["id"])
+        invitation = db.get(WorkspaceInvitation, UUID(created.json()["id"]))
         assert invitation is not None
         invitation.expires_at = datetime.now(UTC) - timedelta(minutes=1)
         db.commit()
