@@ -66,3 +66,9 @@ Member administration and audit endpoints:
 - `GET /businesses/{business_id}/audit-events`
 
 All are server-authorized with Staff Administration permissions. State-changing member actions require a reason and produce audit events. Timed suspension uses `duration_hours` (1–720); when the deadline passes, a protected request or member-list read automatically reinstates the membership. Audit history is read-only through the API. Notification workflows and production audit-retention controls remain future work.
+
+
+Voluntary departure endpoint:
+- `POST /businesses/{business_id}/leave` with `confirmation_phrase`, `password`, `reason`, and optional `notice_hours` (1–720).
+
+The exact phrase must be `I want to leave`. Immediate departure revokes membership; scheduled departure is finalized when its deadline passes and is recorded in audit history. Owners cannot leave until an ownership-transfer workflow exists.
