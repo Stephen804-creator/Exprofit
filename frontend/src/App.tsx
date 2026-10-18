@@ -11,6 +11,28 @@ type User = {
   email_verified: boolean;
 };
 
+type Member = {
+  membership_id: string;
+  user_id: string;
+  email: string;
+  role: "owner" | "admin" | "worker";
+  status: "active" | "suspended" | "revoked";
+  permissions: Record<string, boolean>;
+  suspended_until: string | null;
+  revoked_at: string | null;
+  leave_effective_at: string | null;
+};
+
+type AuditEvent = {
+  id: string;
+  event_type: string;
+  target_type: string;
+  target_id: string;
+  reason: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 type Workspace = {
   id: string;
   name: string;
@@ -78,6 +100,18 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceDisplayName, setWorkspaceDisplayName] = useState("");
+  const [members, setMembers] = useState<Member[]>([]);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [collaborationError, setCollaborationError] = useState("");
+  const [collaborationLoading, setCollaborationLoading] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"admin" | "worker">("worker");
+  const [invitePermissions, setInvitePermissions] = useState<Record<string, boolean>>({ "sales:read": true });
+  const [memberReason, setMemberReason] = useState("");
+  const [suspensionHours, setSuspensionHours] = useState("24");
+  const [editingMemberId, setEditingMemberId] = useState("");
+  const [editRole, setEditRole] = useState<"admin" | "worker">("worker");
+  const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
 
   async function hydrate(token: string): Promise<void> {
     const [identity, availableWorkspaces] = await Promise.all([
@@ -230,7 +264,7 @@ export default function App() {
     }
   }
 
-  async function createWorkspace(event: React.FormEvent<HTMLFormElement>): Promise<void> {
+  async function createWorkspace(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (!accessToken) return;
     setBusy(true);
@@ -263,12 +297,164 @@ export default function App() {
     }
   }
 
+
+  async function refreshCollaboration(): Promise<void> {
+    if (!accessToken || !selectedWorkspaceId) return;
+    try {
+      const [availableMembers, events] = await Promise.all([
+        apiRequest<Member[]>(`/businesses/${selectedWorkspaceId}/members`, {}, accessToken),
+        apiRequest<AuditEvent[]>(`/businesses/${selectedWorkspaceId}/audit-events?limit=12`, {}, accessToken),
+      ]);
+      setMembers(availableMembers);
+      setAuditEvents(events);
+      setCollaborationError("");
+    } catch (error) {
+      setMembers([]);
+      setAuditEvents([]);
+      setCollaborationError(messageFromError(error));
+    }
+  }
+
+  async function createInvitation(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!accessToken || !selectedWorkspaceId) return;
+    setBusy(true);
+    setNotice("");
+    setCollaborationError("");
+    const permissions = Object.fromEntries(
+      Object.entries(invitePermissions).filter(([, granted]) => granted),
+    );
+    try {
+      const result = await apiRequest<{ id: string; recipient_email: string; expires_at: string }>(
+        `/businesses/${selectedWorkspaceId}/invitations`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            recipient_email: inviteEmail,
+            role: inviteRole,
+            permissions,
+          }),
+        },
+        accessToken,
+      );
+      setNotice(`Invitation sent to ${result.recipient_email}. It expires at ${new Date(result.expires_at).toLocaleString()}.`);
+      setInviteEmail("");
+      await refreshCollaboration();
+    } catch (error) {
+      setCollaborationError(messageFromError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function beginMemberEdit(member: Member): void {
+    setEditingMemberId(member.membership_id);
+    setEditRole(member.role === "admin" ? "admin" : "worker");
+    setEditPermissions({ ...member.permissions });
+    setMemberReason("");
+    setCollaborationError("");
+  }
+
+  async function saveMemberEdit(event: FormEvent<HTMLFormElement>, member: Member): Promise<void> {
+    event.preventDefault();
+    if (!accessToken || !selectedWorkspaceId) return;
+    if (!memberReason.trim()) {
+      setCollaborationError("Enter a reason for changing this member's access.");
+      return;
+    }
+    setBusy(true);
+    setCollaborationError("");
+    try {
+      await apiRequest<Member>(
+        `/businesses/${selectedWorkspaceId}/members/${member.membership_id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            role: editRole,
+            permissions: editPermissions,
+            reason: memberReason,
+          }),
+        },
+        accessToken,
+      );
+      setEditingMemberId("");
+      setNotice(`Access updated for ${member.email}.`);
+      await refreshCollaboration();
+    } catch (error) {
+      setCollaborationError(messageFromError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runMemberAction(member: Member, action: "suspend" | "revoke" | "reinstate"): Promise<void> {
+    if (!accessToken || !selectedWorkspaceId) return;
+    if (!memberReason.trim()) {
+      setCollaborationError("Enter a reason before changing a member's status.");
+      return;
+    }
+    if (action === "suspend" && suspensionHours && (!Number.isInteger(Number(suspensionHours)) || Number(suspensionHours) < 1 || Number(suspensionHours) > 720)) {
+      setCollaborationError("Suspension duration must be 1–720 hours, or blank for indefinite suspension.");
+      return;
+    }
+    setBusy(true);
+    setCollaborationError("");
+    try {
+      const body = action === "suspend"
+        ? { reason: memberReason, duration_hours: suspensionHours ? Number(suspensionHours) : null }
+        : { reason: memberReason };
+      await apiRequest<Member>(
+        `/businesses/${selectedWorkspaceId}/members/${member.membership_id}/${action}`,
+        { method: "POST", body: JSON.stringify(body) },
+        accessToken,
+      );
+      setNotice(`${member.email}'s membership was ${action === "revoke" ? "revoked" : action === "reinstate" ? "reinstated" : "suspended"}.`);
+      setMemberReason("");
+      await refreshCollaboration();
+    } catch (error) {
+      setCollaborationError(messageFromError(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function selectWorkspace(id: string): void {
     setSelectedWorkspaceId(id);
     sessionStorage.setItem("exprofit_workspace_id", id);
   }
 
   const selectedWorkspace = workspaces.find((item) => item.id === selectedWorkspaceId);
+
+  useEffect(() => {
+    if (!accessToken || !selectedWorkspaceId || selectedWorkspace?.workspace_type !== "business") {
+      setMembers([]);
+      setAuditEvents([]);
+      setCollaborationError("");
+      return;
+    }
+    let cancelled = false;
+    setCollaborationLoading(true);
+    Promise.all([
+      apiRequest<Member[]>(`/businesses/${selectedWorkspaceId}/members`, {}, accessToken),
+      apiRequest<AuditEvent[]>(`/businesses/${selectedWorkspaceId}/audit-events?limit=12`, {}, accessToken),
+    ])
+      .then(([availableMembers, events]) => {
+        if (cancelled) return;
+        setMembers(availableMembers);
+        setAuditEvents(events);
+        setCollaborationError("");
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setMembers([]);
+        setAuditEvents([]);
+        setCollaborationError(messageFromError(error));
+      })
+      .finally(() => {
+        if (!cancelled) setCollaborationLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [accessToken, selectedWorkspaceId, workspaces]);
   const statusLabel: Record<ApiStatus, string> = {
     checking: "Checking API",
     online: "API connected",
