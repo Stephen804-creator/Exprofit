@@ -1,9 +1,9 @@
 """Add server-side access-session records."""
 
-from typing import Sequence
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = "20261018_0004"
 down_revision: str | None = "20261018_0003"
