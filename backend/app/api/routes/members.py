@@ -271,6 +271,7 @@ def suspend_member(
         "created_at": target.created_at,
         "suspended_until": target.suspended_until,
         "revoked_at": target.revoked_at,
+        "leave_effective_at": target.leave_effective_at,
     }
 
 
@@ -317,6 +318,7 @@ def revoke_member(
         "created_at": target.created_at,
         "suspended_until": target.suspended_until,
         "revoked_at": target.revoked_at,
+        "leave_effective_at": target.leave_effective_at,
     }
 
 
@@ -362,6 +364,7 @@ def reinstate_member(
         "created_at": target.created_at,
         "suspended_until": target.suspended_until,
         "revoked_at": target.revoked_at,
+        "leave_effective_at": target.leave_effective_at,
     }
 
 
