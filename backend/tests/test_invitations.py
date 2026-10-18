@@ -2,8 +2,8 @@
 
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
 from urllib.parse import parse_qs, urlparse
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
