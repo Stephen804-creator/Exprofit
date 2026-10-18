@@ -144,3 +144,8 @@ The `audit_events` table stores the actor (or null for automatic system transiti
 ### Voluntary departure
 
 Members can request departure through `POST /businesses/{business_id}/leave` with the exact confirmation phrase, current password, written reason, and optional notice period. Immediate leave revokes access; scheduled leave is finalized at the effective time on the next protected API request or authorized member-list read. The final transition is audited. Owners are blocked from leaving until ownership transfer is implemented. A new accepted invitation clears the old leave schedule and can reactivate a revoked membership. Rate limiting and frontend leave UX remain follow-up work.
+
+
+### Collaboration UI
+
+The frontend provides a business collaboration panel for member listing, invitation creation, role/permission editing, suspend/revoke/reinstate actions, and recent audit history. It also includes a voluntary departure form requiring the exact phrase, password, reason, and optional notice hours. The current user's own membership is fetched separately from the protected member directory, so ordinary Workers can view their own status without seeing other employees. UI controls are convenience only; all permission decisions remain on the backend. Browser end-to-end, accessibility, and production security reviews remain outstanding.
