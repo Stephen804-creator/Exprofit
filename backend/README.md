@@ -52,3 +52,6 @@ Workspace invitation endpoints:
 - `POST /businesses/{business_id}/invitations/{invitation_id}/revoke` revokes a pending invite.
 
 Invitation acceptance requires the authenticated account's email to be verified and to match the invited recipient exactly. Configure SMTP, `FRONTEND_BASE_URL`, and `WORKSPACE_INVITATION_TTL_MINUTES=30`. Raw invite tokens are never returned by the API or stored in the database. The UI, rate limiting, audit events, and notification workflows are not implemented yet.
+
+
+The React client includes initial sign-in/register, workspace selection and creation, verification-link handling, and invitation acceptance. It uses the configured `VITE_API_BASE_URL` to reach the API. The UI does not replace server-side authorization and is not yet the complete bookkeeping dashboard.
