@@ -1,6 +1,8 @@
 """API-level tests for authentication, logout, and business isolation."""
 
 from collections.abc import Generator
+from hashlib import sha256
+from urllib.parse import parse_qs, urlparse
 from uuid import UUID
 
 import pytest
@@ -313,3 +315,80 @@ def test_worker_permissions_limit_transaction_reads_and_writes(
         headers=headers,
     )
     assert denied_expense_void.status_code == 403
+
+
+
+def test_email_verification_requires_delivery_configuration(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    account = register(client, "email-config@example.com")
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    monkeypatch.delenv("SMTP_FROM_EMAIL", raising=False)
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/auth/request-email-verification",
+        headers=bearer(account["access_token"]),
+    )
+    assert response.status_code == 503
+    assert client.get("/auth/me", headers=bearer(account["access_token"])).json()[
+        "email_verified"
+    ] is False
+
+
+def test_email_verification_token_is_hashed_single_use_and_updates_identity(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    account = register(client, "verified@example.com")
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.test")
+    monkeypatch.setenv("SMTP_FROM_EMAIL", "no-reply@example.test")
+    monkeypatch.setenv("SMTP_STARTTLS", "false")
+    get_settings.cache_clear()
+
+    delivered: dict[str, str] = {}
+
+    def capture_email(recipient: str, verification_url: str, settings: object) -> None:
+        delivered["recipient"] = recipient
+        delivered["url"] = verification_url
+
+    monkeypatch.setattr(
+        "app.api.routes.auth.send_verification_email",
+        capture_email,
+    )
+    requested = client.post(
+        "/auth/request-email-verification",
+        headers=bearer(account["access_token"]),
+    )
+    assert requested.status_code == 202, requested.text
+    assert delivered["recipient"] == "verified@example.com"
+
+    raw_token = parse_qs(urlparse(delivered["url"]).query)["token"][0]
+    assert len(raw_token) >= 32
+    with client.app.state.test_session() as db:
+        from sqlalchemy import select
+
+        from app.models import EmailVerificationToken
+
+        record = db.scalar(select(EmailVerificationToken))
+        assert record is not None
+        assert record.token_hash == sha256(raw_token.encode("utf-8")).hexdigest()
+        assert record.token_hash != raw_token
+
+    verified = client.post("/auth/verify-email", json={"token": raw_token})
+    assert verified.status_code == 200, verified.text
+    identity = client.get("/auth/me", headers=bearer(account["access_token"]))
+    assert identity.status_code == 200
+    assert identity.json()["email_verified"] is True
+
+    replay = client.post("/auth/verify-email", json={"token": raw_token})
+    assert replay.status_code == 400
+
+
+def test_email_verification_rejects_unknown_token(client: TestClient) -> None:
+    response = client.post(
+        "/auth/verify-email",
+        json={"token": "x" * 48},
+    )
+    assert response.status_code == 400
