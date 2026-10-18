@@ -38,7 +38,7 @@ The current baseline uses React + TypeScript + Vite, Python + FastAPI, and a Pos
 
 ## Project status
 
-This repository is the new Exprofit project home. The application shell and initial database foundation are committed; transactions, authentication, receipt scanning, financial summaries, and MarginGuard are not implemented yet. Features are not considered implemented merely because they appear in the plan.
+This repository is the new Exprofit project home. The application shell, database foundation, transaction service, and initial authentication/API slice are committed. Receipt scanning, financial summaries, the profitability engine, MarginGuard, and what-if simulation remain unimplemented. The current backend changes still require passing CI and migration verification before they can be treated as accepted.
 
 See:
 - [Product specification](docs/PRODUCT_SPECIFICATION.md)
@@ -64,6 +64,7 @@ cd backend
 python -m venv .venv
 # Windows PowerShell: .venv\\Scripts\\Activate.ps1
 # macOS/Linux: source .venv/bin/activate
+# Copy the root .env.example to backend/.env and replace AUTH_SECRET_KEY.
 python -m pip install -e ".[dev]"
 python -m uvicorn app.main:app --reload
 ```
@@ -121,9 +122,9 @@ The database layer now includes SQLAlchemy engine/session plumbing, a shared ORM
 
 The first transaction layer is committed: SQLAlchemy model and migration, validated Pydantic schemas, and service operations for creating, listing, retrieving, updating, and voiding income/expense entries. Amounts use `NUMERIC(14, 2)`/Python `Decimal`, must be positive, and have a separate income/expense direction. Each entry is tied to a business and must use that business's currency; currency conversion is not implemented. Optional idempotency keys are unique per business. Voiding preserves the record rather than deleting it.
 
-These operations are currently service-level only. Public transaction API routes are intentionally deferred until authentication and authorization are implemented, so a caller cannot manipulate another business's records by supplying a business ID. The automated tests and PostgreSQL migration workflow have been added but are not yet confirmed passing.
+Authenticated transaction HTTP routes are now registered. Every route requires a valid bearer session and checks membership in the requested business before reading or changing its records. Tests and PostgreSQL migrations are configured but have not yet been confirmed passing.
 
 
-## Build 4 — authentication foundation (in progress)
+## Build 4 — authentication and access control (implemented; verification pending)
 
-User and business-membership models, their database migration, initial account schemas, and password-hashing support have been added. Authentication is not complete: login/registration endpoints, expiring-token validation, server-side business authorization, protected transaction routes, and tests are still outstanding. Do not use this partial state with real financial data. CI and migrations have not been confirmed passing.
+The API now includes registration, login, current-user, logout, business-workspace, and business-scoped transaction routes. Passwords are Argon2-hashed; signed access tokens expire after 30 minutes and are linked to database sessions that can be revoked on logout. Registration creates an NGN/Africa-Lagos workspace and owner membership. Business and transaction routes check membership server-side. A test suite covers registration, login failures, logout revocation, duplicate email, cross-business isolation, and a transaction lifecycle. CI and the PostgreSQL migrations still need a confirmed passing run. Set `AUTH_SECRET_KEY` to a unique random value of at least 32 bytes; do not reuse the example placeholder or commit a real secret.
