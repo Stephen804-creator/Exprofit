@@ -61,4 +61,4 @@ Added a workspace collaboration design, schema fields for Solo versus Business w
 
 Not yet complete: invitation generation/verification/acceptance/expiry/revocation; granular permission enforcement; workspace switching UI; member management; password-confirmed voluntary leave; reasoned suspension/revocation; timed suspension; notifications; and audit history. Do not describe these as available until implemented and tested.
 
-Verification status: pending CI for this branch. No passing test result is claimed for these changes yet.
+Verification result: GitHub Actions run #107 passed on commit 25342ccb6bbf491dedf79c9a66fb1841848dfdc7. Ruff passed, the PostgreSQL 16 migration chain applied, all 20 backend tests passed, and frontend typecheck/production build passed. One existing third-party Starlette/AnyIO deprecation warning remains. This verifies the branch checks, not the unfinished invitation or granular-permission features.
