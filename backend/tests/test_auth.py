@@ -39,7 +39,11 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]
     get_settings.cache_clear()
 
 
-def register(client: TestClient, email: str, business_name: str = "Market Stall") -> dict:
+def register(
+    client: TestClient,
+    email: str,
+    business_name: str = "Market Stall",
+) -> dict:
     response = client.post(
         "/auth/register",
         json={
@@ -56,7 +60,9 @@ def bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_registration_creates_owner_business_and_private_identity(client: TestClient) -> None:
+def test_registration_creates_owner_business_and_private_identity(
+    client: TestClient,
+) -> None:
     result = register(client, "Owner@Example.com", "My Shop")
     token = result["access_token"]
 
@@ -72,10 +78,13 @@ def test_registration_creates_owner_business_and_private_identity(client: TestCl
     assert businesses.json()[0]["currency_code"] == "NGN"
 
 
-def test_login_rejects_wrong_password_and_logout_revokes_token(client: TestClient) -> None:
+def test_login_rejects_wrong_password_and_logout_revokes_token(
+    client: TestClient,
+) -> None:
     register(client, "owner@example.com")
     wrong = client.post(
-        "/auth/login", json={"email": "owner@example.com", "password": "not-the-password"}
+        "/auth/login",
+        json={"email": "owner@example.com", "password": "not-the-password"},
     )
     assert wrong.status_code == 401
 
@@ -118,9 +127,11 @@ def test_user_cannot_access_another_users_business(client: TestClient) -> None:
     assert response.status_code == 404
 
 
-def test_transaction_routes_require_auth_and_support_lifecycle(client: TestClient) -> None:
-    anonymous = client.get(f"/businesses/{'0' * 8}-{'0' * 4}-{'0' * 4}-{'0' * 4}-{'0' * 12}/transactions")
-    assert anonymous.status_code == 401
+def test_transaction_routes_require_auth_and_support_lifecycle(
+    client: TestClient,
+) -> None:
+    anonymous_url = "/businesses/00000000-0000-0000-0000-000000000000/transactions"
+    assert client.get(anonymous_url).status_code == 401
 
     account = register(client, "ledger@example.com")
     headers = bearer(account["access_token"])
@@ -136,17 +147,23 @@ def test_transaction_routes_require_auth_and_support_lifecycle(client: TestClien
         "status": "posted",
     }
     created = client.post(
-        f"/businesses/{business['id']}/transactions", headers=headers, json=payload
+        f"/businesses/{business['id']}/transactions",
+        headers=headers,
+        json=payload,
     )
     assert created.status_code == 201, created.text
     transaction_id = created.json()["id"]
 
-    listed = client.get(f"/businesses/{business['id']}/transactions", headers=headers)
+    listed = client.get(
+        f"/businesses/{business['id']}/transactions",
+        headers=headers,
+    )
     assert listed.status_code == 200
     assert len(listed.json()) == 1
 
     voided = client.post(
-        f"/businesses/{business['id']}/transactions/{transaction_id}/void", headers=headers
+        f"/businesses/{business['id']}/transactions/{transaction_id}/void",
+        headers=headers,
     )
     assert voided.status_code == 200
     assert voided.json()["status"] == "void"
