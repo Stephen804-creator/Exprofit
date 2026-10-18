@@ -7,9 +7,9 @@ This file separates planned work from verified work. A requirement is not marked
 - [x] Product scope and safety principles documented.
 - [x] Target architecture documented.
 - [x] Acceptance checkpoints documented.
-- [ ] Runnable frontend/backend baseline.
+- [x] Runnable frontend/backend baseline and health endpoint tests.
 - [ ] Dependency versions pinned and lockfiles committed.
-- [ ] Automated CI checks.
+- [x] Automated CI checks (run #97 passed).
 - [ ] Clean-clone setup verified.
 
 ## Ordered implementation units
