@@ -19,7 +19,7 @@ class WorkspaceInvitation(Base):
     business_id: Mapped[UUID] = mapped_column(
         ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    recipient_email: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
+    recipient_email: Mapped[str | None] = mapped_column(String(254), nullable=True, index=True)
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     permissions: Mapped[dict[str, bool]] = mapped_column(JSON, nullable=False, default=dict)
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
