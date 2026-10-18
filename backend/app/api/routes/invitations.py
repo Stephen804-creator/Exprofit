@@ -17,13 +17,13 @@ from app.db.session import get_db
 from app.email_delivery import EmailDeliveryError, send_invitation_email
 from app.models import Business, BusinessMembership, User, WorkspaceInvitation
 from app.permissions import require_permission, validate_permission_delegation
-from app.services.audit import record_audit_event
 from app.schemas.invitations import (
     InvitationAccepted,
     InvitationAcceptRequest,
     InvitationCreate,
     InvitationRead,
 )
+from app.services.audit import record_audit_event
 
 router = APIRouter(tags=["workspace invitations"])
 
