@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "exprofit-api"
 version = "0.1.0"
 description = "API for Exprofit, an expense tracking and profitability assistant."
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "alembic==1.14.0",
