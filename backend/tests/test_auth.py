@@ -275,7 +275,6 @@ def test_worker_permissions_limit_transaction_reads_and_writes(
         membership.role = "worker"
         membership.permissions = {"sales:read": True, "sales:write": True}
         db.commit()
-        income_id = created_income.json()["id"]
         expense_id = created_expense.json()["id"]
 
     listed = client.get(f"/businesses/{business_id}/transactions", headers=headers)
