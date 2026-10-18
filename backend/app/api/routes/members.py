@@ -8,18 +8,21 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_business_membership
+from app.api.deps import get_current_user, require_business_membership
 from app.db.session import get_db
 from app.models import AuditEvent, Business, BusinessMembership, User
 from app.permissions import require_permission, validate_permission_delegation
 from app.schemas.members import (
     AuditEventRead,
     MembershipRead,
+    MembershipLeaveRequest,
+    MembershipLeaveResponse,
     MembershipReason,
     MembershipSuspendRequest,
     MembershipUpdate,
 )
 from app.services.audit import record_audit_event
+from app.security import verify_password
 
 router = APIRouter(prefix="/businesses/{business_id}", tags=["workspace administration"])
 
@@ -86,6 +89,31 @@ def _check_target_authority(
         )
 
 
+
+def _apply_expired_leave(db: Session, membership: BusinessMembership) -> bool:
+    if membership.status == "revoked" or membership.leave_effective_at is None:
+        return False
+    expiry = membership.leave_effective_at
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=UTC)
+    if expiry > datetime.now(UTC):
+        return False
+
+    membership.status = "revoked"
+    membership.revoked_at = datetime.now(UTC)
+    membership.suspended_until = None
+    record_audit_event(
+        db,
+        business_id=membership.business_id,
+        actor_user_id=membership.user_id,
+        event_type="membership.left",
+        target_type="business_membership",
+        target_id=membership.id,
+        reason=membership.leave_reason or "Scheduled voluntary departure",
+    )
+    return True
+
+
 @router.get("/members", response_model=list[MembershipRead])
 def list_members(
     business_id: UUID,
@@ -104,6 +132,7 @@ def list_members(
     changed = False
     result: list[dict[str, object]] = []
     for membership, email in rows:
+        changed = _apply_expired_leave(db, membership) or changed
         changed = _apply_expired_suspension(db, membership) or changed
         result.append(
             {
@@ -135,7 +164,12 @@ def update_member(
     require_permission(actor, "staff_administration", "write")
     _ensure_business_workspace(db, business_id)
     target = _target_membership(db, business_id, membership_id)
-    _apply_expired_suspension(db, target)
+    lifecycle_changed = _apply_expired_leave(db, target)
+    if not lifecycle_changed:
+        lifecycle_changed = _apply_expired_suspension(db, target)
+    if lifecycle_changed:
+        db.commit()
+        db.refresh(target)
     _check_target_authority(actor, target)
     if target.status == "revoked":
         raise HTTPException(status_code=409, detail="Revoked members must accept a new invitation")
@@ -176,6 +210,7 @@ def update_member(
         "created_at": target.created_at,
         "suspended_until": target.suspended_until,
         "revoked_at": target.revoked_at,
+        "leave_effective_at": target.leave_effective_at,
     }
 
 
@@ -319,6 +354,69 @@ def reinstate_member(
         "suspended_until": target.suspended_until,
         "revoked_at": target.revoked_at,
     }
+
+
+@router.post("/leave", response_model=MembershipLeaveResponse)
+def leave_workspace(
+    business_id: UUID,
+    payload: MembershipLeaveRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> MembershipLeaveResponse:
+    """Leave a business after exact-phrase confirmation and password re-authentication."""
+    _ensure_business_workspace(db, business_id)
+    membership = db.scalar(
+        select(BusinessMembership).where(
+            BusinessMembership.business_id == business_id,
+            BusinessMembership.user_id == user.id,
+        )
+    )
+    if membership is None or membership.status == "revoked":
+        raise HTTPException(status_code=404, detail="Business membership not found")
+    if membership.role == "owner":
+        raise HTTPException(
+            status_code=409,
+            detail="Workspace ownership must be transferred before the owner can leave",
+        )
+    if membership.leave_effective_at is not None:
+        raise HTTPException(status_code=409, detail="A departure is already scheduled")
+    if payload.confirmation_phrase != "I want to leave":
+        raise HTTPException(status_code=422, detail='Type the exact phrase "I want to leave"')
+    if not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Password confirmation failed")
+
+    now = datetime.now(UTC)
+    membership.leave_reason = payload.reason
+    if payload.notice_hours is not None:
+        membership.leave_effective_at = now + timedelta(hours=payload.notice_hours)
+        event_type = "membership.leave_scheduled"
+        response_status = "scheduled"
+        message = "Your departure is scheduled. Workspace access follows your current membership state until the effective time."
+    else:
+        membership.leave_effective_at = now
+        membership.status = "revoked"
+        membership.revoked_at = now
+        membership.suspended_until = None
+        event_type = "membership.left"
+        response_status = "revoked"
+        message = "You have left the workspace. Historical financial records are preserved."
+
+    record_audit_event(
+        db,
+        business_id=business_id,
+        actor_user_id=user.id,
+        event_type=event_type,
+        target_type="business_membership",
+        target_id=membership.id,
+        reason=payload.reason,
+        metadata={"notice_hours": payload.notice_hours},
+    )
+    db.commit()
+    return MembershipLeaveResponse(
+        status=response_status,
+        effective_at=membership.leave_effective_at,
+        message=message,
+    )
 
 
 @router.get("/audit-events", response_model=list[AuditEventRead])
