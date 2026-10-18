@@ -1,5 +1,6 @@
 """Application database models."""
 
+from app.models.audit_event import AuditEvent
 from app.models.auth_session import AuthSession
 from app.models.business import Business
 from app.models.business_membership import BusinessMembership
@@ -9,6 +10,7 @@ from app.models.user import User
 from app.models.workspace_invitation import WorkspaceInvitation
 
 __all__ = [
+    "AuditEvent",
     "AuthSession",
     "Business",
     "BusinessMembership",
