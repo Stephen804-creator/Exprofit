@@ -55,3 +55,14 @@ Invitation acceptance requires the authenticated account's email to be verified 
 
 
 The React client includes initial sign-in/register, workspace selection and creation, verification-link handling, and invitation acceptance. It uses the configured `VITE_API_BASE_URL` to reach the API. The UI does not replace server-side authorization and is not yet the complete bookkeeping dashboard.
+
+
+Member administration and audit endpoints:
+- `GET /businesses/{business_id}/members`
+- `PATCH /businesses/{business_id}/members/{membership_id}`
+- `POST /businesses/{business_id}/members/{membership_id}/suspend`
+- `POST /businesses/{business_id}/members/{membership_id}/revoke`
+- `POST /businesses/{business_id}/members/{membership_id}/reinstate`
+- `GET /businesses/{business_id}/audit-events`
+
+All are server-authorized with Staff Administration permissions. State-changing member actions require a reason and produce audit events. Timed suspension uses `duration_hours` (1–720); when the deadline passes, a protected request or member-list read automatically reinstates the membership. Audit history is read-only through the API. Notification workflows and production audit-retention controls remain future work.
