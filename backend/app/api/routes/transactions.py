@@ -29,9 +29,9 @@ router = APIRouter(prefix="/businesses/{business_id}/transactions", tags=["trans
 
 
 def _raise_service_error(exc: Exception) -> None:
-    if isinstance(exc, (BusinessNotFoundError, TransactionNotFoundError)):
+    if isinstance(exc, BusinessNotFoundError | TransactionNotFoundError):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if isinstance(exc, (CurrencyMismatchError, DuplicateTransactionRequestError)):
+    if isinstance(exc, CurrencyMismatchError | DuplicateTransactionRequestError):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if isinstance(exc, InvalidTransactionStateError):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
