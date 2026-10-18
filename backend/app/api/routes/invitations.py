@@ -17,6 +17,7 @@ from app.db.session import get_db
 from app.email_delivery import EmailDeliveryError, send_invitation_email
 from app.models import Business, BusinessMembership, User, WorkspaceInvitation
 from app.permissions import require_permission
+from app.services.audit import record_audit_event
 from app.schemas.invitations import (
     ALLOWED_PERMISSION_KEYS,
     InvitationAccepted,
@@ -136,6 +137,15 @@ def create_invitation(
         created_by_user_id=user.id,
     )
     db.add(invitation)
+    record_audit_event(
+        db,
+        business_id=business_id,
+        actor_user_id=user.id,
+        event_type="invitation.created",
+        target_type="workspace_invitation",
+        target_id=invitation.id,
+        metadata={"recipient_email": payload.recipient_email, "role": payload.role},
+    )
     db.commit()
     db.refresh(invitation)
 
@@ -152,6 +162,15 @@ def create_invitation(
         )
     except EmailDeliveryError as exc:
         invitation.revoked_at = datetime.now(UTC)
+        record_audit_event(
+            db,
+            business_id=business_id,
+            actor_user_id=user.id,
+            event_type="invitation.revoked",
+            target_type="workspace_invitation",
+            target_id=invitation.id,
+            reason="Email delivery failed",
+        )
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -224,6 +243,15 @@ def accept_invitation(
 
     invitation.accepted_at = now
     invitation.accepted_by_user_id = user.id
+    record_audit_event(
+        db,
+        business_id=invitation.business_id,
+        actor_user_id=user.id,
+        event_type="invitation.accepted",
+        target_type="workspace_invitation",
+        target_id=invitation.id,
+        metadata={"role": invitation.role},
+    )
     try:
         db.commit()
     except IntegrityError as exc:
@@ -263,5 +291,13 @@ def revoke_invitation(
         raise HTTPException(status_code=409, detail="Accepted invitations cannot be revoked")
     if invitation.revoked_at is None:
         invitation.revoked_at = datetime.now(UTC)
+        record_audit_event(
+            db,
+            business_id=business_id,
+            actor_user_id=actor.user_id,
+            event_type="invitation.revoked",
+            target_type="workspace_invitation",
+            target_id=invitation.id,
+        )
         db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
