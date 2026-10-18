@@ -132,3 +132,10 @@ The database stores only a SHA-256 token digest. Invites expire after 30 minutes
 ### Frontend account and workspace context
 
 The React frontend now connects registration/login to the API, loads `/auth/me` and `/businesses`, and lets a user switch between active Solo and business workspaces. It includes basic email-verification and invitation-acceptance screens and can create a separate business workspace. The API remains the authorization boundary; selecting a workspace in the UI does not grant access. The bearer token is held in tab-scoped sessionStorage, which remains readable by same-origin JavaScript; production hardening should evaluate a secure HttpOnly session-cookie design and XSS protections. This is not yet a full transaction/receipt dashboard.
+
+
+### Member administration and audit history
+
+The API exposes member listing, role/permission updates, suspension, revocation, reinstatement, and read-only paginated audit history. These routes require server-side Staff Administration permissions. Admins can manage Worker memberships only; Owner memberships and self-management are blocked. Revoked members rejoin through a new invitation. Timed suspension expiry is enforced on requests, so an expired suspension does not depend on a scheduled job.
+
+The `audit_events` table stores the actor (or null for automatic system transitions), workspace, event type, target, timestamp, optional reason, and safe JSON metadata. Important workspace creation, invitation, and membership changes are recorded in the same database transaction as the state change. No API endpoint edits or deletes audit records. Notifications and production audit-retention controls are not implemented yet.
