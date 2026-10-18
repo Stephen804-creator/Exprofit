@@ -250,7 +250,7 @@ def test_worker_cannot_create_invitation_or_review_applications(client: TestClie
     response = client.post(
         f"/businesses/{business_id}/invitations",
         headers=bearer(worker["access_token"]),
-        json={"role": "worker"},
+        json={"role": "worker", "expires_in_hours": 24},
     )
     assert response.status_code == 403
     listing = client.get(

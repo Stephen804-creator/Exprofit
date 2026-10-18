@@ -116,7 +116,7 @@ export default function App() {
   const [collaborationError, setCollaborationError] = useState("");
   const [collaborationLoading, setCollaborationLoading] = useState(false);
   const [inviteRole, setInviteRole] = useState<"admin" | "worker">("worker");
-  const [invitationExpiryHours, setInvitationExpiryHours] = useState("24");
+  const [invitationExpiryHours, setInvitationExpiryHours] = useState("");
   const [createdInviteUrl, setCreatedInviteUrl] = useState("");
   const [applications, setApplications] = useState<InvitationApplication[]>([]);
   const [applicationPhotos, setApplicationPhotos] = useState<Record<string, string>>({});

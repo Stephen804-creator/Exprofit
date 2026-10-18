@@ -17,7 +17,7 @@ class InvitationCreate(BaseModel):
     role: Literal["admin", "worker"]
     permissions: dict[str, bool] = Field(default_factory=dict)
     # The workspace owner chooses the expiry; the API only enforces that deadline.
-    expires_in_hours: int = Field(default=24, ge=1, le=720)
+    expires_in_hours: int = Field(ge=1, le=720)
 
     @field_validator("permissions")
     @classmethod
