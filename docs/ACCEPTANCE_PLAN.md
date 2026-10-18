@@ -121,13 +121,23 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Invitation acceptance requires the authenticated account's verified email to match the invite recipient.
 
 
-## Workspace invitations — remaining acceptance work
-- [ ] Invitation and email-verification screens work on mobile and desktop.
-- [ ] Invitation creation/revocation and verification requests have abuse controls.
-- [ ] Invitation lifecycle actions are written to durable audit history.
-- [ ] Expired invitations are safely cleaned up or remain unusable without a scheduled job.
-- [ ] Invitation acceptance is covered by PostgreSQL-backed and end-to-end tests.
-- [ ] Delivery failures, email-provider outages, and retries produce safe, understandable UI feedback.
+## Workspace invitations — current acceptance gates
+
+- [x] Owner/Admin can create a shareable link with an owner-selected expiry between 1 and 720 hours.
+- [x] Raw token is returned at creation only; only a SHA-256 digest is stored.
+- [x] Invitation creation does not send email and does not require verified email.
+- [x] Applicant must authenticate and submit a name, identifying details, optional phone, and JPEG face photo (up to 2 MB).
+- [x] Applicant must explicitly consent before submitting identity details and a photo; consent time is persisted.
+- [x] Application submission alone does not create membership or grant workspace access.
+- [x] Only authorized workspace administrators can list pending applications and retrieve their private photos.
+- [x] Approval creates membership using the invitation's role and permission set.
+- [x] Rejection, revocation, expiry, and repeated submission/acceptance attempts cannot grant access.
+- [x] Pending photos are deleted after approval, rejection, revocation, or expiry cleanup.
+- [ ] Add rate limiting to invitation/application endpoints and abuse monitoring.
+- [ ] Add end-to-end/browser tests for link creation, camera upload, owner review, and cross-workspace denial.
+- [ ] Review the privacy notice and operational retention policy before production.
+
+The face photo is for manual owner-assisted recognition only; it is not biometric authentication or proof of liveness. Optional account email-verification endpoints are separate and not required for invitations.
 
 
 ## Frontend account and workspace context
