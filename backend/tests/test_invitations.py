@@ -153,7 +153,8 @@ def test_owner_reviews_application_before_membership_is_granted(client: TestClie
     with client.app.state.test_session() as db:
         membership = db.scalar(select(BusinessMembership).where(
             BusinessMembership.business_id == UUID(business_id),
-            BusinessMembership.user_id == db.scalar(select(User.id).where(User.email == "applicant@example.com")),
+            BusinessMembership.user_id
+            == db.scalar(select(User.id).where(User.email == "applicant@example.com")),
         ))
         assert membership is not None and membership.status == "active"
         application = db.get(InvitationApplication, UUID(application_id))
@@ -208,7 +209,11 @@ def test_expired_invitation_is_unusable(client: TestClient) -> None:
     business_id = make_business(client, owner["access_token"])
     token = make_invitation(client, owner["access_token"], business_id, hours=1)
     with client.app.state.test_session() as db:
-        invitation = db.scalar(select(WorkspaceInvitation).where(WorkspaceInvitation.business_id == UUID(business_id)))
+        invitation = db.scalar(
+            select(WorkspaceInvitation).where(
+                WorkspaceInvitation.business_id == UUID(business_id)
+            )
+        )
         assert invitation is not None
         invitation.expires_at = datetime.now(UTC) - timedelta(minutes=1)
         db.commit()
