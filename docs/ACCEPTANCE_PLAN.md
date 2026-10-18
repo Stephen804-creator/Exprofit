@@ -128,3 +128,12 @@ Use this checklist to decide whether a feature is actually complete. Record test
 - [ ] Expired invitations are safely cleaned up or remain unusable without a scheduled job.
 - [ ] Invitation acceptance is covered by PostgreSQL-backed and end-to-end tests.
 - [ ] Delivery failures, email-provider outages, and retries produce safe, understandable UI feedback.
+
+
+## Frontend account and workspace context
+- [ ] Authentication state recovers safely after expiry and server errors.
+- [ ] Verification and invitation tokens are removed from the visible URL and never logged.
+- [ ] Workspace switching cannot display data from another workspace after a denied API response.
+- [ ] Sign-out clears the browser-tab bearer token and selected workspace.
+- [ ] UI communicates unverified email, delivery failures, expired invitations, and permission errors accessibly.
+- [ ] Production session storage/XSS trade-offs are reviewed before release.
