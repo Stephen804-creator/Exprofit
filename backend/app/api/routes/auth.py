@@ -32,6 +32,7 @@ from app.models import (
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserRead
 from app.schemas.email_verification import MessageResponse, VerifyEmailRequest
 from app.security import hash_password, verify_password
+from app.services.audit import record_audit_event
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -84,6 +85,15 @@ def register(
             )
         )
         db.flush()
+        record_audit_event(
+            db,
+            business_id=workspace.id,
+            actor_user_id=user.id,
+            event_type="workspace.created",
+            target_type="business",
+            target_id=workspace.id,
+            metadata={"workspace_type": "solo"},
+        )
         session_id = uuid4()
         token = create_access_token(user.id, session_id)
         db.add(
