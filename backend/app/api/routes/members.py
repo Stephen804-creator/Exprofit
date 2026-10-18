@@ -21,8 +21,8 @@ from app.schemas.members import (
     MembershipSuspendRequest,
     MembershipUpdate,
 )
-from app.services.audit import record_audit_event
 from app.security import verify_password
+from app.services.audit import record_audit_event
 
 router = APIRouter(prefix="/businesses/{business_id}", tags=["workspace administration"])
 
@@ -114,6 +114,17 @@ def _apply_expired_leave(db: Session, membership: BusinessMembership) -> bool:
     return True
 
 
+
+def _refresh_target_lifecycle(db: Session, membership: BusinessMembership) -> bool:
+    changed = _apply_expired_leave(db, membership)
+    if not changed:
+        changed = _apply_expired_suspension(db, membership)
+    if changed:
+        db.commit()
+        db.refresh(membership)
+    return changed
+
+
 @router.get("/members", response_model=list[MembershipRead])
 def list_members(
     business_id: UUID,
@@ -132,8 +143,10 @@ def list_members(
     changed = False
     result: list[dict[str, object]] = []
     for membership, email in rows:
-        changed = _apply_expired_leave(db, membership) or changed
-        changed = _apply_expired_suspension(db, membership) or changed
+        lifecycle_changed = _apply_expired_leave(db, membership)
+        if not lifecycle_changed:
+            lifecycle_changed = _apply_expired_suspension(db, membership)
+        changed = lifecycle_changed or changed
         result.append(
             {
                 "membership_id": membership.id,
@@ -145,6 +158,7 @@ def list_members(
                 "created_at": membership.created_at,
                 "suspended_until": membership.suspended_until,
                 "revoked_at": membership.revoked_at,
+                "leave_effective_at": membership.leave_effective_at,
             }
         )
     if changed:
@@ -164,12 +178,7 @@ def update_member(
     require_permission(actor, "staff_administration", "write")
     _ensure_business_workspace(db, business_id)
     target = _target_membership(db, business_id, membership_id)
-    lifecycle_changed = _apply_expired_leave(db, target)
-    if not lifecycle_changed:
-        lifecycle_changed = _apply_expired_suspension(db, target)
-    if lifecycle_changed:
-        db.commit()
-        db.refresh(target)
+    _refresh_target_lifecycle(db, target)
     _check_target_authority(actor, target)
     if target.status == "revoked":
         raise HTTPException(status_code=409, detail="Revoked members must accept a new invitation")
@@ -211,6 +220,7 @@ def update_member(
         "suspended_until": target.suspended_until,
         "revoked_at": target.revoked_at,
         "leave_effective_at": target.leave_effective_at,
+        "leave_effective_at": target.leave_effective_at,
     }
 
 
@@ -226,7 +236,7 @@ def suspend_member(
     require_permission(actor, "staff_administration", "write")
     _ensure_business_workspace(db, business_id)
     target = _target_membership(db, business_id, membership_id)
-    _apply_expired_suspension(db, target)
+    _refresh_target_lifecycle(db, target)
     _check_target_authority(actor, target)
     if target.status == "revoked":
         raise HTTPException(status_code=409, detail="Revoked members cannot be suspended")
