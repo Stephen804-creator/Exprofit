@@ -73,6 +73,25 @@ def require_business_membership(
     if membership is None:
         raise HTTPException(status_code=404, detail="Business not found")
 
+    if membership.status != "revoked" and membership.leave_effective_at is not None:
+        leave_effective_at = membership.leave_effective_at
+        if leave_effective_at.tzinfo is None:
+            leave_effective_at = leave_effective_at.replace(tzinfo=UTC)
+        if leave_effective_at <= datetime.now(UTC):
+            membership.status = "revoked"
+            membership.revoked_at = datetime.now(UTC)
+            membership.suspended_until = None
+            record_audit_event(
+                db,
+                business_id=business_id,
+                actor_user_id=membership.user_id,
+                event_type="membership.left",
+                target_type="business_membership",
+                target_id=membership.id,
+                reason=membership.leave_reason or "Scheduled voluntary departure",
+            )
+            db.commit()
+
     if membership.status == "suspended" and membership.suspended_until is not None:
         suspended_until = membership.suspended_until
         if suspended_until.tzinfo is None:
