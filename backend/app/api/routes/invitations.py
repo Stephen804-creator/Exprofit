@@ -74,7 +74,9 @@ def _read_application(
         raise HTTPException(status_code=404, detail="Applicant account not found")
     return InvitationApplicationRead(
         id=application.id, invitation_id=invitation.id, full_name=application.full_name,
-        email=user.email, phone=application.phone, identifying_details=application.identifying_details,
+        email=user.email,
+        phone=application.phone,
+        identifying_details=application.identifying_details,
         role=invitation.role, status=application.status, created_at=application.created_at,
     )
 
@@ -139,7 +141,8 @@ def submit_application(
     if business is None or business.workspace_type != "business":
         raise HTTPException(status_code=400, detail="Invitation workspace is unavailable")
     membership = db.scalar(select(BusinessMembership).where(
-        BusinessMembership.business_id == invitation.business_id, BusinessMembership.user_id == user.id
+        BusinessMembership.business_id == invitation.business_id,
+        BusinessMembership.user_id == user.id
     ))
     if membership is not None and membership.status == "active":
         raise HTTPException(status_code=409, detail="You already belong to this workspace")
@@ -204,13 +207,22 @@ def read_application_photo(
     application = db.scalar(
         select(InvitationApplication)
         .join(WorkspaceInvitation, WorkspaceInvitation.id == InvitationApplication.invitation_id)
-        .where(InvitationApplication.id == application_id, WorkspaceInvitation.business_id == business_id,
-               InvitationApplication.status == "pending")
+        .where(
+            InvitationApplication.id == application_id,
+            WorkspaceInvitation.business_id == business_id,
+            InvitationApplication.status == "pending",
+        )
     )
     if application is None or application.photo_bytes is None:
         raise HTTPException(status_code=404, detail="Pending application photo not found")
-    return Response(content=application.photo_bytes, media_type="image/jpeg",
-                    headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+    return Response(
+        content=application.photo_bytes,
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.post(
@@ -303,7 +315,10 @@ def reject_application(
     application = db.scalar(
         select(InvitationApplication)
         .join(WorkspaceInvitation, WorkspaceInvitation.id == InvitationApplication.invitation_id)
-        .where(InvitationApplication.id == application_id, WorkspaceInvitation.business_id == business_id)
+        .where(
+            InvitationApplication.id == application_id,
+            WorkspaceInvitation.business_id == business_id,
+        )
         .with_for_update()
     )
     if application is None:
