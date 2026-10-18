@@ -71,3 +71,15 @@ Business records, receipts, summaries, AI retrieval, and messages are scoped to 
 - Test expired, reused, revoked, and wrong-recipient invitations.
 - Do not log raw invitation tokens or expose them after creation.
 - Do not claim invitation or collaboration features are complete until automated tests and CI verify them.
+
+
+## Verified email foundation
+
+The current feature branch adds an email-verification state to accounts and a persisted challenge table. Challenges use a cryptographically random token, store only its SHA-256 digest, expire according to `EMAIL_VERIFICATION_TTL_MINUTES` (30 minutes by default), and are consumed once. Requesting a new challenge invalidates older unconsumed challenges for that account. SMTP delivery is configured through environment variables; the raw token is sent only in the verification email and is not returned by the API.
+
+API endpoints:
+- `POST /auth/request-email-verification` — authenticated; sends a verification email when SMTP is configured.
+- `POST /auth/verify-email` — consumes a supplied token and marks the account email as verified.
+- `GET /auth/me` — includes the `email_verified` state.
+
+This does not yet add email verification UI, resend throttling, account recovery, or invitation acceptance. Collaboration invitations must remain disabled until verified-email identity is enforced in the invitation acceptance path and delivery is configured in the deployment.
