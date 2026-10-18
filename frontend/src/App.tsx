@@ -424,6 +424,9 @@ export default function App() {
   }
 
   const selectedWorkspace = workspaces.find((item) => item.id === selectedWorkspaceId);
+  const currentMembership = members.find((member) => member.user_id === user?.id);
+  const isWorkspaceOwner = currentMembership?.role === "owner";
+  const canManageMembers = isWorkspaceOwner || currentMembership?.permissions["staff_administration:write"] === true;
 
   useEffect(() => {
     if (!accessToken || !selectedWorkspaceId || selectedWorkspace?.workspace_type !== "business") {
@@ -597,6 +600,157 @@ export default function App() {
               <button className="button button--primary form-submit" type="submit" disabled={busy}>{busy ? "Working…" : "Create workspace"}</button>
             </form>
           </section>
+
+          {selectedWorkspace?.workspace_type === "business" && (
+            <section className="collaboration-panel">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">BUSINESS COLLABORATION</p>
+                  <h2>People and access</h2>
+                </div>
+                <p>Permissions are checked by the API, not just this screen.</p>
+              </div>
+
+              {collaborationLoading && <p className="form-hint">Loading members and audit history…</p>}
+              {collaborationError && <p className="form-message form-message--error" role="alert">{collaborationError}</p>}
+              {!collaborationLoading && !collaborationError && (
+                <div className="member-list">
+                  {members.map((member) => (
+                    <article className="member-card" key={member.membership_id}>
+                      <div className="member-summary">
+                        <div>
+                          <strong>{member.email}</strong>
+                          <p>{member.role} · {member.status}</p>
+                          {member.leave_effective_at && member.status !== "revoked" && (
+                            <p className="form-hint">Departure scheduled: {new Date(member.leave_effective_at).toLocaleString()}</p>
+                          )}
+                        </div>
+                        <div className="member-permission-summary">
+                          {Object.entries(member.permissions).filter(([, granted]) => granted).map(([key]) => (
+                            <span key={key}>{key}</span>
+                          ))}
+                          {member.role === "owner" && <span>owner access</span>}
+                        </div>
+                      </div>
+                      {canManageMembers && member.role !== "owner" && member.user_id !== user.id && member.status !== "revoked" && (
+                        <div className="member-actions">
+                          <button className="button button--secondary" type="button" onClick={() => beginMemberEdit(member)}>Edit access</button>
+                          {member.status === "active" && <button className="button button--secondary" type="button" onClick={() => void runMemberAction(member, "suspend")} disabled={busy}>Suspend</button>}
+                          {member.status === "suspended" && <button className="button button--secondary" type="button" onClick={() => void runMemberAction(member, "reinstate")} disabled={busy}>Reinstate</button>}
+                          <button className="button button--danger" type="button" onClick={() => void runMemberAction(member, "revoke")} disabled={busy}>Revoke</button>
+                        </div>
+                      )}
+                      {editingMemberId === member.membership_id && canManageMembers && (
+                        <form className="member-edit-form" onSubmit={(event) => void saveMemberEdit(event, member)}>
+                          <label htmlFor={`role-${member.membership_id}`}>Role</label>
+                          <select
+                            id={`role-${member.membership_id}`}
+                            value={editRole}
+                            onChange={(event) => setEditRole(event.target.value as "admin" | "worker")}
+                            disabled={!isWorkspaceOwner}
+                          >
+                            <option value="worker">Worker</option>
+                            <option value="admin" disabled={!isWorkspaceOwner}>Admin (Owner only)</option>
+                          </select>
+                          <p className="form-hint">Grant only the access this person needs.</p>
+                          <div className="permission-grid">
+                            {[
+                              ["sales:read", "Read sales"],
+                              ["sales:write", "Write sales"],
+                              ["expenses:read", "Read expenses"],
+                              ["expenses:write", "Write expenses"],
+                              ...(isWorkspaceOwner && editRole === "admin" ? [
+                                ["staff_administration:read", "Read member directory and audit"],
+                                ["staff_administration:write", "Manage members and invitations"],
+                              ] : []),
+                            ].map(([key, label]) => (
+                              <label className="permission-option" key={key}>
+                                <input
+                                  type="checkbox"
+                                  checked={editPermissions[key] === true}
+                                  onChange={(event) => setEditPermissions((current) => ({ ...current, [key]: event.target.checked }))}
+                                />
+                                <span>{label}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <label htmlFor="member-reason-edit">Reason for change</label>
+                          <input id="member-reason-edit" value={memberReason} onChange={(event) => setMemberReason(event.target.value)} maxLength={500} required />
+                          <div className="member-actions">
+                            <button className="button button--primary" type="submit" disabled={busy}>Save access</button>
+                            <button className="button button--secondary" type="button" onClick={() => setEditingMemberId("")}>Cancel</button>
+                          </div>
+                        </form>
+                      )}
+                    </article>
+                  ))}
+                  {members.length === 0 && <p className="form-hint">No member records are available for this workspace.</p>}
+                </div>
+              )}
+
+              {canManageMembers && (
+                <div className="collaboration-columns">
+                  <form className="collaboration-form" onSubmit={createInvitation}>
+                    <p className="eyebrow">INVITE A PERSON</p>
+                    <h3>Send a private invitation</h3>
+                    <label htmlFor="invite-email">Recipient email</label>
+                    <input id="invite-email" type="email" autoComplete="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} required />
+                    <label htmlFor="invite-role">Role</label>
+                    <select id="invite-role" value={inviteRole} onChange={(event) => setInviteRole(event.target.value as "admin" | "worker")}>
+                      <option value="worker">Worker</option>
+                      <option value="admin" disabled={!isWorkspaceOwner}>Admin (Owner only)</option>
+                    </select>
+                    <p className="form-hint">The recipient must sign in with this exact address and verify it before accepting.</p>
+                    <div className="permission-grid">
+                      {[
+                        ["sales:read", "Read sales"],
+                        ["sales:write", "Write sales"],
+                        ["expenses:read", "Read expenses"],
+                        ["expenses:write", "Write expenses"],
+                        ...(isWorkspaceOwner && inviteRole === "admin" ? [
+                          ["staff_administration:read", "Read member directory and audit"],
+                          ["staff_administration:write", "Manage members and invitations"],
+                        ] : []),
+                      ].map(([key, label]) => (
+                        <label className="permission-option" key={key}>
+                          <input
+                            type="checkbox"
+                            checked={invitePermissions[key] === true}
+                            onChange={(event) => setInvitePermissions((current) => ({ ...current, [key]: event.target.checked }))}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <button className="button button--primary form-submit" type="submit" disabled={busy}>{busy ? "Sending…" : "Send invitation"}</button>
+                  </form>
+
+                  <div className="member-action-settings">
+                    <p className="eyebrow">MEMBERSHIP SAFETY</p>
+                    <h3>Suspend or revoke access</h3>
+                    <label htmlFor="suspension-hours">Suspension duration in hours <span>(blank = indefinite)</span></label>
+                    <input id="suspension-hours" type="number" min="1" max="720" value={suspensionHours} onChange={(event) => setSuspensionHours(event.target.value)} />
+                    <label htmlFor="member-action-reason">Reason for member action</label>
+                    <input id="member-action-reason" value={memberReason} onChange={(event) => setMemberReason(event.target.value)} maxLength={500} placeholder="Explain why access is changing" />
+                    <p className="form-hint">Suspension and revocation take effect immediately. A timed suspension is reinstated automatically after its deadline. Revoked members need a new invitation to return.</p>
+                  </div>
+                </div>
+              )}
+
+              <section className="audit-panel">
+                <div className="section-heading">
+                  <div><p className="eyebrow">ACCOUNTABILITY</p><h3>Recent audit events</h3></div>
+                </div>
+                {auditEvents.length === 0 && !collaborationError && <p className="form-hint">No audit events to show.</p>}
+                {auditEvents.map((event) => (
+                  <div className="audit-row" key={event.id}>
+                    <div><strong>{event.event_type.replaceAll(".", " ")}</strong><p>{event.reason || event.target_type}</p></div>
+                    <time dateTime={event.created_at}>{new Date(event.created_at).toLocaleString()}</time>
+                  </div>
+                ))}
+              </section>
+            </section>
+          )}
         </section>
       ) : (
         <>
