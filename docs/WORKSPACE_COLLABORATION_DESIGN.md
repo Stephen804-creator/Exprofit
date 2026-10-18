@@ -25,14 +25,14 @@ Exprofit uses one account per person and multiple isolated workspaces. A user ca
 
 The current invitation slice is a simple, owner-controlled application flow with no required email delivery or paid identity service.
 
-1. An authorized Owner/Admin creates a unique shareable link, chooses the role and permissions, and selects an expiry from 1 to 720 hours.
+1. The workspace Owner creates a unique shareable link, chooses the role and permissions, and selects an expiry from 1 to 720 hours.
 2. The owner copies and sends the link through any channel. Exprofit does not send email for this workflow.
 3. The recipient signs in or creates an account, submits their name, optional phone, identifying details, and a JPEG face photo.
 4. The application remains pending. Link possession and application submission do not grant workspace access.
-5. An authorized owner/admin reviews the submitted details and photo, then approves or rejects. Approval creates membership with only the role and permissions attached to the invitation.
+5. Only the workspace Owner reviews the submitted details and photo, then approves or rejects. Approval creates membership with only the role and permissions attached to the invitation.
 6. Links are hashed at rest, single-use after approval, expiring, and revocable. Rejection/revocation disables the link and deletes the pending photo.
 
-The photo is stored as a private binary value in the application database for this first version; only authorized workspace administrators can retrieve a pending photo. The photo is deleted after a decision. This is owner-assisted visual review, not biometric authentication or proof of liveness. No email verification is required to apply or be approved.
+The photo is stored as a private binary value in the application database for this first version; only the workspace Owner can retrieve a pending photo. The photo is deleted after a decision. This is owner-assisted visual review, not biometric authentication or proof of liveness. No email verification is required to apply or be approved.
 
 ## Membership lifecycle
 
@@ -118,7 +118,7 @@ Password re-authentication is implemented, but abuse throttling and a frontend l
 
 ## Collaboration UI implementation slice
 
-The React interface now provides a business-workspace collaboration panel for authorized administrators: member list, invitation creation, role/permission editing, suspension, revocation, reinstatement, and recent audit events. A signed-in member can view their own membership without gaining access to the full directory and can request voluntary departure with exact-phrase confirmation, password re-authentication, reason, and optional notice period. Owners see the ownership-transfer restriction.
+The React interface now provides a business-workspace collaboration panel for authorized administrators: member list, role/permission editing, suspension, revocation, reinstatement, and recent audit events. Invitation creation and applicant review controls are reserved for the workspace Owner. A signed-in member can view their own membership without gaining access to the full directory and can request voluntary departure with exact-phrase confirmation, password re-authentication, reason, and optional notice period. Owners see the ownership-transfer restriction.
 
 The UI hides management controls unless the current membership grants both Staff Administration read and write (Owners are authorized by role). API permissions remain authoritative. These screens have typecheck/build coverage but still require manual browser/end-to-end verification and accessibility review.
 
