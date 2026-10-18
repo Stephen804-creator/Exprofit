@@ -10,7 +10,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.access_tokens import TOKEN_TTL_SECONDS, create_access_token, decode_access_token
+from app.access_tokens import (
+    TOKEN_TTL_SECONDS,
+    InvalidTokenError,
+    create_access_token,
+    decode_access_token,
+)
 from app.api.deps import bearer_scheme, get_current_user
 from app.db.session import get_db
 from app.models import AuthSession, Business, BusinessMembership, User
@@ -69,7 +74,10 @@ def register(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="An account with this email already exists") from exc
+        raise HTTPException(
+            status_code=409,
+            detail="An account with this email already exists",
+        ) from exc
     return TokenResponse(access_token=token)
 
 
@@ -78,9 +86,11 @@ def login(
     payload: LoginRequest,
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenResponse:
-    """Authenticate using a generic error that does not disclose account existence."""
+    """Authenticate with a generic error that avoids account enumeration."""
     user = db.scalar(select(User).where(User.email == payload.email))
-    if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
+    if user is None or not user.is_active or not verify_password(
+        payload.password, user.password_hash
+    ):
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password",
@@ -105,13 +115,14 @@ def logout(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
-    """Revoke the current session so its token can no longer be used."""
+    """Revoke the current session so its token cannot be reused."""
     try:
         token_user_id, session_id = decode_access_token(credentials.credentials)
-    except (ValueError, RuntimeError) as exc:
+    except (InvalidTokenError, RuntimeError) as exc:
         raise HTTPException(status_code=401, detail="Invalid access token") from exc
     if token_user_id != user.id:
         raise HTTPException(status_code=401, detail="Invalid access token")
+
     session = db.get(AuthSession, session_id)
     if session is not None and session.user_id == user.id and session.revoked_at is None:
         session.revoked_at = datetime.now(UTC)
