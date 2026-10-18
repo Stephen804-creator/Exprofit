@@ -38,7 +38,7 @@ The current baseline uses React + TypeScript + Vite, Python + FastAPI, and a Pos
 
 ## Project status
 
-This repository is the new Exprofit project home. The application shell, database foundation, transaction service, and initial authentication/API slice are committed. Receipt scanning, financial summaries, the profitability engine, MarginGuard, and what-if simulation remain unimplemented. The current backend changes still require passing CI and migration verification before they can be treated as accepted.
+This repository is the new Exprofit project home. The application shell, database foundation, transaction service, and authentication/API slice are committed. Receipt scanning, financial summaries, the profitability engine, MarginGuard, and what-if simulation remain unimplemented. The latest GitHub Actions run passed the configured checks, including PostgreSQL migrations and backend tests; production hardening remains outstanding.
 
 See:
 - [Product specification](docs/PRODUCT_SPECIFICATION.md)
@@ -99,7 +99,7 @@ npm run typecheck
 npm run build
 ```
 
-GitHub Actions runs the backend lint/tests and frontend type/build checks on pushes and pull requests to `main`. These checks have been configured but have not yet been observed passing in GitHub Actions. The npm lockfile is not yet committed; dependency versions are pinned in `frontend/package.json`, and lockfile-based installs are a follow-up reproducibility task.
+GitHub Actions runs backend lint/tests and frontend type/build checks on pushes and pull requests to `main`. Run [#97](https://github.com/Stephen804-creator/Exprofit/actions/runs/39121683770) passed: Ruff, PostgreSQL migrations, 19 backend tests, frontend typecheck, and production build. The run included one third-party Starlette/AnyIO deprecation warning. The npm lockfile is not yet committed; CI currently uses `npm install`, so lockfile-based installs remain a reproducibility follow-up.
 
 
 ## Development status and contributions
@@ -127,4 +127,4 @@ Authenticated transaction HTTP routes are now registered. Every route requires a
 
 ## Build 4 — authentication and access control (implemented; verification pending)
 
-The API now includes registration, login, current-user, logout, business-workspace, and business-scoped transaction routes. Passwords are Argon2-hashed; signed access tokens expire after 30 minutes and are linked to database sessions that can be revoked on logout. Registration creates an NGN/Africa-Lagos workspace and owner membership. Business and transaction routes check membership server-side. A test suite covers registration, login failures, logout revocation, duplicate email, cross-business isolation, and a transaction lifecycle. CI and the PostgreSQL migrations still need a confirmed passing run. Set `AUTH_SECRET_KEY` to a unique random value of at least 32 bytes; do not reuse the example placeholder or commit a real secret.
+The API now includes registration, login, current-user, logout, business-workspace, and business-scoped transaction routes. Passwords are Argon2-hashed; signed access tokens expire after 30 minutes and are linked to database sessions that can be revoked on logout. Registration creates an NGN/Africa-Lagos workspace and owner membership. Business and transaction routes check membership server-side. A test suite covers registration, login failures, logout revocation, duplicate email, cross-business isolation, and a transaction lifecycle. CI run #97 passed the PostgreSQL migrations, Ruff, all 19 backend tests, frontend typecheck, and production build. Rate limiting and broader production security hardening remain follow-up work. Set `AUTH_SECRET_KEY` to a unique random value of at least 32 bytes; do not reuse the example placeholder or commit a real secret.
