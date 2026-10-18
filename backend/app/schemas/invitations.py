@@ -46,6 +46,7 @@ class InvitationApplicationCreate(BaseModel):
     phone: str | None = Field(default=None, max_length=40)
     identifying_details: str = Field(min_length=5, max_length=1200)
     photo_data_url: str = Field(min_length=100, max_length=2_800_000)
+    consent: bool
 
     @field_validator("full_name", "identifying_details")
     @classmethod
@@ -54,6 +55,13 @@ class InvitationApplicationCreate(BaseModel):
         if not cleaned:
             raise ValueError("This field cannot be blank")
         return cleaned
+
+    @field_validator("consent")
+    @classmethod
+    def require_consent(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("Consent is required before submitting identity details and a photo")
+        return value
 
     @field_validator("phone")
     @classmethod
