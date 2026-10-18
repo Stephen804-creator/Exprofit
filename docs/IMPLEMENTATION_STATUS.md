@@ -30,3 +30,8 @@ This file separates planned work from verified work. A requirement is not marked
 ## Verification log
 
 No application behavior is marked verified in this initial documentation commit. As implementation proceeds, record the date, command, environment, result, and any remaining limitation for each completed unit.
+
+
+## Build 2 update — 2026-10-18
+
+Committed PostgreSQL configuration, SQLAlchemy engine and request-scoped session dependency, a Business model, Alembic configuration, and the initial businesses-table migration. A SQLite-backed model test is present. The migration has not been run against a live PostgreSQL database, and automated CI checks have not been confirmed passing. The frontend lockfile and clean-install verification also remain outstanding.
