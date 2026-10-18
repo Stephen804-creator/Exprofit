@@ -40,7 +40,9 @@ def upgrade() -> None:
             "status IN ('pending', 'approved', 'rejected')",
             name="ck_invitation_applications_status",
         ),
-        sa.ForeignKeyConstraint(["invitation_id"], ["workspace_invitations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["invitation_id"], ["workspace_invitations.id"], ondelete="CASCADE"
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["reviewed_by_user_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
