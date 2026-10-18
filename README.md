@@ -115,3 +115,10 @@ MIT. See [LICENSE](LICENSE).
 ## Build 2 — database foundation
 
 The database layer now includes SQLAlchemy engine/session plumbing, a shared ORM base, a Business model, and an initial Alembic migration for the businesses table. The default currency is NGN and the default timezone is Africa/Lagos. Configure PostgreSQL using DATABASE_URL, then from the backend directory run `alembic upgrade head`. This migration has been committed but has not yet been verified against a live PostgreSQL database. CI status is also still unconfirmed.
+
+
+## Build 3 — transaction integrity
+
+The first transaction layer is committed: SQLAlchemy model and migration, validated Pydantic schemas, and service operations for creating, listing, retrieving, updating, and voiding income/expense entries. Amounts use `NUMERIC(14, 2)`/Python `Decimal`, must be positive, and have a separate income/expense direction. Each entry is tied to a business and must use that business's currency; currency conversion is not implemented. Optional idempotency keys are unique per business. Voiding preserves the record rather than deleting it.
+
+These operations are currently service-level only. Public transaction API routes are intentionally deferred until authentication and authorization are implemented, so a caller cannot manipulate another business's records by supplying a business ID. The automated tests and PostgreSQL migration workflow have been added but are not yet confirmed passing.
