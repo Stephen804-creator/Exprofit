@@ -45,7 +45,7 @@ Roles describe a member's broad administrative position:
 - Admin: only explicitly granted management capabilities.
 - Worker: only explicitly granted operational capabilities.
 
-Financial permission domains include Sales, Purchases, Expenses, Inventory, and Staff Administration. Staff administration is restricted to the owner or explicitly authorized administrators. Department membership and communication access never imply financial access.
+Financial permission domains include Sales, Purchases, Expenses, Inventory, and Staff Administration. For API grants, use explicit boolean keys in the form `domain:action`, for example `sales:read` or `expenses:write`; absent or false keys deny access. Owners receive financial access by role, while Admins and Workers require explicit grants. The current transaction API maps income records to Sales and expense records to Expenses; Purchases and Inventory need dedicated workflows before they can be granted through those routes. Staff administration is restricted to the owner or explicitly authorized administrators. Department membership and communication access never imply financial access.
 
 ## Workspace identity and organization
 
