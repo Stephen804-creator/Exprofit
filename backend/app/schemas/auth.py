@@ -49,3 +49,4 @@ class UserRead(BaseModel):
     id: UUID
     email: EmailStr
     is_active: bool
+    email_verified: bool
