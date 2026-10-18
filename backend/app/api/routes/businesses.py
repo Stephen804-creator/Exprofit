@@ -10,6 +10,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import Business, BusinessMembership, User
 from app.schemas.businesses import BusinessCreate, BusinessRead
+from app.services.audit import record_audit_event
 
 router = APIRouter(prefix="/businesses", tags=["workspaces"])
 
@@ -58,6 +59,16 @@ def create_business(
             status="active",
             permissions={},
         )
+    )
+    db.flush()
+    record_audit_event(
+        db,
+        business_id=business.id,
+        actor_user_id=user.id,
+        event_type="workspace.created",
+        target_type="business",
+        target_id=business.id,
+        metadata={"workspace_type": "business"},
     )
     db.commit()
     db.refresh(business)
