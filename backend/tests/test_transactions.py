@@ -12,6 +12,7 @@ from app.schemas.transactions import TransactionCreate, TransactionUpdate
 from app.services.transactions import (
     BusinessNotFoundError,
     CurrencyMismatchError,
+    DuplicateTransactionRequestError,
     InvalidTransactionStateError,
     TransactionNotFoundError,
     create_transaction,
@@ -122,8 +123,6 @@ def test_currency_is_normalized() -> None:
 
 
 def test_duplicate_idempotency_key_is_rejected(db_session: Session) -> None:
-    from app.services.transactions import DuplicateTransactionRequestError
-
     business = make_business(db_session)
     payload = make_payload(business.id, idempotency_key="request-001")
     create_transaction(db_session, payload)
