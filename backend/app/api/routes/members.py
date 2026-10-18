@@ -142,7 +142,7 @@ def read_my_membership(
     if membership is None:
         raise HTTPException(status_code=404, detail="Business membership not found")
     _refresh_target_lifecycle(db, membership)
-    if membership.status != "active":
+    if membership.status == "revoked":
         raise HTTPException(status_code=404, detail="Business membership not found")
     return {
         "membership_id": membership.id,
