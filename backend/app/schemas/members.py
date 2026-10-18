@@ -79,5 +79,5 @@ class AuditEventRead(BaseModel):
     target_type: str
     target_id: str
     reason: str | None
-    metadata_json: dict[str, object] = Field(validation_alias="metadata")
+    metadata: dict[str, object] = Field(validation_alias="metadata_json")
     created_at: datetime
