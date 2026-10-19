@@ -5,7 +5,9 @@ from types import SimpleNamespace
 from app.services.financial_analysis import compare_periods, profitability, summarize_transactions
 
 
-def record(direction, amount, category=None, currency="NGN", status="posted", day=date(2026, 10, 1)):
+def record(
+    direction, amount, category=None, currency="NGN", status="posted", day=date(2026, 10, 1)
+):
     return SimpleNamespace(
         id="record-1", direction=direction, amount=Decimal(amount), category=category,
         currency_code=currency, status=status, transaction_date=day,
@@ -41,7 +43,9 @@ def test_profitability_does_not_assume_all_expenses_are_direct_costs():
 
 
 def test_profitability_is_unknown_without_direct_cost_data():
-    result = profitability([record("income", "200.00"), record("expense", "40.00", "Rent")])["currencies"][0]
+    result = profitability(
+        [record("income", "200.00"), record("expense", "40.00", "Rent")]
+    )["currencies"][0]
     assert result["gross_profit"] is None
     assert result["gross_margin_percent"] is None
     assert result["direct_cost_data_available"] is False

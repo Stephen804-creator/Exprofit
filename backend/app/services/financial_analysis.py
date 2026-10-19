@@ -100,7 +100,10 @@ def profitability(transactions: list[Any]) -> dict[str, Any]:
             "note": (
                 "Gross profit includes only expenses explicitly categorised as direct costs."
                 if has_direct_cost_records
-                else "Gross profit is unavailable until direct costs are recorded with a recognised direct-cost category."
+                else (
+                    "Gross profit is unavailable until direct costs are recorded "
+                    "with a recognised direct-cost category."
+                )
             ),
         })
     return {"currencies": result}
@@ -148,8 +151,15 @@ def compare_periods(
             findings.append({
                 "kind": "new_currency_activity", "severity": "info",
                 "currency_code": row["currency_code"],
-                "summary": "This currency has current-period activity but no previous-period activity.",
-                "current": {k: str(v) if isinstance(v, Decimal) else v for k, v in row.items() if k != "records"},
+                "summary": (
+                    "This currency has current-period activity but no previous-period "
+                    "activity."
+                ),
+                "current": {
+                    key: str(value) if isinstance(value, Decimal) else value
+                    for key, value in row.items()
+                    if key != "records"
+                },
                 "previous": None, "evidence": row["records"],
                 "uncertainty": "A comparison is not possible without records in both periods.",
             })
@@ -160,7 +170,10 @@ def compare_periods(
             findings.append({
                 "kind": "revenue_change", "severity": "warning" if revenue_delta < 0 else "info",
                 "currency_code": row["currency_code"],
-                "summary": f"Revenue {'decreased' if revenue_delta < 0 else 'increased'} by {abs(revenue_delta):.2f} {row['currency_code']}.",
+                "summary": (
+                    f"Revenue {'decreased' if revenue_delta < 0 else 'increased'} by "
+                    f"{abs(revenue_delta):.2f} {row['currency_code']}."
+                ),
                 "current": {"revenue": str(row["revenue"])},
                 "previous": {"revenue": str(old["revenue"])},
                 "change": str(_money(revenue_delta)), "evidence": row["records"],
@@ -171,12 +184,17 @@ def compare_periods(
             findings.append({
                 "kind": "expense_change", "severity": "warning" if expenses_delta > 0 else "info",
                 "currency_code": row["currency_code"],
-                "summary": f"Recorded expenses {'increased' if expenses_delta > 0 else 'decreased'} by {abs(expenses_delta):.2f} {row['currency_code']}.",
+                "summary": (
+                    f"Recorded expenses {'increased' if expenses_delta > 0 else 'decreased'} "
+                    f"by {abs(expenses_delta):.2f} {row['currency_code']}."
+                ),
                 "current": {"expenses": str(row["expenses"])},
                 "previous": {"expenses": str(old["expenses"])},
                 "change": str(_money(expenses_delta)), "evidence": row["records"],
                 "previous_evidence": old["records"],
-                "uncertainty": "Only recorded entries are included; unrecorded costs are not visible.",
+                "uncertainty": (
+                    "Only recorded entries are included; unrecorded costs are not visible."
+                ),
             })
         if row["gross_margin_percent"] is not None and old["gross_margin_percent"] is not None:
             delta = row["gross_margin_percent"] - old["gross_margin_percent"]
@@ -185,12 +203,26 @@ def compare_periods(
                     "kind": "gross_margin_change",
                     "severity": "warning" if delta < 0 else "info",
                     "currency_code": row["currency_code"],
-                    "summary": f"Gross margin {'fell' if delta < 0 else 'rose'} by {abs(delta):.2f} percentage points.",
-                    "current": {"gross_margin_percent": str(row["gross_margin_percent"].quantize(Decimal("0.01")))},
-                    "previous": {"gross_margin_percent": str(old["gross_margin_percent"].quantize(Decimal("0.01")))},
+                    "summary": (
+                        f"Gross margin {'fell' if delta < 0 else 'rose'} by "
+                        f"{abs(delta):.2f} percentage points."
+                    ),
+                    "current": {
+                        "gross_margin_percent": str(
+                            row["gross_margin_percent"].quantize(Decimal("0.01"))
+                        )
+                    },
+                    "previous": {
+                        "gross_margin_percent": str(
+                            old["gross_margin_percent"].quantize(Decimal("0.01"))
+                        )
+                    },
                     "change_percentage_points": str(delta.quantize(Decimal("0.01"))),
                     "evidence": row["records"], "previous_evidence": old["records"],
-                    "uncertainty": "This calculation uses only explicitly categorised direct costs and recorded revenue.",
+                    "uncertainty": (
+                        "This calculation uses only explicitly categorised direct costs "
+                        "and recorded revenue."
+                    ),
                 })
     return {
         "periods": {

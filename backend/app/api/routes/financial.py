@@ -44,11 +44,17 @@ def _receipt_payload(receipt: Receipt) -> dict:
         "original_filename": receipt.original_filename, "content_type": receipt.content_type,
         "candidate_merchant": receipt.candidate_merchant,
         "candidate_date": receipt.candidate_date.isoformat() if receipt.candidate_date else None,
-        "candidate_amount": str(receipt.candidate_amount) if receipt.candidate_amount is not None else None,
+        "candidate_amount": (
+            str(receipt.candidate_amount)
+            if receipt.candidate_amount is not None
+            else None
+        ),
         "candidate_currency": receipt.candidate_currency,
         "extracted_text": receipt.extracted_text[:6000],
         "review_status": receipt.review_status,
-        "linked_transaction_id": str(receipt.linked_transaction_id) if receipt.linked_transaction_id else None,
+        "linked_transaction_id": (
+            str(receipt.linked_transaction_id) if receipt.linked_transaction_id else None
+        ),
         "created_at": receipt.created_at.isoformat() if receipt.created_at else None,
     }
 
@@ -91,7 +97,11 @@ def _extract_candidates(text: str) -> tuple[str | None, date | None, Decimal | N
         if token.lower() in text.lower():
             currency = code
             break
-    amounts = re.findall(r"(?<!\w)(?:₦|NGN|USD|GBP|EUR|\$|£|€)?\s*(\d{1,9}(?:,\d{3})*(?:\.\d{2})|\d+(?:\.\d{2}))(?!\w)", text, re.I)
+    amount_pattern = (
+        r"(?<!\w)(?:₦|NGN|USD|GBP|EUR|\$|£|€)?\s*"
+        r"(\d{1,9}(?:,\d{3})*(?:\.\d{2})|\d+(?:\.\d{2}))(?!\w)"
+    )
+    amounts = re.findall(amount_pattern, text, re.I)
     parsed_amount = None
     if amounts:
         try:
@@ -175,7 +185,10 @@ async def upload_receipt(
         raise HTTPException(status_code=415, detail="Upload a JPEG, PNG, WebP image, or PDF.")
     content = await file.read(MAX_RECEIPT_BYTES + 1)
     if not content or len(content) > MAX_RECEIPT_BYTES:
-        raise HTTPException(status_code=413, detail="Receipt must be non-empty and no larger than 5 MB.")
+        raise HTTPException(
+            status_code=413,
+            detail="Receipt must be non-empty and no larger than 5 MB.",
+        )
     # Check file signatures instead of trusting the browser-provided MIME type alone.
     valid = (
         (content_type == "image/jpeg" and content.startswith(b"\xff\xd8\xff"))
@@ -184,7 +197,10 @@ async def upload_receipt(
         or (content_type == "application/pdf" and content.startswith(b"%PDF-"))
     )
     if not valid:
-        raise HTTPException(status_code=415, detail="The file content does not match its declared type.")
+        raise HTTPException(
+            status_code=415,
+            detail="The file content does not match its declared type.",
+        )
     text = _extract_text(content, content_type)
     merchant, parsed_date, amount, currency = _extract_candidates(text)
     receipt = Receipt(
@@ -213,9 +229,15 @@ def download_receipt_file(
     ))
     if receipt is None:
         raise HTTPException(status_code=404, detail="Receipt not found.")
-    return Response(content=receipt.file_bytes, media_type=receipt.content_type,
-                    headers={"Content-Disposition": 'inline; filename="receipt"',
-                             "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+    return Response(
+        content=receipt.file_bytes,
+        media_type=receipt.content_type,
+        headers={
+            "Content-Disposition": 'inline; filename="receipt"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.post("/receipts/{receipt_id}/confirm")
@@ -224,7 +246,8 @@ def confirm_receipt(
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    require_permission(membership, "sales" if payload.direction == "income" else "expenses", "write")
+    domain = "sales" if payload.direction == "income" else "expenses"
+    require_permission(membership, domain, "write")
     receipt = db.scalar(select(Receipt).where(
         Receipt.id == receipt_id, Receipt.business_id == business_id
     ))

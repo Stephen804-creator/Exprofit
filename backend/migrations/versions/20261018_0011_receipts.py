@@ -28,10 +28,17 @@ def upgrade() -> None:
         sa.Column("candidate_currency", sa.String(length=3), nullable=True),
         sa.Column("review_status", sa.String(length=16), nullable=False),
         sa.Column("linked_transaction_id", sa.Uuid(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["business_id"], ["businesses.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["uploaded_by_user_id"], ["users.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["linked_transaction_id"], ["transactions.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["linked_transaction_id"], ["transactions.id"], ondelete="RESTRICT"
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_receipts_business_id", "receipts", ["business_id"])
