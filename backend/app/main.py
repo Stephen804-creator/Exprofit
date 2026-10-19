@@ -10,7 +10,6 @@ from app.api.routes.intelligence import router as intelligence_router
 from app.api.routes.invitations import router as invitations_router
 from app.api.routes.members import router as members_router
 from app.api.routes.transactions import router as transactions_router
-
 from app.config import get_settings
 
 settings = get_settings()
