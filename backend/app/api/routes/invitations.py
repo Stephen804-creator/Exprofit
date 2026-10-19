@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, require_business_membership
 from app.config import get_settings
 from app.db.session import get_db
+from app.email_delivery import EmailDeliveryError, send_invitation_email
 from app.models import (
     Business,
     BusinessMembership,
@@ -143,17 +144,21 @@ def create_invitation(
     actor: Annotated[BusinessMembership, Depends(require_business_membership)],
     user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)],
 ) -> InvitationRead:
-    """Create a unique link the owner can copy and share through any channel."""
+    """Create a shareable link or email a recipient-bound invitation."""
     _require_owner(actor)
     business = db.get(Business, business_id)
     if business is None or business.workspace_type != "business":
         raise HTTPException(status_code=404, detail="Business workspace not found")
+    settings = get_settings()
+    if payload.recipient_email and not settings.email_delivery_configured:
+        raise HTTPException(status_code=503, detail="Invitation email delivery is not configured")
     grants = validate_permission_delegation(actor, payload.role, payload.permissions)
     raw_token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(UTC) + timedelta(hours=payload.expires_in_hours)
     invitation = WorkspaceInvitation(
-        business_id=business_id, recipient_email=None, role=payload.role, permissions=grants,
+        business_id=business_id, recipient_email=payload.recipient_email, role=payload.role, permissions=grants,
         token_hash=sha256(raw_token.encode()).hexdigest(),
-        expires_at=datetime.now(UTC) + timedelta(hours=payload.expires_in_hours),
+        expires_at=expires_at,
         created_by_user_id=user.id,
     )
     db.add(invitation)
@@ -161,15 +166,34 @@ def create_invitation(
     record_audit_event(
         db, business_id=business_id, actor_user_id=user.id, event_type="invitation.created",
         target_type="workspace_invitation", target_id=invitation.id,
-        metadata={"role": payload.role, "expires_in_hours": payload.expires_in_hours},
+        metadata={"role": payload.role, "expires_in_hours": payload.expires_in_hours,
+                  "email_delivery_requested": bool(payload.recipient_email)},
     )
     db.commit()
     db.refresh(invitation)
-    base_url = get_settings().frontend_base_url.rstrip("/")
+    base_url = settings.frontend_base_url.rstrip("/")
+    invitation_url = f"{base_url}/accept-invitation?token={raw_token}"
+    if payload.recipient_email:
+        try:
+            send_invitation_email(
+                payload.recipient_email, invitation_url, business.display_name or business.name,
+                settings, expires_at=invitation.expires_at,
+            )
+        except EmailDeliveryError as exc:
+            # A failed delivery must not leave a usable invitation that the owner thinks was sent.
+            invitation.revoked_at = datetime.now(UTC)
+            record_audit_event(
+                db, business_id=business_id, actor_user_id=user.id,
+                event_type="invitation.email_delivery_failed", target_type="workspace_invitation",
+                target_id=invitation.id,
+            )
+            db.commit()
+            raise HTTPException(status_code=502, detail="Invitation email could not be sent; the link was revoked") from exc
+        invitation_url = None
     return InvitationRead(
-        id=invitation.id, business_id=business_id, recipient_email=None, role=invitation.role,
-        permissions=invitation.permissions, expires_at=invitation.expires_at,
-        invitation_url=f"{base_url}/accept-invitation?token={raw_token}",
+        id=invitation.id, business_id=business_id, recipient_email=invitation.recipient_email,
+        role=invitation.role, permissions=invitation.permissions, expires_at=invitation.expires_at,
+        invitation_url=invitation_url,
     )
 
 
@@ -191,6 +215,9 @@ def submit_application(
             _expire_pending_applications(db, invitation.business_id, now)
         raise HTTPException(status_code=400, detail="Invalid, expired, or unavailable invitation")
     assert invitation is not None
+    if invitation.recipient_email is not None:
+        if not user.email_verified or user.email.strip().lower() != invitation.recipient_email.strip().lower():
+            raise HTTPException(status_code=403, detail="Sign in with the verified email address that received this invitation")
     business = db.get(Business, invitation.business_id)
     if business is None or business.workspace_type != "business":
         raise HTTPException(status_code=400, detail="Invitation workspace is unavailable")
