@@ -97,6 +97,20 @@ def test_receipt_requires_explicit_confirmation_before_transaction_creation(
     assert file_response.status_code == 200
     assert file_response.headers["cache-control"] == "private, no-store"
     assert file_response.headers["x-content-type-options"] == "nosniff"
+    assert file_response.headers["content-disposition"].startswith("attachment;")
+
+    blank_description = client.post(
+        f"/businesses/{business_id}/receipts/{receipt['id']}/confirm",
+        headers=bearer(owner["access_token"]),
+        json={
+            "direction": "expense",
+            "amount": "125.50",
+            "transaction_date": "2026-10-18",
+            "description": "   ",
+            "category": "COGS",
+        },
+    )
+    assert blank_description.status_code == 422
 
     confirmed = client.post(
         f"/businesses/{business_id}/receipts/{receipt['id']}/confirm",

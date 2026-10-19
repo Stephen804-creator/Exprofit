@@ -23,6 +23,8 @@ from app.services.financial_analysis import compare_periods, profitability, summ
 
 router = APIRouter(prefix="/businesses/{business_id}", tags=["financial"])
 MAX_RECEIPT_BYTES = 5 * 1024 * 1024
+MAX_IMAGE_PIXELS = 20_000_000
+MAX_PDF_PAGES = 50
 ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 
 
@@ -73,10 +75,14 @@ def _extract_text(content: bytes, content_type: str) -> str:
         if content_type == "application/pdf":
             from pypdf import PdfReader
             reader = PdfReader(io.BytesIO(content), strict=False)
+            if len(reader.pages) > MAX_PDF_PAGES:
+                return ""
             return "\n".join((page.extract_text() or "") for page in reader.pages)[:12000]
         import pytesseract
         from PIL import Image
         with Image.open(io.BytesIO(content)) as image:
+            if image.width * image.height > MAX_IMAGE_PIXELS:
+                return ""
             return pytesseract.image_to_string(image.convert("RGB"))[:12000]
     except Exception:
         return ""
@@ -241,7 +247,7 @@ def download_receipt_file(
         content=receipt.file_bytes,
         media_type=receipt.content_type,
         headers={
-            "Content-Disposition": 'inline; filename="receipt"',
+            "Content-Disposition": 'attachment; filename="receipt"',
             "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
         },
