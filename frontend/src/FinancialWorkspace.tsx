@@ -13,7 +13,14 @@ const localDate = (date: Date) => date.getFullYear() + "-" + String(date.getMont
 const today = () => localDate(new Date());
 const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return localDate(d); };
 const cash = (value: string, currency: string) => currency + " " + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const errorText = (value: unknown) => value && typeof value === "object" && "detail" in value && typeof value.detail === "string" ? value.detail : "Request failed. Please try again.";
+const errorText = (value: unknown) => {
+  if (value && typeof value === "object" && "detail" in value) {
+    const detail = value.detail;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail === "object" && "message" in detail && typeof detail.message === "string") return detail.message;
+  }
+  return "Request failed. Please try again.";
+};
 
 export default function FinancialWorkspace({ workspace, accessToken, membership, membershipResolved }: { workspace: Workspace; accessToken: string; membership: MembershipAccess; membershipResolved: boolean }) {
   const [activePanel, setActivePanel] = useState<"overview" | "transactions" | "receipts" | "insights">("overview");
@@ -144,6 +151,20 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     catch (e) { setError(e instanceof Error ? e.message : "Could not void transaction."); }
     finally { setBusy(false); }
   }
+  async function importTransactionsCsv(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const file = (form.elements.namedItem("transaction-csv") as HTMLInputElement).files?.[0];
+    if (!file) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const body = new FormData(); body.append("file", file);
+      const result = await request<{ created_count: number }>("/businesses/" + workspace.id + "/transactions/import", { method: "POST", body });
+      form.reset(); setNotice(`${result.created_count} transactions imported as drafts. Review them before posting.`); await refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "CSV import failed."); }
+    finally { setBusy(false); }
+  }
+
   async function uploadReceipt(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); const form = e.currentTarget; const file = (form.elements.namedItem("receipt-file") as HTMLInputElement).files?.[0]; if (!file) return;
     setBusy(true); setError("");
