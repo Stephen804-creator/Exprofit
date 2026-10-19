@@ -1,5 +1,6 @@
 """Typed application settings loaded from environment variables."""
 
+import os
 from functools import lru_cache
 
 from pydantic import field_validator
@@ -14,7 +15,7 @@ class Settings(BaseSettings):
         "postgresql+psycopg://exprofit:change-me@localhost:5432/exprofit"
     )
     auth_secret_key: str = ""
-    frontend_base_url: str = "http://localhost:5173"
+    frontend_base_url: str = ""
     email_verification_ttl_minutes: int = 30
     workspace_invitation_ttl_minutes: int = 30
     smtp_host: str = ""
@@ -36,6 +37,14 @@ class Settings(BaseSettings):
             return value.replace("postgres://", "postgresql+psycopg://", 1)
         if value.startswith("postgresql://"):
             return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        return value
+
+    @field_validator("frontend_base_url", mode="before")
+    @classmethod
+    def default_frontend_url(cls, value: str) -> str:
+        """Use Render's own public URL for links when no explicit URL is configured."""
+        if not value:
+            return os.getenv("RENDER_EXTERNAL_URL", "http://localhost:5173")
         return value
 
     @property
