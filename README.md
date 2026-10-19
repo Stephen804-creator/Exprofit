@@ -45,6 +45,7 @@ See:
 - [Product specification](docs/PRODUCT_SPECIFICATION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Implementation status](docs/IMPLEMENTATION_STATUS.md)
+- [Builds 9–14 implementation and verification boundaries](docs/BUILDS_9_14_IMPLEMENTATION.md)
 - [Acceptance plan](docs/ACCEPTANCE_PLAN.md)
 
 
@@ -104,6 +105,9 @@ GitHub Actions runs backend lint/tests and frontend type/build checks on pushes 
 
 
 ## Development status and contributions
+
+Builds 9–14 are proposed in the open PR for the evidence-backed financial brief, optional Hugging Face Gemma explanations, and a deterministic what-if simulator. They are not release-ready until their PR checks pass and manual deployed/mobile workflows are verified. See the [Builds 9–14 implementation record](docs/BUILDS_9_14_IMPLEMENTATION.md).
+
 
 The project is under active development. Treat it as an early financial application until the feature branch passes CI, migrations and API integration are verified against PostgreSQL, and the complete receipt-to-investigation flow is manually tested.
 
