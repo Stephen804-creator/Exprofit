@@ -295,3 +295,24 @@ def test_financial_brief_cannot_be_read_from_another_users_workspace(client: Tes
         json={"end_date": "2026-10-19", "period_days": 30},
     )
     assert response.status_code == 404
+
+
+def test_financial_brief_falls_back_when_hugging_face_is_unavailable(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    from app.api.routes import intelligence as intelligence_routes
+
+    monkeypatch.setenv("HF_TOKEN", "test-only-token")
+    get_settings.cache_clear()
+    monkeypatch.setattr(intelligence_routes, "_call_gemma", lambda *args, **kwargs: None)
+    owner = register(client, "brief-fallback@example.com")
+    business_id = make_business(client, owner["access_token"])
+    response = client.post(
+        f"/businesses/{business_id}/financial-brief",
+        headers=bearer(owner["access_token"]),
+        json={"end_date": "2026-10-19", "period_days": 30, "use_ai": True},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["provider"] == "rules"
+    assert response.json()["ai_status"] == "unavailable_fallback"
+    assert response.json()["brief"]
