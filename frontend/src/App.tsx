@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import FinancialWorkspace from "./FinancialWorkspace";
 
 type ApiStatus = "checking" | "online" | "offline";
 type RouteMode = "app" | "accept-invitation";
@@ -112,6 +113,7 @@ export default function App() {
   const [workspaceDisplayName, setWorkspaceDisplayName] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [myMembership, setMyMembership] = useState<Member | null>(null);
+  const [membershipResolved, setMembershipResolved] = useState(false);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [collaborationError, setCollaborationError] = useState("");
   const [collaborationLoading, setCollaborationLoading] = useState(false);
@@ -183,6 +185,7 @@ export default function App() {
         setWorkspaces([]);
         setMembers([]);
         setMyMembership(null);
+        setMembershipResolved(false);
         setAuditEvents([]);
       });
     }
@@ -229,6 +232,7 @@ export default function App() {
       setWorkspaces([]);
       setMembers([]);
       setMyMembership(null);
+      setMembershipResolved(true);
       setAuditEvents([]);
       setCollaborationError("");
       setSelectedWorkspaceId("");
@@ -533,15 +537,28 @@ export default function App() {
     if (!accessToken || !selectedWorkspaceId || selectedWorkspace?.workspace_type !== "business") {
       setMembers([]);
       setMyMembership(null);
+      setMembershipResolved(true);
       setAuditEvents([]);
       setCollaborationError("");
       return;
     }
     let cancelled = false;
     setCollaborationLoading(true);
+    setMyMembership(null);
+    setMembershipResolved(false);
     apiRequest<Member>(`/businesses/${selectedWorkspaceId}/membership`, {}, accessToken)
-      .then((membership) => { if (!cancelled) setMyMembership(membership); })
-      .catch(() => { if (!cancelled) setMyMembership(null); });
+      .then((membership) => {
+        if (!cancelled) {
+          setMyMembership(membership);
+          setMembershipResolved(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMyMembership(null);
+          setMembershipResolved(true);
+        }
+      });
     Promise.all([
       apiRequest<Member[]>(`/businesses/${selectedWorkspaceId}/members`, {}, accessToken),
       apiRequest<AuditEvent[]>(`/businesses/${selectedWorkspaceId}/audit-events?limit=12`, {}, accessToken),
@@ -688,6 +705,8 @@ export default function App() {
               </div>
             )}
           </section>
+
+          {selectedWorkspace && accessToken && <FinancialWorkspace workspace={selectedWorkspace} accessToken={accessToken} membership={currentMembership} membershipResolved={membershipResolved} />}
 
           <section className="create-workspace-card">
             <div>

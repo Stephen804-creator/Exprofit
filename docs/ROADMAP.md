@@ -19,9 +19,8 @@ This roadmap preserves deferred ideas and distinguishes plans from implemented, 
 - [ ] Manually test the complete invitation flow on mobile before calling this slice release-ready.
 - [ ] Add focused security tests for invalid/replayed links, expiry, duplicate applications, owner-only review, and privilege escalation.
 - [ ] Add auth/sensitive-route rate limits, production security checks, and a frontend lockfile.
-- [ ] Build receipt capture and review with private file access and user confirmation before transaction creation.
-- [ ] Build date-filtered summaries that keep currencies separate and distinguish cash movement from profit.
-- [ ] Implement deterministic profitability calculations, MarginGuard investigations, what-if scenarios, and an evidence-backed financial brief. AI is optional and never the source of arithmetic.
+- [ ] Verify on branch `feat/core-financial-workflow-builds-1-8`: private receipt capture and review, date-filtered currency-separated summaries, deterministic gross-profit calculations, and evidence-backed MarginGuard comparisons. Do not mark complete until CI, PostgreSQL migrations, access-control tests, and manual end-to-end checks pass.
+- [ ] Add the what-if simulator and evidence-backed plain-language financial brief. AI is optional and never the source of arithmetic.
 
 ## Collaboration expansion — later
 
