@@ -53,7 +53,10 @@ def explain_verified_facts(facts: dict[str, Any]) -> str:
     for finding in findings[:6]:
         currency = finding.get("currency_code", "")
         summary = str(finding.get("summary", "A financial change was detected."))
-        lines.append(f"- {summary}" + (f" ({currency})" if currency and currency not in summary else ""))
+        rendered = f"- {summary}"
+        if currency and currency not in summary:
+            rendered += f" ({currency})"
+        lines.append(rendered)
         uncertainty = finding.get("uncertainty")
         if uncertainty:
             lines.append(f"  Limitation: {uncertainty}")
@@ -105,7 +108,8 @@ def simulate_scenario(
             "Recorded period revenue is the baseline; this is a scenario, not a forecast.",
             "Price and volume changes are assumed to apply uniformly to all revenue.",
             "Direct costs are assumed to change with both unit cost and volume.",
-            "Other operating costs, taxes, stock limits, demand response, and seasonality are not modelled.",
+            "Other operating costs, taxes, stock limits, demand response, and "
+            "seasonality are not modelled.",
             "No transaction or financial record is created or modified.",
         ],
     }
