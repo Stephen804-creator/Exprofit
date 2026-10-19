@@ -196,3 +196,102 @@ def test_duplicate_receipt_upload_is_rejected(client: TestClient) -> None:
     duplicate = upload_receipt(client, owner["access_token"], business_id)
     assert duplicate.status_code == 409
     assert "already been uploaded" in duplicate.json()["detail"]
+
+
+def test_financial_brief_falls_back_without_hugging_face_token(client: TestClient, monkeypatch):
+    monkeypatch.setenv("HF_TOKEN", "")
+    get_settings.cache_clear()
+    owner = register(client, "brief-owner@example.com")
+    business_id = make_business(client, owner["access_token"])
+    headers = bearer(owner["access_token"])
+    for direction, amount, category in (
+        ("income", "100000.00", "Sales"),
+        ("expense", "40000.00", "COGS"),
+    ):
+        response = client.post(
+            f"/businesses/{business_id}/transactions",
+            headers=headers,
+            json={
+                "business_id": business_id,
+                "direction": direction,
+                "amount": amount,
+                "currency_code": "NGN",
+                "transaction_date": "2026-10-18",
+                "description": f"Test {direction}",
+                "category": category,
+                "status": "posted",
+            },
+        )
+        assert response.status_code == 201, response.text
+
+    brief = client.post(
+        f"/businesses/{business_id}/financial-brief",
+        headers=headers,
+        json={"end_date": "2026-10-19", "period_days": 30, "use_ai": True},
+    )
+    assert brief.status_code == 200, brief.text
+    assert brief.json()["provider"] == "rules"
+    assert brief.json()["ai_status"] == "not_configured"
+    assert brief.json()["ai_is_authoritative"] is False
+    assert "verified_facts" in brief.json()
+
+
+def test_what_if_endpoint_is_authenticated_and_does_not_change_ledger(client: TestClient):
+    owner = register(client, "what-if-owner@example.com")
+    business_id = make_business(client, owner["access_token"])
+    headers = bearer(owner["access_token"])
+    for direction, amount, category in (
+        ("income", "100000.00", "Sales"),
+        ("expense", "40000.00", "COGS"),
+    ):
+        response = client.post(
+            f"/businesses/{business_id}/transactions",
+            headers=headers,
+            json={
+                "business_id": business_id,
+                "direction": direction,
+                "amount": amount,
+                "currency_code": "NGN",
+                "transaction_date": "2026-10-18",
+                "description": f"Test {direction}",
+                "category": category,
+                "status": "posted",
+            },
+        )
+        assert response.status_code == 201, response.text
+
+    with client.app.state.test_session() as db:
+        before_count = len(db.scalars(select(Transaction)).all())
+
+    result = client.post(
+        f"/businesses/{business_id}/what-if",
+        headers=headers,
+        json={
+            "end_date": "2026-10-19",
+            "period_days": 30,
+            "price_change_percent": "10",
+            "volume_change_percent": "20",
+            "unit_cost_change_percent": "5",
+        },
+    )
+    assert result.status_code == 200, result.text
+    row = result.json()["results"][0]
+    assert row["estimated_revenue"] == "132000.00"
+    assert row["estimated_direct_costs"] == "50400.00"
+    assert row["estimated_gross_profit"] == "81600.00"
+    assert result.json()["persisted"] is False
+
+    with client.app.state.test_session() as db:
+        assert len(db.scalars(select(Transaction)).all()) == before_count
+
+
+def test_financial_brief_cannot_be_read_from_another_users_workspace(client: TestClient):
+    owner = register(client, "brief-private-owner@example.com")
+    other = register(client, "brief-private-other@example.com")
+    business_id = make_business(client, owner["access_token"])
+    response = client.post(
+        f"/businesses/{business_id}/financial-brief",
+        headers=bearer(other["access_token"]),
+        json={"end_date": "2026-10-19", "period_days": 30},
+    )
+    assert response.status_code == 404
