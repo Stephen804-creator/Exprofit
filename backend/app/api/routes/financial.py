@@ -60,8 +60,8 @@ def _extract_text(content: bytes, content_type: str) -> str:
             from pypdf import PdfReader
             reader = PdfReader(io.BytesIO(content), strict=False)
             return "\n".join((page.extract_text() or "") for page in reader.pages)[:12000]
-        from PIL import Image
         import pytesseract
+        from PIL import Image
         with Image.open(io.BytesIO(content)) as image:
             return pytesseract.image_to_string(image.convert("RGB"))[:12000]
     except Exception:
