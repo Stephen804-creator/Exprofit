@@ -1,7 +1,8 @@
-"""Typed application settings loaded from environment variables."""
+""""Typed application settings loaded from environment variables."""
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +27,16 @@ class Settings(BaseSettings):
     hf_gemma_model: str = "google/gemma-3-12b-it:fastest"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def use_installed_postgres_driver(cls, value: str) -> str:
+        """Use psycopg 3 for Render's standard PostgreSQL connection URL."""
+        if value.startswith("postgres://"):
+            return value.replace("postgres://", "postgresql+psycopg://", 1)
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        return value
 
     @property
     def email_delivery_configured(self) -> bool:
