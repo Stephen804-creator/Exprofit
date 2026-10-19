@@ -120,6 +120,7 @@ export default function App() {
   const [collaborationError, setCollaborationError] = useState("");
   const [collaborationLoading, setCollaborationLoading] = useState(false);
   const [inviteRole, setInviteRole] = useState<"admin" | "worker">("worker");
+  const [inviteRecipientEmail, setInviteRecipientEmail] = useState("");
   const [invitationExpiryHours, setInvitationExpiryHours] = useState("");
   const [createdInviteUrl, setCreatedInviteUrl] = useState("");
   const [applications, setApplications] = useState<InvitationApplication[]>([]);
@@ -387,20 +388,24 @@ export default function App() {
       Object.entries(invitePermissions).filter(([, granted]) => granted),
     );
     try {
-      const result = await apiRequest<{ id: string; invitation_url: string; expires_at: string }>(
+      const result = await apiRequest<{ id: string; invitation_url: string | null; recipient_email: string | null; expires_at: string }>(
         `/businesses/${selectedWorkspaceId}/invitations`,
         {
           method: "POST",
           body: JSON.stringify({
             role: inviteRole,
+            recipient_email: inviteRecipientEmail.trim() || null,
             permissions,
             expires_in_hours: Number(invitationExpiryHours),
           }),
         },
         accessToken,
       );
-      setCreatedInviteUrl(result.invitation_url);
-      setNotice(`Invitation link generated. It expires at ${new Date(result.expires_at).toLocaleString()}. Copy and send it yourself.`);
+      setCreatedInviteUrl(result.invitation_url ?? "");
+      setInviteRecipientEmail("");
+      setNotice(result.recipient_email
+        ? `Invitation email sent to ${result.recipient_email}. It expires at ${new Date(result.expires_at).toLocaleString()}.`
+        : `Invitation link generated. It expires at ${new Date(result.expires_at).toLocaleString()}. Copy and send it yourself.`);
       await refreshCollaboration();
     } catch (error) {
       setCollaborationError(messageFromError(error));
@@ -837,7 +842,10 @@ export default function App() {
                   {isWorkspaceOwner && (
                   <form className="collaboration-form" onSubmit={createInvitation}>
                     <p className="eyebrow">INVITE A PERSON</p>
-                    <h3>Generate a shareable link</h3>
+                    <h3>Invite by email or shareable link</h3>
+                    <label htmlFor="invite-recipient-email">Recipient email (optional)</label>
+                    <input id="invite-recipient-email" type="email" value={inviteRecipientEmail} onChange={(event) => setInviteRecipientEmail(event.target.value)} maxLength={254} placeholder="person@example.com" />
+                    <p className="form-hint">Leave this blank to generate a link you can share yourself. Email invitations require SMTP configuration and the recipient must sign in with this verified email.</p>
                     <label htmlFor="invite-role">Role</label>
                     <select id="invite-role" value={inviteRole} onChange={(event) => {
                         const role = event.target.value as "admin" | "worker";
@@ -877,7 +885,7 @@ export default function App() {
                         </label>
                       ))}
                     </div>
-                    <button className="button button--primary form-submit" type="submit" disabled={busy}>{busy ? "Generating…" : "Generate invitation link"}</button>
+                    <button className="button button--primary form-submit" type="submit" disabled={busy}>{busy ? "Sending…" : inviteRecipientEmail.trim() ? "Send invitation email" : "Generate invitation link"}</button>
                     {createdInviteUrl && (
                       <div className="generated-invitation">
                         <label htmlFor="generated-invitation-url">Copy this link and send it yourself</label>
