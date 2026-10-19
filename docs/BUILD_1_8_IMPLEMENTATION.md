@@ -8,9 +8,9 @@ The feature work started from commit `4de7ba59ee90db1992b128cfac01dd739cc67c5a` 
 
 - **Build 1 — baseline:** documented the inspected architecture and retained the existing stack and API boundary.
 - **Build 2 — expense UI:** added a workspace financial panel for creating, filtering, viewing, editing and voiding income/expense entries.
-- **Build 3 — integrity:** uses existing workspace-scoped APIs, decimal transaction amounts and server-side permissions. Voided entries remain visible but are excluded from totals. The UI does not convert currencies.
-- **Build 4 — receipt capture:** added private receipt storage in PostgreSQL, a 5 MiB limit, allowed-type checks plus file-signature validation, and authenticated workspace-scoped retrieval.
-- **Build 5 — extraction and review:** PDF text extraction and optional local image OCR are best-effort. Candidate merchant/date/amount/currency values are untrusted suggestions. A human must edit/review and explicitly confirm before a posted transaction is created; rejecting a receipt clears its stored bytes and extracted text.
+- **Build 3 — integrity:** uses existing workspace-scoped APIs, decimal transaction amounts and server-side permissions. Voided entries remain visible but are excluded from totals. The UI gates create/edit/void actions, receipt review and combined summaries by the current workspace membership permissions. The UI does not convert currencies.
+- **Build 4 — receipt capture:** added private receipt storage in PostgreSQL, a 5 MiB limit, allowed-type checks plus file-signature validation, authenticated workspace-scoped retrieval, and a per-workspace duplicate-file guard enforced by a partial unique index (rejected receipts may be uploaded again). PDF text extraction is capped at 50 pages and image OCR skips images above 20 million pixels.
+- **Build 5 — extraction and review:** PDF text extraction and optional local image OCR are best-effort. Candidate merchant/date/amount/currency values are untrusted suggestions. A human must edit/review and explicitly confirm before a posted transaction is created; rejecting a receipt clears its stored bytes and extracted text. Receipt confirmation checks the direction-specific permission and commits the transaction plus receipt link atomically.
 - **Build 6 — summaries:** added date filters, currency-separated income/expense/net-cash-movement totals and category totals. Draft and void entries are excluded.
 - **Build 7 — calculations:** added deterministic revenue/direct-cost/gross-profit/gross-margin calculations. Only explicitly recognised direct-cost categories count as direct costs; operating expenses are not silently treated as cost of goods sold. Gross profit and margin remain unavailable when direct-cost data is absent.
 - **Build 8 — MarginGuard:** compares the latest 7–180-day period with the preceding equal-length period; the UI uses 30 days. Findings include current-period record evidence and uncertainty statements. A change is not presented as proof of its cause.
@@ -36,3 +36,5 @@ The feature work started from commit `4de7ba59ee90db1992b128cfac01dd739cc67c5a` 
 - [ ] Currency totals remain separate and cash movement is not labelled profit.
 - [ ] Missing direct-cost data produces an unavailable gross-profit result rather than a misleading number.
 - [ ] MarginGuard shows evidence and uncertainty for detected changes.
+- [ ] Duplicate receipt upload is rejected within the same workspace, while a previously rejected receipt can be uploaded again.
+- [ ] Restricted business members see only permitted transaction domains; combined summaries are hidden without both sales and expense read permissions.
