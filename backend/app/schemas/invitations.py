@@ -15,9 +15,20 @@ ALLOWED_PERMISSION_KEYS = {
 
 class InvitationCreate(BaseModel):
     role: Literal["admin", "worker"]
+    recipient_email: str | None = Field(default=None, max_length=254)
     permissions: dict[str, bool] = Field(default_factory=dict)
     # The workspace owner chooses the expiry; the API only enforces that deadline.
     expires_in_hours: int = Field(ge=1, le=720)
+
+    @field_validator("recipient_email")
+    @classmethod
+    def normalize_recipient_email(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip().lower()
+        if not cleaned or "@" not in cleaned or "." not in cleaned.rsplit("@", 1)[-1]:
+            raise ValueError("Enter a valid recipient email address")
+        return cleaned
 
     @field_validator("permissions")
     @classmethod
