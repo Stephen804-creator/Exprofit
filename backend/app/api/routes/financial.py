@@ -213,7 +213,7 @@ async def upload_receipt(
     merchant, parsed_date, amount, currency = _extract_candidates(text)
     receipt = Receipt(
         business_id=business_id, uploaded_by_user_id=membership.user_id,
-        original_filename=PurePath((file.filename or "receipt").replace("\\\\", "/")).name[:255],
+        original_filename=PurePath((file.filename or "receipt").replace(chr(92), "/")).name[:255],
         content_type=content_type, sha256_hex=hashlib.sha256(content).hexdigest(),
         file_bytes=content, extracted_text=text, candidate_merchant=merchant,
         candidate_date=parsed_date, candidate_amount=amount, candidate_currency=currency,
