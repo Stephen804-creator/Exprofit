@@ -49,7 +49,7 @@ def health_check() -> dict[str, str]:
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
-@app.get("/", tags=["operations"], include_in_schema=False)
+@app.get("/", tags=["operations"], include_in_schema=False, response_model=None)
 def root() -> FileResponse | dict[str, str]:
     """Serve the frontend in a combined deployment, or API info during local development."""
     index_file = FRONTEND_DIST / "index.html"
@@ -59,5 +59,5 @@ def root() -> FileResponse | dict[str, str]:
 
 
 if FRONTEND_DIST.is_dir():
-    # The API routes above take precedence; this mount serves Vite assets from the same origin.
+    # API routes are registered first; this mount serves the frontend and Vite assets.
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
