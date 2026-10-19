@@ -105,7 +105,9 @@ def _call_gemma(token: str, model: str, facts: dict, question: str | None) -> st
         if isinstance(content, str):
             cleaned = content.strip()
             return cleaned[:6000] if cleaned else None
-    except (HTTPError, URLError, TimeoutError, OSError, ValueError, KeyError, IndexError, TypeError):
+    except (
+        HTTPError, URLError, TimeoutError, OSError, ValueError, KeyError, IndexError, TypeError
+    ):
         return None
     return None
 
