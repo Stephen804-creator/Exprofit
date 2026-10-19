@@ -21,7 +21,7 @@ def summarize_transactions(transactions: list[Any]) -> dict[str, Any]:
     currencies: dict[str, dict[str, Decimal | int]] = defaultdict(
         lambda: {"income": ZERO, "expenses": ZERO, "income_count": 0, "expense_count": 0}
     )
-    categories: dict[str, dict[str, Decimal]] = defaultdict(
+    categories: dict[tuple[str, str], dict[str, Decimal]] = defaultdict(
         lambda: {"income": ZERO, "expense": ZERO}
     )
     for item in transactions:
@@ -33,11 +33,11 @@ def summarize_transactions(transactions: list[Any]) -> dict[str, Any]:
         if item.direction == "income":
             bucket["income"] = Decimal(bucket["income"]) + amount
             bucket["income_count"] = int(bucket["income_count"]) + 1
-            categories[category]["income"] += amount
+            categories[(item.currency_code, category)]["income"] += amount
         elif item.direction == "expense":
             bucket["expenses"] = Decimal(bucket["expenses"]) + amount
             bucket["expense_count"] = int(bucket["expense_count"]) + 1
-            categories[category]["expense"] += amount
+            categories[(item.currency_code, category)]["expense"] += amount
     result = []
     for currency, values in sorted(currencies.items()):
         income = _money(Decimal(values["income"]))
@@ -51,9 +51,15 @@ def summarize_transactions(transactions: list[Any]) -> dict[str, Any]:
             "expense_count": int(values["expense_count"]),
         })
     category_rows = [
-        {"category": name, "income": str(_money(values["income"])),
-         "expenses": str(_money(values["expense"]))}
-        for name, values in sorted(categories.items(), key=lambda pair: pair[0].casefold())
+        {
+            "currency_code": currency,
+            "category": name,
+            "income": str(_money(values["income"])),
+            "expenses": str(_money(values["expense"])),
+        }
+        for (currency, name), values in sorted(
+            categories.items(), key=lambda pair: (pair[0][0], pair[0][1].casefold())
+        )
     ]
     return {"currencies": result, "categories": category_rows, "posted_record_count": sum(
         int(row["income_count"]) + int(row["expense_count"]) for row in result
@@ -144,6 +150,7 @@ def compare_periods(
     now = metrics(current)
     before = metrics(previous)
     before_by_currency = {x["currency_code"]: x for x in before["currencies"]}
+    current_by_currency = {x["currency_code"]: x for x in now["currencies"]}
     findings = []
     for row in now["currencies"]:
         old = before_by_currency.get(row["currency_code"])
@@ -224,6 +231,30 @@ def compare_periods(
                         "and recorded revenue."
                     ),
                 })
+    for currency, old in before_by_currency.items():
+        if currency in current_by_currency:
+            continue
+        findings.append({
+            "kind": "previous_currency_activity",
+            "severity": "info",
+            "currency_code": currency,
+            "summary": (
+                f"No {currency} transactions were recorded in the current period; "
+                "the previous period had activity."
+            ),
+            "current": None,
+            "previous": {
+                key: str(value) if isinstance(value, Decimal) else value
+                for key, value in old.items()
+                if key != "records"
+            },
+            "evidence": [],
+            "previous_evidence": old["records"],
+            "uncertainty": (
+                "No current-period records were found. This does not establish whether "
+                "activity stopped or records are missing."
+            ),
+        })
     return {
         "periods": {
             "current": {"start": current_start.isoformat(), "end": current_end.isoformat()},

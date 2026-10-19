@@ -62,3 +62,30 @@ def test_margin_guard_reports_revenue_change_with_evidence_and_uncertainty():
     assert finding["change"] == "50.00"
     assert finding["evidence"][0]["description"] == "Test record"
     assert "do not establish its cause" in finding["uncertainty"]
+
+
+def test_category_totals_are_separated_by_currency():
+    result = summarize_transactions([
+        record("expense", "100.00", "Transport", currency="NGN"),
+        record("expense", "10.00", "Transport", currency="USD"),
+    ])
+    rows = [row for row in result["categories"] if row["category"] == "Transport"]
+    assert {(row["currency_code"], row["expenses"]) for row in rows} == {
+        ("NGN", "100.00"),
+        ("USD", "10.00"),
+    }
+
+
+def test_margin_guard_reports_activity_that_disappears_in_current_period():
+    previous = [record("income", "100.00", currency="USD", day=date(2026, 9, 10))]
+    result = compare_periods(
+        [], previous, date(2026, 10, 1), date(2026, 10, 10),
+        date(2026, 9, 1), date(2026, 9, 30),
+    )
+    finding = next(
+        item for item in result["findings"]
+        if item["kind"] == "previous_currency_activity"
+    )
+    assert finding["currency_code"] == "USD"
+    assert finding["current"] is None
+    assert finding["previous_evidence"][0]["amount"] == "100.00"
