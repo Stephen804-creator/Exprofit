@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_business_membership
@@ -215,18 +216,38 @@ async def upload_receipt(
             status_code=415,
             detail="The file content does not match its declared type.",
         )
+    digest = hashlib.sha256(content).hexdigest()
+    duplicate = db.scalar(
+        select(Receipt.id).where(
+            Receipt.business_id == business_id,
+            Receipt.sha256_hex == digest,
+            Receipt.review_status != "rejected",
+        )
+    )
+    if duplicate is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This receipt file has already been uploaded in this workspace.",
+        )
     text = _extract_text(content, content_type)
     merchant, parsed_date, amount, currency = _extract_candidates(text)
     receipt = Receipt(
         business_id=business_id, uploaded_by_user_id=membership.user_id,
         original_filename=PurePath((file.filename or "receipt").replace(chr(92), "/")).name[:255],
-        content_type=content_type, sha256_hex=hashlib.sha256(content).hexdigest(),
+        content_type=content_type, sha256_hex=digest,
         file_bytes=content, extracted_text=text, candidate_merchant=merchant,
         candidate_date=parsed_date, candidate_amount=amount, candidate_currency=currency,
         review_status="pending",
     )
     db.add(receipt)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This receipt file has already been uploaded in this workspace.",
+        ) from exc
     db.refresh(receipt)
     return _receipt_payload(receipt)
 

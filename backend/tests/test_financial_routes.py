@@ -185,3 +185,14 @@ def test_receipt_upload_rejects_mismatched_file_signature(client: TestClient) ->
         files={"file": ("not-really.jpg", b"not a jpeg file", "image/jpeg")},
     )
     assert response.status_code == 415
+
+
+def test_duplicate_receipt_upload_is_rejected(client: TestClient) -> None:
+    owner = register(client, "receipt-duplicate@example.com")
+    business_id = make_business(client, owner["access_token"])
+    first = upload_receipt(client, owner["access_token"], business_id)
+    assert first.status_code == 201, first.text
+
+    duplicate = upload_receipt(client, owner["access_token"], business_id)
+    assert duplicate.status_code == 409
+    assert "already been uploaded" in duplicate.json()["detail"]

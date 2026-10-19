@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import Date, DateTime, ForeignKey, LargeBinary, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Index, LargeBinary, Numeric, String, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -14,6 +14,16 @@ class Receipt(Base):
     """Receipt bytes stay in the database and are never publicly addressable."""
 
     __tablename__ = "receipts"
+    __table_args__ = (
+        Index(
+            "uq_receipts_business_sha_active",
+            "business_id",
+            "sha256_hex",
+            unique=True,
+            postgresql_where=text("review_status != 'rejected'"),
+            sqlite_where=text("review_status != 'rejected'"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     business_id: Mapped[UUID] = mapped_column(

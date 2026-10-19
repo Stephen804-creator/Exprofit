@@ -43,9 +43,18 @@ def upgrade() -> None:
     )
     op.create_index("ix_receipts_business_id", "receipts", ["business_id"])
     op.create_index("ix_receipts_sha256_hex", "receipts", ["sha256_hex"])
+    op.create_index(
+        "uq_receipts_business_sha_active",
+        "receipts",
+        ["business_id", "sha256_hex"],
+        unique=True,
+        postgresql_where=sa.text("review_status != 'rejected'"),
+        sqlite_where=sa.text("review_status != 'rejected'"),
+    )
 
 
 def downgrade() -> None:
+    op.drop_index("uq_receipts_business_sha_active", table_name="receipts")
     op.drop_index("ix_receipts_sha256_hex", table_name="receipts")
     op.drop_index("ix_receipts_business_id", table_name="receipts")
     op.drop_table("receipts")
