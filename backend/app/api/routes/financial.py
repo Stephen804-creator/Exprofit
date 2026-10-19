@@ -11,7 +11,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -32,6 +32,14 @@ class ReceiptConfirm(BaseModel):
     transaction_date: date
     description: str = Field(min_length=1, max_length=500)
     category: str | None = Field(default="Uncategorised", max_length=80)
+
+    @field_validator("description")
+    @classmethod
+    def clean_description(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("description cannot be blank")
+        return cleaned
 
 
 def _require_write(membership: BusinessMembership) -> None:
@@ -227,8 +235,8 @@ def download_receipt_file(
     receipt = db.scalar(select(Receipt).where(
         Receipt.id == receipt_id, Receipt.business_id == business_id
     ))
-    if receipt is None:
-        raise HTTPException(status_code=404, detail="Receipt not found.")
+    if receipt is None or receipt.review_status == "rejected" or not receipt.file_bytes:
+        raise HTTPException(status_code=404, detail="Receipt file not found.")
     return Response(
         content=receipt.file_bytes,
         media_type=receipt.content_type,
