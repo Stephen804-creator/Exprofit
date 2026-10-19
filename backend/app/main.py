@@ -11,7 +11,6 @@ from app.api.routes.invitations import router as invitations_router
 from app.api.routes.members import router as members_router
 from app.api.routes.transactions import router as transactions_router
 
-app.include_router(intelligence_router)
 from app.config import get_settings
 
 settings = get_settings()
@@ -35,6 +34,7 @@ app.include_router(invitations_router)
 app.include_router(members_router)
 app.include_router(transactions_router)
 app.include_router(financial_router)
+app.include_router(intelligence_router)
 
 
 @app.get("/health", tags=["operations"])
