@@ -44,7 +44,6 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
   const canWriteAny = canWrite("sales") || canWrite("expenses");
   const writeDirections = (["expense", "income"] as const).filter((value) => canWrite(value === "income" ? "sales" : "expenses"));
 
-  const overviewSummary = summary?.currencies.find((item) => item.currency_code === workspace.currency_code);
   const overviewProfit = summary?.profitability.currencies.find((item) => item.currency_code === workspace.currency_code);
   const postedRows = rows.filter((tx) => tx.status === "posted" && tx.currency_code === workspace.currency_code);
   const expenseCategories = Object.entries(postedRows.filter((tx) => tx.direction === "expense").reduce<Record<string, number>>((totals, tx) => {
