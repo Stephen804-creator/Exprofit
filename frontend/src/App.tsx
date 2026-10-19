@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import FinancialWorkspace from "./FinancialWorkspace";
 
 type ApiStatus = "checking" | "online" | "offline";
 type RouteMode = "app" | "accept-invitation";
@@ -688,6 +689,8 @@ export default function App() {
               </div>
             )}
           </section>
+
+          {selectedWorkspace && accessToken && <FinancialWorkspace workspace={selectedWorkspace} accessToken={accessToken} />}
 
           <section className="create-workspace-card">
             <div>

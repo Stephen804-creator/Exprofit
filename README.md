@@ -105,7 +105,7 @@ GitHub Actions runs backend lint/tests and frontend type/build checks on pushes 
 
 ## Development status and contributions
 
-The project is under active development. Until a runnable baseline and automated checks are committed, treat this repository as an early project foundation rather than a production-ready finance application.
+The project is under active development. Treat it as an early financial application until the feature branch passes CI, migrations and API integration are verified against PostgreSQL, and the complete receipt-to-investigation flow is manually tested.
 
 When reusing or adapting code from earlier experiments, retain appropriate authorship and licensing notices and review the code before importing it. Never commit API keys, passwords, real customer records, or receipt images containing personal information.
 
