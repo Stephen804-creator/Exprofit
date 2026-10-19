@@ -108,6 +108,8 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [activePage, setActivePage] = useState<"finance" | "workspaces" | "team">("finance");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceDisplayName, setWorkspaceDisplayName] = useState("");
@@ -671,23 +673,33 @@ export default function App() {
           <span className={`connection connection--${apiStatus}`}>
             <span className="connection-dot" aria-hidden="true" />{statusLabel[apiStatus]}
           </span>
+          {user && <button className="menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="app-navigation" onClick={() => setMenuOpen((open) => !open)}><span aria-hidden="true">{menuOpen ? "×" : "☰"}</span><span>{menuOpen ? "Close menu" : "Menu"}</span></button>}
           {user && <button className="text-button" type="button" onClick={() => void logout()} disabled={busy}>Sign out</button>}
         </div>
       </header>
 
       {user ? (
         <section className="workspace-page">
+          <div className={`app-navigation-wrap${menuOpen ? " app-navigation-wrap--open" : ""}`}>
+            <nav id="app-navigation" className="app-navigation" aria-label="Main navigation" hidden={!menuOpen}>
+              <p className="eyebrow">YOUR WORKSPACE</p>
+              <button type="button" className={activePage === "finance" ? "app-nav-item app-nav-item--active" : "app-nav-item"} onClick={() => { setActivePage("finance"); setMenuOpen(false); }}>⌂ <span><strong>Financial overview</strong><small>Transactions, receipts and insights</small></span></button>
+              <button type="button" className={activePage === "workspaces" ? "app-nav-item app-nav-item--active" : "app-nav-item"} onClick={() => { setActivePage("workspaces"); setMenuOpen(false); }}>▦ <span><strong>Workspaces</strong><small>Private Solo and business spaces</small></span></button>
+              {selectedWorkspace?.workspace_type === "business" && <button type="button" className={activePage === "team" ? "app-nav-item app-nav-item--active" : "app-nav-item"} onClick={() => { setActivePage("team"); setMenuOpen(false); }}>♧ <span><strong>People & access</strong><small>Members, invitations and audit history</small></span></button>}
+              <div className="app-nav-current"><small>Currently viewing</small><strong>{selectedWorkspace?.display_name || selectedWorkspace?.name || "Your workspace"}</strong><span>{selectedWorkspace?.workspace_type === "solo" ? "Private Solo workspace" : "Business workspace"}</span></div>
+            </nav>
+          </div>
           <div className="workspace-heading">
             <div>
               <p className="eyebrow">YOUR EXPROFIT ACCOUNT</p>
-              <h1 className="account-title">Your workspaces.</h1>
-              <p className="hero-copy">Signed in as {user.email}. Each workspace keeps its own records and access rules.</p>
+              <h1 className="account-title">{activePage === "finance" ? "Financial overview." : activePage === "workspaces" ? "Your workspaces." : "People and access."}</h1>
+              <p className="hero-copy">{activePage === "finance" ? "Your financial activity, receipts, margin signals and planning tools in one organized workspace." : activePage === "workspaces" ? `Signed in as ${user.email}. Each workspace keeps its own records and access rules.` : "Manage who can access this business workspace and review membership activity."}</p>
             </div>
           </div>
 
           {notice && <p className="form-message" role="status">{notice}</p>}
 
-          <section className="workspace-picker">
+          {activePage === "workspaces" && <section className="workspace-picker">
             <label htmlFor="workspace-select">Current workspace</label>
             <select id="workspace-select" value={selectedWorkspaceId} onChange={(event) => selectWorkspace(event.target.value)}>
               {workspaces.map((workspace) => (
@@ -704,11 +716,11 @@ export default function App() {
                 {selectedWorkspace.workspace_type === "solo" && <p className="form-hint">Only your account has access to this workspace. Creating or joining a business does not share these records.</p>}
               </div>
             )}
-          </section>
+          </section>}
 
-          {selectedWorkspace && accessToken && <FinancialWorkspace workspace={selectedWorkspace} accessToken={accessToken} membership={currentMembership} membershipResolved={membershipResolved} />}
+          {activePage === "finance" && selectedWorkspace && accessToken && <FinancialWorkspace workspace={selectedWorkspace} accessToken={accessToken} membership={currentMembership} membershipResolved={membershipResolved} />}
 
-          <section className="create-workspace-card">
+          {activePage === "workspaces" && <section className="create-workspace-card">
             <div>
               <p className="eyebrow">GROW WITH YOUR BUSINESS</p>
               <h2>Create a business workspace</h2>
@@ -721,9 +733,9 @@ export default function App() {
               <input id="workspace-display-name" value={workspaceDisplayName} onChange={(event) => setWorkspaceDisplayName(event.target.value)} maxLength={120} />
               <button className="button button--primary form-submit" type="submit" disabled={busy}>{busy ? "Working…" : "Create workspace"}</button>
             </form>
-          </section>
+          </section>}
 
-          {selectedWorkspace?.workspace_type === "business" && (
+          {activePage === "team" && selectedWorkspace?.workspace_type === "business" && (
             <section className="collaboration-panel">
               <div className="section-heading">
                 <div>

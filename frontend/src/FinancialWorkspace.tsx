@@ -16,6 +16,7 @@ const cash = (value: string, currency: string) => currency + " " + Number(value)
 const errorText = (value: unknown) => value && typeof value === "object" && "detail" in value && typeof value.detail === "string" ? value.detail : "Request failed. Please try again.";
 
 export default function FinancialWorkspace({ workspace, accessToken, membership, membershipResolved }: { workspace: Workspace; accessToken: string; membership: MembershipAccess; membershipResolved: boolean }) {
+  const [activePanel, setActivePanel] = useState<"overview" | "transactions" | "receipts" | "insights">("overview");
   const [rows, setRows] = useState<Tx[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -42,6 +43,27 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
   const canWriteExpenses = canWrite("expenses");
   const canWriteAny = canWrite("sales") || canWrite("expenses");
   const writeDirections = (["expense", "income"] as const).filter((value) => canWrite(value === "income" ? "sales" : "expenses"));
+
+  const overviewProfit = summary?.profitability.currencies.find((item) => item.currency_code === workspace.currency_code);
+  const postedRows = rows.filter((tx) => tx.status === "posted" && tx.currency_code === workspace.currency_code);
+  const expenseCategories = Object.entries(postedRows.filter((tx) => tx.direction === "expense").reduce<Record<string, number>>((totals, tx) => {
+    const key = tx.category?.trim() || "Uncategorised";
+    totals[key] = (totals[key] ?? 0) + Number(tx.amount);
+    return totals;
+  }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const maxCategoryExpense = Math.max(1, ...expenseCategories.map(([, amount]) => amount));
+  const trendDays = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(to + "T12:00:00");
+    day.setDate(day.getDate() - (6 - index));
+    return localDate(day);
+  }).filter((day) => day >= from);
+  const cashTrend = trendDays.map((day) => ({
+    day,
+    label: new Date(day + "T12:00:00").toLocaleDateString(undefined, { weekday: "short" }),
+    income: postedRows.filter((tx) => tx.direction === "income" && tx.transaction_date === day).reduce((sum, tx) => sum + Number(tx.amount), 0),
+    expenses: postedRows.filter((tx) => tx.direction === "expense" && tx.transaction_date === day).reduce((sum, tx) => sum + Number(tx.amount), 0),
+  }));
+  const maxDailyAmount = Math.max(1, ...cashTrend.flatMap((day) => [day.income, day.expenses]));
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
@@ -154,17 +176,51 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
   }
 
   return <section className="finance-workspace">
-    <div className="finance-heading"><div><p className="eyebrow">FINANCIAL WORKSPACE</p><h2>Records and margin signals</h2><p className="finance-muted">Only posted records contribute to totals. Workspace records stay separate.</p></div><span className="finance-currency">{workspace.currency_code}</span></div>
+    <div className="finance-heading"><div><p className="eyebrow">FINANCIAL WORKSPACE</p><h2>{activePanel === "overview" ? "Your money at a glance" : activePanel === "transactions" ? "Transactions" : activePanel === "receipts" ? "Receipt inbox" : "Profit and financial intelligence"}</h2><p className="finance-muted">Only posted records contribute to totals. Workspace records stay separate.</p></div><span className="finance-currency">{workspace.currency_code}</span></div>
+    <nav className="finance-nav" aria-label="Financial tools">
+      <button type="button" className={activePanel === "overview" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("overview")}>Overview</button>
+      <button type="button" className={activePanel === "transactions" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("transactions")}>Transactions <span>＋</span></button>
+      <button type="button" className={activePanel === "receipts" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("receipts")}>Receipts</button>
+      <button type="button" className={activePanel === "insights" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("insights")}>MarginGuard & AI</button>
+    </nav>
     <div className="finance-filters"><label>From<input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label><label>To<input type="date" value={to} min={from} max={today()} onChange={e => setTo(e.target.value)} /></label><button className="finance-button finance-button--quiet" type="button" onClick={() => { setFrom(daysAgo(29)); setTo(today()); }}>Last 30 days</button></div>
     {error && <p className="form-message form-message--error" role="alert">{error}</p>}{notice && <p className="form-message" role="status">{notice}</p>}{loading && <p className="form-hint">Loading financial records…</p>}
-    <div className="finance-metrics">{(summary?.currencies ?? []).map(s => <div className="finance-metric-grid" key={s.currency_code}>
+    {activePanel === "overview" && overviewProfit && <section className="overview-profit-card">
+      <div><p className="eyebrow">PROFITABILITY SNAPSHOT</p><h3>Know what the sales are really earning</h3><p className="finance-muted">Gross profit is revenue minus recognised direct costs. It is not the same as cash movement or final net profit.</p></div>
+      <div className="overview-profit-values"><div><span>Gross profit</span><strong>{overviewProfit.gross_profit === null ? "Not available" : cash(overviewProfit.gross_profit, overviewProfit.currency_code)}</strong></div><div><span>Gross margin</span><strong>{overviewProfit.gross_margin_percent === null ? "Not available" : overviewProfit.gross_margin_percent + "%"}</strong></div></div>
+      <p className="finance-footnote">{overviewProfit.note}</p>
+    </section>}
+    {activePanel === "overview" && <div className="overview-charts">
+      <section className="finance-card overview-chart-card">
+        <div className="finance-card-heading"><div><p className="eyebrow">CASH FLOW</p><h3>Income vs expenses</h3><p className="finance-muted">Daily recorded activity over the last seven days of this date range.</p></div></div>
+        {cashTrend.some((day) => day.income > 0 || day.expenses > 0) ? <div className="cash-trend-chart" role="img" aria-label="Daily income and expenses bar chart">
+          <div className="cash-trend-legend"><span><i className="trend-dot trend-dot--income" />Income</span><span><i className="trend-dot trend-dot--expense" />Expenses</span></div>
+          <div className="cash-trend-bars">{cashTrend.map((day) => <div className="cash-trend-day" key={day.day}>
+            <div className="cash-trend-bar-pair" title={day.day + ": income " + day.income.toFixed(2) + ", expenses " + day.expenses.toFixed(2)}>
+              <span className="cash-trend-bar cash-trend-bar--income" style={{ height: Math.max(day.income ? 4 : 0, day.income / maxDailyAmount * 100) + "%" }} />
+              <span className="cash-trend-bar cash-trend-bar--expense" style={{ height: Math.max(day.expenses ? 4 : 0, day.expenses / maxDailyAmount * 100) + "%" }} />
+            </div><small>{day.label}</small>
+          </div>)}</div>
+        </div> : <p className="finance-empty">There is not enough recorded activity in this seven-day window to draw a chart. Add transactions and the chart will update.</p>}
+        <p className="finance-footnote">This visual uses the transactions currently loaded (up to 100 records); the summary figures above come from the financial-summary endpoint.</p>
+      </section>
+      <section className="finance-card overview-chart-card">
+        <div className="finance-card-heading"><div><p className="eyebrow">SPENDING PATTERN</p><h3>Where expenses go</h3><p className="finance-muted">Top categories among loaded posted expenses.</p></div></div>
+        {expenseCategories.length ? <div className="expense-category-chart">{expenseCategories.map(([name, total]) => <div className="expense-category-row" key={name}>
+          <div><span>{name}</span><strong>{cash(String(total), workspace.currency_code)}</strong></div>
+          <div className="expense-category-track"><span style={{ width: (total / maxCategoryExpense * 100) + "%" }} /></div>
+        </div>)}</div> : <p className="finance-empty">No posted expenses are available to break down yet. Once you record expenses, this chart will show which categories account for the most spending.</p>}
+        <p className="finance-footnote">Category breakdown is based on the transactions currently loaded for this period, up to 100 records.</p>
+      </section>
+    </div>}
+    {activePanel === "overview" && <div className="finance-metrics">{(summary?.currencies ?? []).map(s => <div className="finance-metric-grid" key={s.currency_code}>
       <article className="finance-metric"><span>Recorded income</span><strong>{cash(s.income, s.currency_code)}</strong><small>{s.income_count} entries</small></article>
       <article className="finance-metric"><span>Recorded expenses</span><strong>{cash(s.expenses, s.currency_code)}</strong><small>{s.expense_count} entries</small></article>
       <article className="finance-metric"><span>Net cash movement</span><strong>{cash(s.net_cash_movement, s.currency_code)}</strong><small>Not the same as profit</small></article>
     </div>)}{!loading && canViewCombined && !summary?.currencies.length && <p className="finance-empty">No posted transactions in this period. Add one below.</p>}
-     {!canViewCombined && <p className="finance-footnote">Combined summaries and MarginGuard require read access to both sales and expenses.</p>}</div>
+     {!canViewCombined && <p className="finance-footnote">Combined summaries and MarginGuard require read access to both sales and expenses.</p>}</div>}
     <div className="finance-columns">
-      {writeDirections.length > 0 && <section className="finance-card"><p className="eyebrow">01 / TRACK</p><h3>Add a transaction</h3>
+      {activePanel === "transactions" && writeDirections.length > 0 && <section className="finance-card"><p className="eyebrow">01 / TRACK</p><h3>Add a transaction</h3>
         <form className="finance-form" onSubmit={addTransaction}>
           <label>Type<select value={direction} onChange={e => setDirection(e.target.value as "income" | "expense")}>{canWrite("expenses") && <option value="expense">Expense</option>}{canWrite("sales") && <option value="income">Income / sale</option>}</select></label>
           <label>Amount ({workspace.currency_code})<input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required /></label>
@@ -174,7 +230,7 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
           <button className="finance-button" disabled={busy}>{busy ? "Saving…" : "Save transaction"}</button>
         </form><p className="finance-footnote">Voiding preserves history. Amounts use decimal storage.</p>
       </section>}
-      {canReadExpenses && <section className="finance-card"><p className="eyebrow">02 / CAPTURE</p><h3>Scan a receipt</h3><p className="finance-muted">JPEG, PNG, WebP or PDF up to 5 MB. Confirm every field before saving.</p>
+      {activePanel === "receipts" && canReadExpenses && <section className="finance-card"><p className="eyebrow">02 / CAPTURE</p><h3>Scan a receipt</h3><p className="finance-muted">JPEG, PNG, WebP or PDF up to 5 MB. Confirm every field before saving.</p>
         {canWriteExpenses && <form className="finance-upload" onSubmit={uploadReceipt}><input name="receipt-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required /><button className="finance-button" disabled={busy}>Upload and extract</button></form>}
         <p className="finance-footnote">Files are private to this workspace. OCR is best-effort; enter details manually if text extraction is unavailable.</p>
         {receipts.filter(r => r.review_status === "pending").map(r => {
@@ -192,7 +248,7 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
         })}
       </section>}
     </div>
-    <section className="finance-card finance-records"><div className="finance-card-heading"><div><p className="eyebrow">03 / LEDGER</p><h3>Transactions</h3></div><span className="finance-muted">{rows.length} records</span></div>
+    {activePanel === "transactions" && <section className="finance-card finance-records"><div className="finance-card-heading"><div><p className="eyebrow">03 / LEDGER</p><h3>Transactions</h3></div><span className="finance-muted">{rows.length} records</span></div>
       {!rows.length && (canRead("sales") || canRead("expenses")) && <p className="finance-empty">No transactions in this date range.</p>}
       {!rows.length && !canRead("sales") && !canRead("expenses") && <p className="finance-empty">You do not have read access to sales or expenses in this workspace.</p>}
       <div className="finance-table-wrap"><table className="finance-table"><thead><tr><th>Date</th><th>Details</th><th>Category</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>
@@ -200,15 +256,16 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
           <td>{tx.status !== "void" && canWrite(tx.direction === "income" ? "sales" : "expenses") && <div className="finance-actions"><button className="finance-link" type="button" onClick={() => startEdit(tx)}>Edit</button><button className="finance-link finance-link--danger" type="button" onClick={() => void voidTx(tx)} disabled={busy}>Void</button></div>}</td></tr>)}
       </tbody></table></div>
       {editing && <form className="finance-edit" onSubmit={saveEdit}><h3>Edit transaction</h3><label>Amount<input type="number" min="0.01" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} required /></label><label>Date<input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} required /></label><label>Description<input value={editDescription} onChange={e => setEditDescription(e.target.value)} required /></label><label>Category<input value={editCategory} onChange={e => setEditCategory(e.target.value)} /></label><div className="finance-actions"><button className="finance-button" disabled={busy}>Save changes</button><button className="finance-button finance-button--quiet" type="button" onClick={() => setEditing(null)}>Cancel</button></div></form>}
-    </section>
-    {canViewCombined && <div className="finance-columns finance-bottom"><section className="finance-card"><p className="eyebrow">04 / CALCULATE</p><h3>Profitability — where supported</h3>
+    </section>}
+    {activePanel === "insights" && canViewCombined && <div className="finance-columns finance-bottom"><section className="finance-card"><p className="eyebrow">04 / CALCULATE</p><h3>Profitability — where supported</h3>
       {(summary?.profitability.currencies ?? []).map(p => <div className="profitability-row" key={p.currency_code}><div><span>Revenue</span><strong>{cash(p.revenue, p.currency_code)}</strong></div><div><span>Recognised direct costs</span><strong>{cash(p.direct_costs, p.currency_code)}</strong></div><div><span>Gross profit</span><strong>{p.gross_profit === null ? "Not available" : cash(p.gross_profit, p.currency_code)}</strong></div><div><span>Gross margin</span><strong>{p.gross_margin_percent === null ? "Not available" : p.gross_margin_percent + "%"}</strong></div><p className="finance-footnote">{p.note} General expenses are not automatically treated as direct costs.</p></div>)}
       {!summary?.profitability.currencies.length && <p className="finance-empty">Add posted income and direct costs to calculate gross profit.</p>}
     </section><section className="finance-card"><p className="eyebrow">05 / INVESTIGATE</p><h3>MarginGuard</h3><p className="finance-muted">Latest 30 days compared with the preceding 30 days. Changes are not proof of cause.</p>
       {!findings.length && <p className="finance-empty">No comparable changes detected, or not enough history yet.</p>}
       {findings.map((f, i) => <article className="guard-finding" key={f.kind + f.currency_code + i}><span className={"finance-status finance-status--" + (f.severity === "warning" ? "warning" : "posted")}>{f.severity}</span><strong>{f.summary}</strong><p>{f.uncertainty}</p><details><summary>Evidence ({f.evidence?.length ?? 0} records)</summary>{(f.evidence ?? []).map(ev => <div className="evidence-row" key={ev.id}><span>{ev.date} · {ev.description}</span><strong>{ev.direction} {cash(ev.amount, f.currency_code)}</strong></div>)}</details></article>)}
     </section></div>}
-    {canViewCombined && <FinancialIntelligence workspaceId={workspace.id} accessToken={accessToken} />}
+    {activePanel === "insights" && canViewCombined && <FinancialIntelligence workspaceId={workspace.id} accessToken={accessToken} />}
+    {activePanel === "insights" && !canViewCombined && <p className="finance-empty">MarginGuard and combined financial intelligence require read access to both sales and expenses in this workspace.</p>}
     <p className="finance-disclaimer">Exprofit reports recorded information only. Cash movement is not profit. Check source records before making a business decision.</p>
   </section>;
 }

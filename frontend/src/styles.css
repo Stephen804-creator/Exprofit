@@ -246,3 +246,71 @@ h2 { font-family: Manrope, sans-serif; font-size: clamp(24px, 3.5vw, 36px); lett
 .evidence-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #edf0ea}.evidence-row span{overflow-wrap:anywhere}.evidence-row strong{white-space:nowrap}
 .finance-empty{padding:14px;border-radius:8px;background:#f7f8f4;color:var(--muted);font-size:12px;line-height:1.6}.finance-disclaimer{margin:18px 0 0;color:#7b887d;font-size:10px;line-height:1.6}
 @media(max-width:760px){.finance-workspace{padding:14px;margin-left:-4px;margin-right:-4px}.finance-columns,.finance-metric-grid{grid-template-columns:1fr}.finance-heading{align-items:flex-start}.finance-card{padding:15px}.finance-form,.finance-edit{grid-template-columns:1fr}.finance-full{grid-column:auto}.finance-filters label{flex:1;min-width:125px}}
+
+
+/* Collapsible application navigation and focused financial panels */
+.menu-toggle { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--forest); padding:9px 12px; font:600 12px "DM Sans",sans-serif; cursor:pointer; }
+.menu-toggle span:first-child { font-size:18px; line-height:1; }
+.app-navigation-wrap { position:relative; z-index:5; }
+.app-navigation { width:min(360px,100%); margin:16px 0 0 auto; padding:18px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:0 16px 40px #152d2014; }
+.app-navigation[hidden] { display:none; }
+.app-navigation .eyebrow { margin:0 0 10px; }
+.app-nav-item { width:100%; display:flex; align-items:center; gap:13px; text-align:left; padding:13px 12px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--forest); font:600 13px "DM Sans",sans-serif; cursor:pointer; }
+.app-nav-item > span { display:grid; gap:4px; }
+.app-nav-item strong { font-size:12px; }
+.app-nav-item small,.app-nav-current small,.app-nav-current span { color:var(--muted); font-size:10px; font-weight:400; }
+.app-nav-item--active { background:#edf2e8; border-color:#dce6d5; }
+.app-nav-current { display:grid; gap:5px; margin-top:12px; padding:13px 12px 4px; border-top:1px solid var(--line); }
+.app-nav-current strong { font-size:12px; overflow-wrap:anywhere; }
+.finance-nav { display:flex; flex-wrap:wrap; gap:7px; margin:20px 0 18px; padding-bottom:16px; border-bottom:1px solid var(--line); }
+.finance-nav-item { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line); border-radius:999px; background:#fff; color:#4f6255; padding:9px 13px; font:600 11px "DM Sans",sans-serif; cursor:pointer; }
+.finance-nav-item--active { background:var(--forest); border-color:var(--forest); color:#fff; }
+.finance-nav-item span { font-size:15px; color:var(--acid); }
+@media(max-width:760px) {
+  .topbar-actions { gap:6px; }
+  .menu-toggle { padding:8px 9px; }
+  .menu-toggle span:last-child { display:none; }
+  .app-navigation { width:100%; }
+  .finance-nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .finance-nav-item { justify-content:center; border-radius:8px; padding:11px 8px; }
+}
+
+
+/* Financial dashboard visual summaries */
+.overview-profit-card { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px 24px; align-items:center; margin:18px 0; padding:22px; border:1px solid #dce6d5; border-radius:12px; background:linear-gradient(120deg,#f1f5ec,#fff 78%); }
+.overview-profit-card h3 { margin:5px 0 7px; font-family:Manrope,sans-serif; font-size:18px; letter-spacing:-.3px; }
+.overview-profit-card .eyebrow { margin:0; }
+.overview-profit-values { display:flex; gap:24px; }
+.overview-profit-values > div { display:grid; gap:6px; min-width:110px; }
+.overview-profit-values span { color:var(--muted); font-size:11px; }
+.overview-profit-values strong { color:var(--forest); font-size:20px; font-family:Manrope,sans-serif; }
+.overview-profit-card > .finance-footnote { grid-column:1/-1; margin:0; padding-top:10px; border-top:1px solid #dce6d5; }
+.overview-charts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:16px 0 20px; }
+.overview-chart-card { min-width:0; }
+.overview-chart-card .finance-card-heading { align-items:flex-start; }
+.overview-chart-card h3 { margin:4px 0 5px; }
+.cash-trend-legend { display:flex; gap:15px; margin:20px 0 8px; color:var(--muted); font-size:10px; }
+.cash-trend-legend span { display:inline-flex; align-items:center; gap:6px; }
+.trend-dot { display:inline-block; width:8px; height:8px; border-radius:50%; }
+.trend-dot--income { background:#2f7257; }
+.trend-dot--expense { background:#d9a441; }
+.cash-trend-bars { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px; align-items:end; min-height:150px; padding:8px 0 0; border-bottom:1px solid var(--line); }
+.cash-trend-day { display:grid; grid-template-rows:120px 22px; align-items:end; justify-items:center; min-width:0; }
+.cash-trend-bar-pair { display:flex; align-items:end; justify-content:center; gap:3px; width:100%; height:100%; border-bottom:1px solid #edf0ea; }
+.cash-trend-bar { display:block; width:min(15px,38%); min-height:0; border-radius:4px 4px 0 0; transition:height .2s ease; }
+.cash-trend-bar--income { background:#2f7257; }
+.cash-trend-bar--expense { background:#d9a441; }
+.cash-trend-day small { padding-top:7px; color:var(--muted); font-size:10px; }
+.expense-category-chart { display:grid; gap:17px; margin-top:25px; }
+.expense-category-row { display:grid; gap:7px; }
+.expense-category-row > div:first-child { display:flex; justify-content:space-between; gap:10px; align-items:baseline; font-size:11px; }
+.expense-category-row > div:first-child span { overflow-wrap:anywhere; color:#4f6255; }
+.expense-category-row strong { white-space:nowrap; font-size:11px; color:var(--forest); }
+.expense-category-track { height:9px; border-radius:999px; background:#edf0ea; overflow:hidden; }
+.expense-category-track span { display:block; height:100%; border-radius:999px; background:#2f7257; }
+@media(max-width:760px) {
+  .overview-charts { grid-template-columns:1fr; }
+  .overview-profit-card { grid-template-columns:1fr; padding:17px; }
+  .overview-profit-values { flex-wrap:wrap; gap:18px; }
+  .overview-profit-values strong { font-size:18px; }
+}
