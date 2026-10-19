@@ -1,5 +1,4 @@
-# Exprofit's single public URL deployment on Render.
-# The FastAPI service serves both the Vite frontend and API; PostgreSQL stays private.
+# Exprofit: one public web URL for the frontend and API; PostgreSQL stays private.
 services:
   - type: web
     name: exprofit
@@ -22,11 +21,6 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: ""
-      - key: FRONTEND_BASE_URL
-        fromService:
-          type: web
-          name: exprofit
-          envVarKey: RENDER_EXTERNAL_URL
 
 databases:
   - name: exprofit-db
