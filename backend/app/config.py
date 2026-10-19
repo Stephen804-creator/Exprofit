@@ -1,4 +1,4 @@
-""""Typed application settings loaded from environment variables."""
+"""Typed application settings loaded from environment variables."""
 
 from functools import lru_cache
 
@@ -50,5 +50,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Return one cached settings instance for the application process."""
+    """Return one cached settings instance."""
     return Settings()
