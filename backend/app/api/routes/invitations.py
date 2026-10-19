@@ -156,7 +156,8 @@ def create_invitation(
     raw_token = secrets.token_urlsafe(32)
     expires_at = datetime.now(UTC) + timedelta(hours=payload.expires_in_hours)
     invitation = WorkspaceInvitation(
-        business_id=business_id, recipient_email=payload.recipient_email, role=payload.role, permissions=grants,
+        business_id=business_id, recipient_email=payload.recipient_email,
+        role=payload.role, permissions=grants,
         token_hash=sha256(raw_token.encode()).hexdigest(),
         expires_at=expires_at,
         created_by_user_id=user.id,
@@ -188,7 +189,10 @@ def create_invitation(
                 target_id=invitation.id,
             )
             db.commit()
-            raise HTTPException(status_code=502, detail="Invitation email could not be sent; the link was revoked") from exc
+            raise HTTPException(
+                status_code=502,
+                detail="Invitation email could not be sent; the link was revoked",
+            ) from exc
         invitation_url = None
     return InvitationRead(
         id=invitation.id, business_id=business_id, recipient_email=invitation.recipient_email,
@@ -216,8 +220,12 @@ def submit_application(
         raise HTTPException(status_code=400, detail="Invalid, expired, or unavailable invitation")
     assert invitation is not None
     if invitation.recipient_email is not None:
-        if not user.email_verified or user.email.strip().lower() != invitation.recipient_email.strip().lower():
-            raise HTTPException(status_code=403, detail="Sign in with the verified email address that received this invitation")
+        matches_recipient = user.email.strip().lower() == invitation.recipient_email.strip().lower()
+        if not user.email_verified or not matches_recipient:
+            raise HTTPException(
+                status_code=403,
+                detail="Sign in with the verified email address that received this invitation",
+            )
     business = db.get(Business, invitation.business_id)
     if business is None or business.workspace_type != "business":
         raise HTTPException(status_code=400, detail="Invitation workspace is unavailable")
