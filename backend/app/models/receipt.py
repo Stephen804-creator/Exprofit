@@ -25,7 +25,7 @@ class Receipt(Base):
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str] = mapped_column(String(80), nullable=False)
     sha256_hex: Mapped[str] = mapped_column(String(64), nullable=False)
-    file_bytes: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    file_bytes: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, deferred=True)
     extracted_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
     candidate_merchant: Mapped[str | None] = mapped_column(String(160), nullable=True)
     candidate_date: Mapped[date | None] = mapped_column(Date, nullable=True)

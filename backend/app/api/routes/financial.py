@@ -248,9 +248,11 @@ def confirm_receipt(
 ) -> dict:
     domain = "sales" if payload.direction == "income" else "expenses"
     require_permission(membership, domain, "write")
-    receipt = db.scalar(select(Receipt).where(
-        Receipt.id == receipt_id, Receipt.business_id == business_id
-    ))
+    receipt = db.scalar(
+        select(Receipt)
+        .where(Receipt.id == receipt_id, Receipt.business_id == business_id)
+        .with_for_update()
+    )
     if receipt is None:
         raise HTTPException(status_code=404, detail="Receipt not found.")
     if receipt.review_status != "pending":
@@ -285,9 +287,11 @@ def reject_receipt(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     _require_write(membership)
-    receipt = db.scalar(select(Receipt).where(
-        Receipt.id == receipt_id, Receipt.business_id == business_id
-    ))
+    receipt = db.scalar(
+        select(Receipt)
+        .where(Receipt.id == receipt_id, Receipt.business_id == business_id)
+        .with_for_update()
+    )
     if receipt is None:
         raise HTTPException(status_code=404, detail="Receipt not found.")
     if receipt.review_status != "pending":
