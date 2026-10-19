@@ -1,4 +1,4 @@
-""""Exprofit API entry point and single-origin frontend hosting."""
+"""Exprofit API entry point and single-origin frontend hosting."""
 
 from pathlib import Path
 
