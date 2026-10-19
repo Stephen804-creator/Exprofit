@@ -68,7 +68,7 @@ def make_business(client: TestClient, token: str) -> str:
 
 def upload_receipt(client: TestClient, token: str, business_id: str):
     # Signature fixture intentionally isn't a decodable photo; OCR is best-effort.
-    fake_jpeg = b"\\xff\\xd8\\xff" + (b"test-image-data-" * 20)
+    fake_jpeg = bytes((0xFF, 0xD8, 0xFF)) + (b"test-image-data-" * 20)
     return client.post(
         f"/businesses/{business_id}/receipts",
         headers=bearer(token),
