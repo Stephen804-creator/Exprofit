@@ -18,6 +18,7 @@ from app.permissions import (
     transaction_domain,
 )
 from app.schemas.transactions import TransactionCreate, TransactionRead, TransactionUpdate
+from app.services.audit import record_audit_event
 from app.services.transactions import (
     BusinessNotFoundError,
     CurrencyMismatchError,
@@ -54,7 +55,15 @@ def create(
         raise HTTPException(status_code=400, detail="business_id in body must match URL")
     require_permission(membership, transaction_domain(payload.direction), "write")
     try:
-        return create_transaction(db, payload)
+        transaction = create_transaction(db, payload)
+        record_audit_event(
+            db, business_id=business_id, actor_user_id=membership.user_id,
+            event_type="transaction.created", target_type="transaction", target_id=transaction.id,
+            metadata={"direction": transaction.direction, "status": transaction.status,
+                      "amount": str(transaction.amount), "currency_code": transaction.currency_code},
+        )
+        db.commit()
+        return transaction
     except (BusinessNotFoundError, CurrencyMismatchError, DuplicateTransactionRequestError) as exc:
         _raise_service_error(exc)
     except IntegrityError as exc:
@@ -127,7 +136,15 @@ def update_entry(
         require_permission(membership, transaction_domain(existing.direction), "write")
         if payload.direction is not None:
             require_permission(membership, transaction_domain(payload.direction), "write")
-        return update_transaction(db, business_id, transaction_id, payload)
+        transaction = update_transaction(db, business_id, transaction_id, payload)
+        record_audit_event(
+            db, business_id=business_id, actor_user_id=membership.user_id,
+            event_type="transaction.updated", target_type="transaction", target_id=transaction.id,
+            metadata={"updated_fields": sorted(payload.model_dump(exclude_unset=True).keys()),
+                      "status": transaction.status},
+        )
+        db.commit()
+        return transaction
     except (TransactionNotFoundError, InvalidTransactionStateError) as exc:
         _raise_service_error(exc)
 
@@ -142,6 +159,14 @@ def void_entry(
     try:
         existing = get_transaction(db, business_id, transaction_id)
         require_permission(membership, transaction_domain(existing.direction), "write")
-        return void_transaction(db, business_id, transaction_id)
+        transaction = void_transaction(db, business_id, transaction_id)
+        record_audit_event(
+            db, business_id=business_id, actor_user_id=membership.user_id,
+            event_type="transaction.voided", target_type="transaction", target_id=transaction.id,
+            metadata={"direction": transaction.direction, "amount": str(transaction.amount),
+                      "currency_code": transaction.currency_code},
+        )
+        db.commit()
+        return transaction
     except (TransactionNotFoundError, InvalidTransactionStateError) as exc:
         _raise_service_error(exc)
