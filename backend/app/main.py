@@ -1,7 +1,11 @@
-"""Exprofit API entry point."""
+""""Exprofit API entry point and single-origin frontend hosting."""
+
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.businesses import router as businesses_router
@@ -42,7 +46,18 @@ def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "exprofit-api"}
 
 
-@app.get("/", tags=["operations"])
-def root() -> dict[str, str]:
-    """Small discovery response for developers."""
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+
+@app.get("/", tags=["operations"], include_in_schema=False)
+def root() -> FileResponse | dict[str, str]:
+    """Serve the frontend in a combined deployment, or API info during local development."""
+    index_file = FRONTEND_DIST / "index.html"
+    if index_file.is_file():
+        return FileResponse(index_file)
     return {"name": settings.app_name, "docs": "/docs", "health": "/health"}
+
+
+if FRONTEND_DIST.is_dir():
+    # The API routes above take precedence; this mount serves Vite assets from the same origin.
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
