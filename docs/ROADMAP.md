@@ -20,7 +20,7 @@ This roadmap preserves deferred ideas and distinguishes plans from implemented, 
 - [ ] Add focused security tests for invalid/replayed links, expiry, duplicate applications, owner-only review, and privilege escalation.
 - [ ] Add auth/sensitive-route rate limits, production security checks, and a frontend lockfile.
 - [ ] Verify on branch `feat/core-financial-workflow-builds-1-8`: private receipt capture and review, date-filtered currency-separated summaries, deterministic gross-profit calculations, and evidence-backed MarginGuard comparisons. Do not mark complete until CI, PostgreSQL migrations, access-control tests, and manual end-to-end checks pass.
-- [ ] Add the what-if simulator and evidence-backed plain-language financial brief. AI is optional and never the source of arithmetic.
+- [x] Implement the deterministic what-if simulator and evidence-backed plain-language financial brief in PR #3; AI is optional and never the source of arithmetic. CI and manual release gates remain pending.
 
 ## Collaboration expansion — later
 
@@ -54,3 +54,8 @@ This roadmap preserves deferred ideas and distinguishes plans from implemented, 
 6. The photo and self-reported details support manual owner review only. This is not biometric matching, liveness detection, government-ID verification, or a guarantee against impersonation.
 
 Photos are currently held temporarily in the application database, not a dedicated object-storage service. This workflow is a lightweight owner review, not a formal identity-proofing service.
+
+
+## Builds 9–14 implementation status
+
+The branch `feat/intelligence-simulator-builds-9-14` and PR #3 add a deterministic brief, opt-in Hugging Face Gemma explanations, a non-persistent what-if simulator, and focused tests. Do not mark this release-ready until PR checks pass and manual authorization, provider-failure, mobile, and deployed end-to-end tests are complete. See `docs/BUILDS_9_14_IMPLEMENTATION.md`.

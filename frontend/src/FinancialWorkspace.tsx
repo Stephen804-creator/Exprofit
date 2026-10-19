@@ -1,5 +1,6 @@
 
 import { useEffect, useState, type FormEvent } from "react";
+import FinancialIntelligence from "./FinancialIntelligence";
 
 type Workspace = { id: string; currency_code: string; workspace_type: "solo" | "business"; name: string; display_name: string | null };
 type Tx = { id: string; direction: "income" | "expense"; status: "draft" | "posted" | "void"; amount: string; currency_code: string; transaction_date: string; description: string; category: string | null };
@@ -207,6 +208,7 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
       {!findings.length && <p className="finance-empty">No comparable changes detected, or not enough history yet.</p>}
       {findings.map((f, i) => <article className="guard-finding" key={f.kind + f.currency_code + i}><span className={"finance-status finance-status--" + (f.severity === "warning" ? "warning" : "posted")}>{f.severity}</span><strong>{f.summary}</strong><p>{f.uncertainty}</p><details><summary>Evidence ({f.evidence?.length ?? 0} records)</summary>{(f.evidence ?? []).map(ev => <div className="evidence-row" key={ev.id}><span>{ev.date} · {ev.description}</span><strong>{ev.direction} {cash(ev.amount, f.currency_code)}</strong></div>)}</details></article>)}
     </section></div>}
+    {canViewCombined && <FinancialIntelligence workspaceId={workspace.id} accessToken={accessToken} />}
     <p className="finance-disclaimer">Exprofit reports recorded information only. Cash movement is not profit. Check source records before making a business decision.</p>
   </section>;
 }

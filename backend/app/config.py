@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from_email: str = ""
     smtp_starttls: bool = True
+    hf_token: str = ""
+    hf_gemma_model: str = "google/gemma-3-12b-it:fastest"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
