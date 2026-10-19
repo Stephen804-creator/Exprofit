@@ -44,6 +44,28 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
   const canWriteAny = canWrite("sales") || canWrite("expenses");
   const writeDirections = (["expense", "income"] as const).filter((value) => canWrite(value === "income" ? "sales" : "expenses"));
 
+  const overviewSummary = summary?.currencies.find((item) => item.currency_code === workspace.currency_code);
+  const overviewProfit = summary?.profitability.currencies.find((item) => item.currency_code === workspace.currency_code);
+  const postedRows = rows.filter((tx) => tx.status === "posted" && tx.currency_code === workspace.currency_code);
+  const expenseCategories = Object.entries(postedRows.filter((tx) => tx.direction === "expense").reduce<Record<string, number>>((totals, tx) => {
+    const key = tx.category?.trim() || "Uncategorised";
+    totals[key] = (totals[key] ?? 0) + Number(tx.amount);
+    return totals;
+  }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const maxCategoryExpense = Math.max(1, ...expenseCategories.map(([, amount]) => amount));
+  const trendDays = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(to + "T12:00:00");
+    day.setDate(day.getDate() - (6 - index));
+    return localDate(day);
+  }).filter((day) => day >= from);
+  const cashTrend = trendDays.map((day) => ({
+    day,
+    label: new Date(day + "T12:00:00").toLocaleDateString(undefined, { weekday: "short" }),
+    income: postedRows.filter((tx) => tx.direction === "income" && tx.transaction_date === day).reduce((sum, tx) => sum + Number(tx.amount), 0),
+    expenses: postedRows.filter((tx) => tx.direction === "expense" && tx.transaction_date === day).reduce((sum, tx) => sum + Number(tx.amount), 0),
+  }));
+  const maxDailyAmount = Math.max(1, ...cashTrend.flatMap((day) => [day.income, day.expenses]));
+
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set("Authorization", "Bearer " + accessToken);
@@ -164,6 +186,34 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     </nav>
     <div className="finance-filters"><label>From<input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label><label>To<input type="date" value={to} min={from} max={today()} onChange={e => setTo(e.target.value)} /></label><button className="finance-button finance-button--quiet" type="button" onClick={() => { setFrom(daysAgo(29)); setTo(today()); }}>Last 30 days</button></div>
     {error && <p className="form-message form-message--error" role="alert">{error}</p>}{notice && <p className="form-message" role="status">{notice}</p>}{loading && <p className="form-hint">Loading financial records…</p>}
+    {activePanel === "overview" && overviewProfit && <section className="overview-profit-card">
+      <div><p className="eyebrow">PROFITABILITY SNAPSHOT</p><h3>Know what the sales are really earning</h3><p className="finance-muted">Gross profit is revenue minus recognised direct costs. It is not the same as cash movement or final net profit.</p></div>
+      <div className="overview-profit-values"><div><span>Gross profit</span><strong>{overviewProfit.gross_profit === null ? "Not available" : cash(overviewProfit.gross_profit, overviewProfit.currency_code)}</strong></div><div><span>Gross margin</span><strong>{overviewProfit.gross_margin_percent === null ? "Not available" : overviewProfit.gross_margin_percent + "%"}</strong></div></div>
+      <p className="finance-footnote">{overviewProfit.note}</p>
+    </section>}
+    {activePanel === "overview" && <div className="overview-charts">
+      <section className="finance-card overview-chart-card">
+        <div className="finance-card-heading"><div><p className="eyebrow">CASH FLOW</p><h3>Income vs expenses</h3><p className="finance-muted">Daily recorded activity over the last seven days of this date range.</p></div></div>
+        {cashTrend.some((day) => day.income > 0 || day.expenses > 0) ? <div className="cash-trend-chart" role="img" aria-label="Daily income and expenses bar chart">
+          <div className="cash-trend-legend"><span><i className="trend-dot trend-dot--income" />Income</span><span><i className="trend-dot trend-dot--expense" />Expenses</span></div>
+          <div className="cash-trend-bars">{cashTrend.map((day) => <div className="cash-trend-day" key={day.day}>
+            <div className="cash-trend-bar-pair" title={day.day + ": income " + day.income.toFixed(2) + ", expenses " + day.expenses.toFixed(2)}>
+              <span className="cash-trend-bar cash-trend-bar--income" style={{ height: Math.max(day.income ? 4 : 0, day.income / maxDailyAmount * 100) + "%" }} />
+              <span className="cash-trend-bar cash-trend-bar--expense" style={{ height: Math.max(day.expenses ? 4 : 0, day.expenses / maxDailyAmount * 100) + "%" }} />
+            </div><small>{day.label}</small>
+          </div>)}</div>
+        </div> : <p className="finance-empty">There is not enough recorded activity in this seven-day window to draw a chart. Add transactions and the chart will update.</p>}
+        <p className="finance-footnote">This visual uses the transactions currently loaded (up to 100 records); the summary figures above come from the financial-summary endpoint.</p>
+      </section>
+      <section className="finance-card overview-chart-card">
+        <div className="finance-card-heading"><div><p className="eyebrow">SPENDING PATTERN</p><h3>Where expenses go</h3><p className="finance-muted">Top categories among loaded posted expenses.</p></div></div>
+        {expenseCategories.length ? <div className="expense-category-chart">{expenseCategories.map(([name, total]) => <div className="expense-category-row" key={name}>
+          <div><span>{name}</span><strong>{cash(String(total), workspace.currency_code)}</strong></div>
+          <div className="expense-category-track"><span style={{ width: (total / maxCategoryExpense * 100) + "%" }} /></div>
+        </div>)}</div> : <p className="finance-empty">No posted expenses are available to break down yet. Once you record expenses, this chart will show which categories account for the most spending.</p>}
+        <p className="finance-footnote">Category breakdown is based on the transactions currently loaded for this period, up to 100 records.</p>
+      </section>
+    </div>}
     {activePanel === "overview" && <div className="finance-metrics">{(summary?.currencies ?? []).map(s => <div className="finance-metric-grid" key={s.currency_code}>
       <article className="finance-metric"><span>Recorded income</span><strong>{cash(s.income, s.currency_code)}</strong><small>{s.income_count} entries</small></article>
       <article className="finance-metric"><span>Recorded expenses</span><strong>{cash(s.expenses, s.currency_code)}</strong><small>{s.expense_count} entries</small></article>
