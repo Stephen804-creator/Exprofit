@@ -38,7 +38,7 @@ The current baseline uses React + TypeScript + Vite, Python + FastAPI, and a Pos
 
 ## Project status
 
-This repository is the Exprofit project home. The feature branch `feat/core-financial-workflow-builds-1-8` adds the authenticated transaction workspace UI, private receipt upload and human confirmation, date-filtered summaries, deterministic gross-profit calculations, and evidence-backed MarginGuard comparisons. The frontend typecheck and production build passed on the first CI run; backend lint, tests, and PostgreSQL migration checks are still running. These changes need the full CI and manual end-to-end checks before they are release-ready. Gemma integration, the what-if simulator, production deployment, and challenge demo remain outside Builds 1–8.
+This repository is the Exprofit project home. The feature branch `feat/core-financial-workflow-builds-1-8` adds the authenticated transaction workspace UI, private receipt upload and human confirmation, date-filtered summaries, deterministic gross-profit calculations, and evidence-backed MarginGuard comparisons. The branch CI workflow checks backend lint/tests, PostgreSQL migrations, frontend typechecking, and the production build. Use the pull request's latest check results; passing CI is necessary but does not replace manual end-to-end testing. These changes need the full CI and manual end-to-end checks before they are release-ready. Gemma integration, the what-if simulator, production deployment, and challenge demo remain outside Builds 1–8.
 
 See:
 - [Workspace collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md)
