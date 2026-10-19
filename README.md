@@ -1,4 +1,4 @@
-# Exprofit
+# Exprofit — Understand your numbers. Protect your margins. Grow your profit.
 
 **Exprofit** is an open-source finance and profitability assistant for small businesses and side hustles. It combines expense tracking with MarginGuard: a workflow that helps owners investigate profitability changes using evidence from their own records.
 
