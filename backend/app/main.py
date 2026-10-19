@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.auth import router as auth_router
 from app.api.routes.businesses import router as businesses_router
 from app.api.routes.financial import router as financial_router
-from app.api.routes.invitations import router as invitations_router
 from app.api.routes.intelligence import router as intelligence_router
+from app.api.routes.invitations import router as invitations_router
 from app.api.routes.members import router as members_router
 from app.api.routes.transactions import router as transactions_router
 
