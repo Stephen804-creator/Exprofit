@@ -62,8 +62,12 @@ def create(
         record_audit_event(
             db, business_id=business_id, actor_user_id=membership.user_id,
             event_type="transaction.created", target_type="transaction", target_id=transaction.id,
-            metadata={"direction": transaction.direction, "status": transaction.status,
-                      "amount": str(transaction.amount), "currency_code": transaction.currency_code},
+            metadata={
+                "direction": transaction.direction,
+                "status": transaction.status,
+                "amount": str(transaction.amount),
+                "currency_code": transaction.currency_code,
+            },
         )
         db.commit()
         return transaction
@@ -123,7 +127,9 @@ async def import_csv(
         raise HTTPException(status_code=415, detail="Upload a .csv transaction file.")
     content = await file.read(2 * 1024 * 1024 + 1)
     if not content or len(content) > 2 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="CSV must be non-empty and no larger than 2 MB.")
+        raise HTTPException(
+            status_code=413, detail="CSV must be non-empty and no larger than 2 MB."
+        )
     try:
         text = content.decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(text, newline=""))
@@ -134,7 +140,10 @@ async def import_csv(
     if not required.issubset(headers):
         raise HTTPException(
             status_code=422,
-            detail={"message": "CSV is missing required columns.", "required_columns": sorted(required)},
+            detail={
+                "message": "CSV is missing required columns.",
+                "required_columns": sorted(required),
+            },
         )
     business = db.get(Business, business_id)
     if business is None or business.workspace_type != "business":
@@ -144,7 +153,9 @@ async def import_csv(
     errors: list[dict[str, object]] = []
     for row_number, raw_row in enumerate(reader, start=2):
         if row_number > 502:
-            raise HTTPException(status_code=413, detail="CSV may contain at most 500 transaction rows.")
+            raise HTTPException(
+                status_code=413, detail="CSV may contain at most 500 transaction rows."
+            )
         row = {(key or "").strip().lower(): (value or "").strip()
                for key, value in raw_row.items() if key is not None}
         if not any(row.values()):
@@ -162,7 +173,8 @@ async def import_csv(
             })
             if payload.currency_code != business.currency_code:
                 raise ValueError(
-                    f"Currency must match this workspace ({business.currency_code}); conversion is not supported."
+                    f"Currency must match this workspace ({business.currency_code}); "
+                    "conversion is not supported."
                 )
             require_permission(membership, transaction_domain(payload.direction), "write")
         except (ValidationError, ValueError, HTTPException) as exc:
@@ -193,14 +205,19 @@ async def import_csv(
     record_audit_event(
         db, business_id=business_id, actor_user_id=membership.user_id,
         event_type="transactions.imported", target_type="transaction_import", target_id=import_id,
-        metadata={"row_count": len(rows), "source_filename": (file.filename or "transactions.csv")[:255],
-                  "transaction_ids": [str(item.id) for item in rows]},
+        metadata={
+            "row_count": len(rows),
+            "source_filename": (file.filename or "transactions.csv")[:255],
+            "transaction_ids": [str(item.id) for item in rows],
+        },
     )
     try:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="CSV import conflicted with existing records.") from exc
+        raise HTTPException(
+            status_code=409, detail="CSV import conflicted with existing records."
+        ) from exc
     return {"import_id": str(import_id), "created_count": len(rows),
             "transaction_ids": [str(item.id) for item in rows],
             "message": "Transactions imported. Review draft rows before posting them."}
