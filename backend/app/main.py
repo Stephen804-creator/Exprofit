@@ -42,6 +42,19 @@ app.include_router(financial_router)
 app.include_router(intelligence_router)
 
 
+@app.middleware("http")
+async def browser_security_headers(request, call_next):
+    """Set baseline browser protections without blocking the camera or model CDN."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    if request.url.scheme == "https":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
+
+
 @app.get("/health", tags=["operations"])
 def health_check() -> dict[str, str]:
     """Liveness endpoint; it intentionally does not depend on a database."""
