@@ -12,11 +12,12 @@ from app.models import RateLimitBucket
 
 
 def enforce_rate_limit(
-    db: Session, request: Request, *, action: str, identity: str, limit: int, window_seconds: int
+    db: Session, request: Request, *, action: str, identity: str, limit: int, window_seconds: int, include_client_ip: bool = True
 ) -> None:
     """Count an action in a fixed UTC window and reject requests beyond the configured limit."""
     client_ip = request.client.host if request.client else "unknown"
-    key_hash = sha256(f"{action}|{client_ip}|{identity.strip().lower()}".encode()).hexdigest()
+    ip_part = client_ip if include_client_ip else "shared"
+    key_hash = sha256(f"{action}|{ip_part}|{identity.strip().lower()}".encode()).hexdigest()
     now = datetime.now(UTC)
     window_epoch = int(now.timestamp()) // window_seconds * window_seconds
     window_start = datetime.fromtimestamp(window_epoch, UTC)
