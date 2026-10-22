@@ -2,6 +2,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import FinancialIntelligence from "./FinancialIntelligence";
 import FinancialCatalogBudget from "./FinancialCatalogBudget";
+import FinancialOperations from "./FinancialOperations";
 
 type Workspace = { id: string; currency_code: string; workspace_type: "solo" | "business"; name: string; display_name: string | null };
 type Tx = { id: string; direction: "income" | "expense"; status: "draft" | "posted" | "void"; amount: string; currency_code: string; transaction_date: string; description: string; category: string | null; product_id?: string | null; customer_id?: string | null };
@@ -25,7 +26,7 @@ const errorText = (value: unknown) => {
 };
 
 export default function FinancialWorkspace({ workspace, accessToken, membership, membershipResolved }: { workspace: Workspace; accessToken: string; membership: MembershipAccess; membershipResolved: boolean }) {
-  const [activePanel, setActivePanel] = useState<"overview" | "transactions" | "receipts" | "insights" | "catalog">("overview");
+  const [activePanel, setActivePanel] = useState<"overview" | "transactions" | "receipts" | "insights" | "catalog" | "operations">("overview");
   const [rows, setRows] = useState<Tx[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -210,13 +211,14 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
   }
 
   return <section className="finance-workspace">
-    <div className="finance-heading"><div><p className="eyebrow">FINANCIAL WORKSPACE</p><h2>{activePanel === "overview" ? "Your money at a glance" : activePanel === "transactions" ? "Transactions" : activePanel === "receipts" ? "Receipt inbox" : activePanel === "catalog" ? "Products, customers & budgets" : "Profit and financial intelligence"}</h2><p className="finance-muted">Only posted records contribute to totals. Workspace records stay separate.</p></div><span className="finance-currency">{workspace.currency_code}</span></div>
+    <div className="finance-heading"><div><p className="eyebrow">FINANCIAL WORKSPACE</p><h2>{activePanel === "overview" ? "Your money at a glance" : activePanel === "transactions" ? "Transactions" : activePanel === "receipts" ? "Receipt inbox" : activePanel === "catalog" ? "Products, customers & budgets" : activePanel === "operations" ? "Plan, forecast & export" : "Profit and financial intelligence"}</h2><p className="finance-muted">Only posted records contribute to totals. Workspace records stay separate.</p></div><span className="finance-currency">{workspace.currency_code}</span></div>
     <nav className="finance-nav" aria-label="Financial tools">
       <button type="button" className={activePanel === "overview" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("overview")}>Overview</button>
       <button type="button" className={activePanel === "transactions" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("transactions")}>Transactions <span>＋</span></button>
       <button type="button" className={activePanel === "receipts" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("receipts")}>Receipts</button>
       <button type="button" className={activePanel === "insights" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("insights")}>MarginGuard & AI</button>
       <button type="button" className={activePanel === "catalog" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("catalog")}>Products & budgets</button>
+      <button type="button" className={activePanel === "operations" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("operations")}>Plan & export</button>
     </nav>
     <div className="finance-filters"><label>From<input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label><label>To<input type="date" value={to} min={from} max={today()} onChange={e => setTo(e.target.value)} /></label><button className="finance-button finance-button--quiet" type="button" onClick={() => { setFrom(daysAgo(29)); setTo(today()); }}>Last 30 days</button></div>
     {error && <p className="form-message form-message--error" role="alert">{error}</p>}{notice && <p className="form-message" role="status">{notice}</p>}{loading && <p className="form-hint">Loading financial records…</p>}
@@ -304,6 +306,8 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     </section></div>}
     {activePanel === "insights" && canViewCombined && <FinancialIntelligence workspaceId={workspace.id} accessToken={accessToken} />}
     {activePanel === "catalog" && <FinancialCatalogBudget workspaceId={workspace.id} accessToken={accessToken} currencyCode={workspace.currency_code} startDate={from} endDate={to} canReadSales={canRead("sales")} canWriteSales={canWrite("sales")} canReadExpenses={canRead("expenses")} canWriteExpenses={canWrite("expenses")} />}
+    {activePanel === "operations" && canViewCombined && <FinancialOperations workspaceId={workspace.id} accessToken={accessToken} currencyCode={workspace.currency_code} />}
+    {activePanel === "operations" && !canViewCombined && <p className="finance-empty">Planning, alerts, and combined exports require read access to both sales and expenses in this workspace.</p>}
     {activePanel === "insights" && !canViewCombined && <p className="finance-empty">MarginGuard and combined financial intelligence require read access to both sales and expenses in this workspace.</p>}
     <p className="finance-disclaimer">Exprofit reports recorded information only. Cash movement is not profit. Check source records before making a business decision.</p>
   </section>;
