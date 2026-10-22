@@ -59,13 +59,18 @@ def send_invitation_email(
     message["Subject"] = f"Invitation to join {workspace_name} on Exprofit"
     message["From"] = settings.smtp_from_email
     message["To"] = recipient
+    expiry_note = (
+        f"This invitation expires at {expires_at.isoformat()} (UTC). "
+        if expires_at
+        else ""
+    )
     message.set_content(
         f"You have been invited to join the {workspace_name} workspace on Exprofit.\n\n"
         f"Review and accept the invitation here: {invitation_url}\n\n"
-        (f"This invitation expires at {expires_at.isoformat()} (UTC). " if expires_at else "")
-        + "You must sign in with the exact email address that received this invitation, "
-        + "and that email address must be verified. If you were not expecting this invite, "
-        + "you can ignore this message."
+        f"{expiry_note}"
+        "You must sign in with the exact email address that received this invitation, "
+        "and that email address must be verified. If you were not expecting this invite, "
+        "you can ignore this message."
     )
 
     try:
