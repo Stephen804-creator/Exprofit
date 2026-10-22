@@ -125,3 +125,17 @@ See [UNITS_14_17_IMPLEMENTATION.md](UNITS_14_17_IMPLEMENTATION.md) for scope, li
 - Unit 16: product/customer gross-profitability endpoints and UI are implemented on the feature branch. Reports use explicitly attributed posted ledger transactions and do not estimate missing direct costs.
 - Unit 17: category budget creation, budget-vs-actual calculation, threshold statuses, UI, and a multi-transaction regression test are implemented on the feature branch.
 - Current feature-branch migration head is `20261022_0013`. Merged to `main` via PR #9 at commit `7923bd0d0d3780d20674043e4aac6bbe9f2824e6`. PR CI passed, including PostgreSQL migrations and the frontend build. Render/mobile acceptance checks and real Brevo email delivery remain unverified.
+
+
+## Units 18–23 implementation branch — 2026-10-22
+
+Branch: `feat/units-18-23-financial-operations`. These units are implemented on a feature branch and are not production-verified until CI and deployed checks pass.
+
+- **18 Recurring payments:** workspace-scoped expected income/expense schedules; weekly/monthly/yearly recurrence; pause/resume; schedules never auto-post.
+- **19 Cash-flow forecast:** projects historical daily averages and separately overlays dated expected recurring payments. Forecasts remain estimates, grouped by currency without conversion.
+- **20 Alerts:** persistent idempotent budget-threshold and upcoming-payment alerts with read/dismiss actions. No email/SMS/push delivery or background scheduler is claimed.
+- **21 Exports:** permission-checked posted-transaction CSV and date-bounded accountant summary grouped by currency/category; no tax filing or audit claims.
+- **22 Onboarding:** non-blocking checklist based on existing workspace records.
+- **23 Financial copilot:** deterministic recorded-data answer with optional Hugging Face explanation only when explicitly enabled; fallback remains available.
+
+Verification pending on this branch: Ruff, backend tests, PostgreSQL migration chain through `20261022_0014`, frontend typecheck/build, and endpoint/workspace-isolation checks. Production deployment and live workflow checks are not yet verified.
