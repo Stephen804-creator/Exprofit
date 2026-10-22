@@ -5,7 +5,7 @@ type Customer = { id: string; name: string; email: string | null; phone: string 
 type ProfitItem = { id: string; name: string; currency_code: string; revenue: string; direct_costs: string; gross_profit: string | null; gross_margin_percent: string | null; transaction_count: number; note: string; };
 type BudgetActual = { id: string; category: string; currency_code: string; period_start: string; period_end: string; budget_amount: string; actual_spend: string; remaining: string; used_percent: string; warning_threshold_percent: number; status: "on_track" | "warning" | "over_budget"; };
 type Budget = { id: string; category: string; period_start: string; period_end: string; amount: string; currency_code: string; warning_threshold_percent: number; };
-type Props = { workspaceId: string; accessToken: string; currencyCode: string; canReadSales: boolean; canWriteSales: boolean; canReadExpenses: boolean; canWriteExpenses: boolean; };
+type Props = { workspaceId: string; accessToken: string; currencyCode: string; startDate: string; endDate: string; canReadSales: boolean; canWriteSales: boolean; canReadExpenses: boolean; canWriteExpenses: boolean; };
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 const monthStart = () => today().slice(0, 8) + "01";
@@ -15,7 +15,7 @@ function errorMessage(data: unknown): string {
   return "Request failed. Please check the fields and try again.";
 }
 
-export default function FinancialCatalogBudget({ workspaceId, accessToken, currencyCode, canReadSales, canWriteSales, canReadExpenses, canWriteExpenses }: Props) {
+export default function FinancialCatalogBudget({ workspaceId, accessToken, currencyCode, startDate, endDate, canReadSales, canWriteSales, canReadExpenses, canWriteExpenses }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [productProfit, setProductProfit] = useState<ProfitItem[]>([]);
@@ -58,8 +58,8 @@ export default function FinancialCatalogBudget({ workspaceId, accessToken, curre
         setProducts([]); setCustomers([]);
       }
       if (canReadSales && canReadExpenses) {
-        tasks.push(request<{ items: ProfitItem[] }>("/businesses/" + workspaceId + "/product-profitability").then(x => setProductProfit(x.items)));
-        tasks.push(request<{ items: ProfitItem[] }>("/businesses/" + workspaceId + "/customer-profitability").then(x => setCustomerProfit(x.items)));
+        tasks.push(request<{ items: ProfitItem[] }>("/businesses/" + workspaceId + "/product-profitability?start_date=" + startDate + "&end_date=" + endDate).then(x => setProductProfit(x.items)));
+        tasks.push(request<{ items: ProfitItem[] }>("/businesses/" + workspaceId + "/customer-profitability?start_date=" + startDate + "&end_date=" + endDate).then(x => setCustomerProfit(x.items)));
       } else {
         setProductProfit([]); setCustomerProfit([]);
       }
@@ -111,7 +111,7 @@ export default function FinancialCatalogBudget({ workspaceId, accessToken, curre
   }
 
   return <section className="catalog-budget">
-    <div className="finance-card-heading"><div><p className="eyebrow">UNIT 15–17</p><h3>Products, customers & budgets</h3><p className="finance-muted">Attribute posted transactions to products/customers and compare category spending with a budget.</p></div><button type="button" className="finance-button finance-button--quiet" onClick={() => void refresh()}>Refresh</button></div>
+    <div className="finance-card-heading"><div><p className="eyebrow">UNIT 15–17</p><h3>Products, customers & budgets</h3><p className="finance-muted">Profitability reports use the selected date range ({startDate} to {endDate}); budget actuals use each budget’s own period.</p></div><button type="button" className="finance-button finance-button--quiet" onClick={() => void refresh()}>Refresh</button></div>
     {error && <p className="form-message form-message--error" role="alert">{error}</p>}
     {notice && <p className="form-message" role="status">{notice}</p>}
     {canWriteSales && <div className="finance-columns">
