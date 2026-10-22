@@ -179,7 +179,6 @@ def cash_flow_forecast(
     for row in history:
         item = currency_totals.setdefault(row.currency_code, {"income": Decimal("0"), "expenses": Decimal("0")})
         item["income" if row.direction == "income" else "expenses"] += row.amount
-    daily = []
     schedules = list(db.scalars(select(RecurringTransaction).where(
         RecurringTransaction.business_id == business_id,
         RecurringTransaction.is_active.is_(True),
