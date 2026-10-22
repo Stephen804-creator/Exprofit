@@ -27,6 +27,7 @@ from app.services.transactions import (
     CurrencyMismatchError,
     DuplicateTransactionRequestError,
     InvalidTransactionStateError,
+    InvalidTransactionAttributionError,
     TransactionNotFoundError,
     create_transaction,
     get_transaction,
@@ -42,6 +43,8 @@ def _raise_service_error(exc: Exception) -> None:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     if isinstance(exc, CurrencyMismatchError | DuplicateTransactionRequestError):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if isinstance(exc, InvalidTransactionAttributionError):
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if isinstance(exc, InvalidTransactionStateError):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     raise exc
@@ -71,7 +74,7 @@ def create(
         )
         db.commit()
         return transaction
-    except (BusinessNotFoundError, CurrencyMismatchError, DuplicateTransactionRequestError) as exc:
+    except (BusinessNotFoundError, CurrencyMismatchError, DuplicateTransactionRequestError, InvalidTransactionAttributionError) as exc:
         _raise_service_error(exc)
     except IntegrityError as exc:
         db.rollback()
@@ -260,7 +263,7 @@ def update_entry(
         )
         db.commit()
         return transaction
-    except (TransactionNotFoundError, InvalidTransactionStateError) as exc:
+    except (TransactionNotFoundError, InvalidTransactionStateError, InvalidTransactionAttributionError) as exc:
         _raise_service_error(exc)
 
 
