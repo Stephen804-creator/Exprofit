@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -58,19 +58,6 @@ def root() -> FileResponse | dict[str, str]:
     return {"name": settings.app_name, "docs": "/docs", "health": "/health"}
 
 
-@app.get("/accept-invitation", tags=["operations"], include_in_schema=False)
-def accept_invitation_page() -> FileResponse:
-    """Serve the SPA entry point for shareable invitation links.
-
-    This explicit route must be registered before the catch-all frontend mount;
-    otherwise StaticFiles returns 404 for this client-side React route.
-    """
-    index_file = FRONTEND_DIST / "index.html"
-    if not index_file.is_file():
-        raise HTTPException(status_code=503, detail="Frontend build is unavailable")
-    return FileResponse(index_file)
-
-
 if FRONTEND_DIST.is_dir():
-    # API routes and explicit frontend routes are registered first.
+    # API routes are registered first; this mount serves the frontend and Vite assets.
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
