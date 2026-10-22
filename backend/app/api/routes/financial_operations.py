@@ -130,6 +130,8 @@ def create_recurring(
         raise HTTPException(status_code=422, detail="Recurring payment currency must match the workspace currency")
     if payload.next_due_date < payload.start_date:
         raise HTTPException(status_code=422, detail="Next due date cannot precede start date")
+    if payload.end_date and payload.end_date < payload.start_date:
+        raise HTTPException(status_code=422, detail="End date cannot precede start date")
     if payload.end_date and payload.next_due_date > payload.end_date:
         raise HTTPException(status_code=422, detail="Next due date cannot follow the end date")
     row = RecurringTransaction(business_id=business_id, **payload.model_dump())
@@ -228,11 +230,13 @@ def _ensure_alert(db: Session, business_id: UUID, key: str, kind: str, severity:
         FinancialAlert.business_id == business_id, FinancialAlert.alert_key == key
     ))
     if existing is None:
-        db.add(FinancialAlert(business_id=business_id, alert_key=key, kind=kind, severity=severity, title=title, message=message))
         try:
-            db.flush()
+            with db.begin_nested():
+                db.add(FinancialAlert(business_id=business_id, alert_key=key, kind=kind, severity=severity, title=title, message=message))
+                db.flush()
         except IntegrityError:
-            db.rollback()
+            # Another request may have created this idempotency key concurrently.
+            pass
 
 
 @router.get("/alerts")
