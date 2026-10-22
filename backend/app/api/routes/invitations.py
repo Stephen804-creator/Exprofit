@@ -151,7 +151,13 @@ def create_invitation(
         raise HTTPException(status_code=404, detail="Business workspace not found")
     settings = get_settings()
     if payload.recipient_email and not settings.email_delivery_configured:
-        raise HTTPException(status_code=503, detail="Invitation email delivery is not configured. Check SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, and SMTP_FROM_EMAIL in Render.")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Invitation email delivery is not configured. Check SMTP_HOST, "
+                "SMTP_USERNAME, SMTP_PASSWORD, and SMTP_FROM_EMAIL in Render."
+            ),
+        )
     grants = validate_permission_delegation(actor, payload.role, payload.permissions)
     raw_token = secrets.token_urlsafe(32)
     expires_at = datetime.now(UTC) + timedelta(hours=payload.expires_in_hours)
