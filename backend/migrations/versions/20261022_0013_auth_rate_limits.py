@@ -1,5 +1,6 @@
 """Add shared authentication rate-limit buckets."""
 from collections.abc import Sequence
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -17,7 +18,9 @@ def upgrade() -> None:
         sa.Column("hits", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("key_hash", "window_start"),
     )
-    op.create_index("ix_rate_limit_buckets_window", "rate_limit_buckets", ["window_start"])
+    op.create_index(
+        "ix_rate_limit_buckets_window", "rate_limit_buckets", ["window_start"]
+    )
 
 
 def downgrade() -> None:
