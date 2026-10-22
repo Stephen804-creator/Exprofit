@@ -73,7 +73,7 @@ export default function FaceCapture({ onCapture, onError }: FaceCaptureProps) {
         const scan = () => {
           const video = videoRef.current;
           if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !detectorRef.current) {
-            frameRef.current = requestAnimationFrame(scan);
+            frameRef.current = window.setTimeout(scan, 120);
             return;
           }
           try {
@@ -115,7 +115,7 @@ export default function FaceCapture({ onCapture, onError }: FaceCaptureProps) {
     void start();
     return () => {
       cancelled = true;
-      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      if (frameRef.current !== null) window.clearTimeout(frameRef.current);
       detectorRef.current?.close();
       detectorRef.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
