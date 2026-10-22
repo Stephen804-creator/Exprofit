@@ -114,3 +114,14 @@ The invitation workflow no longer requires SMTP or verified-email matching. Only
 GitHub Actions run #39140188754 passed on commit c8476b4e267865d4ab412a4c2013c2acdb85bd4d: Ruff, 36 backend tests, PostgreSQL 16 migrations, frontend typecheck, and production build passed. Manual mobile/browser testing, rate limiting, and production privacy/security review remain outstanding.
 
 See [ROADMAP.md](ROADMAP.md) for deferred departments, messaging, notifications, advanced identity verification, private object storage, receipts, financial summaries, profitability, MarginGuard, simulation, and optional AI.
+
+
+## Units 14–17 update — 2026-10-22 (branch verification pending)
+
+See [UNITS_14_17_IMPLEMENTATION.md](UNITS_14_17_IMPLEMENTATION.md) for scope, limitations, and acceptance gates.
+
+- Unit 14: camera permission diagnosis/retry, baseline browser security headers, and database-backed authentication rate limits are implemented on the feature branch. CI and live Android/Render verification are pending.
+- Unit 15: product/customer/budget models, migration, protected catalog APIs, and optional transaction attribution are implemented on the feature branch. Migration and cross-workspace validation tests are pending CI.
+- Unit 16: product/customer gross-profitability endpoints and UI are implemented on the feature branch. Reports use explicitly attributed posted ledger transactions and do not estimate missing direct costs.
+- Unit 17: category budget creation, budget-vs-actual calculation, threshold statuses, UI, and a multi-transaction regression test are implemented on the feature branch.
+- Current feature-branch migration head is `20261022_0013`. The changes have not been merged or confirmed deployed. Do not mark production-ready until GitHub Actions passes and the Render/mobile acceptance checks are completed.
