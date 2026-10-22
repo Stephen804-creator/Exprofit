@@ -60,8 +60,12 @@ class Transaction(Base):
     transaction_date: Mapped[date] = mapped_column(Date, nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False)
     category: Mapped[str | None] = mapped_column(String(80), nullable=True)
-    product_id: Mapped[UUID | None] = mapped_column(ForeignKey("products.id", ondelete="RESTRICT"), nullable=True)
-    customer_id: Mapped[UUID | None] = mapped_column(ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True)
+    product_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("products.id", ondelete="RESTRICT"), nullable=True
+    )
+    customer_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True
+    )
     idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
