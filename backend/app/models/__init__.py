@@ -9,6 +9,7 @@ from app.models.customer import Customer
 from app.models.email_verification_token import EmailVerificationToken
 from app.models.invitation_application import InvitationApplication
 from app.models.product import Product
+from app.models.rate_limit_bucket import RateLimitBucket
 from app.models.receipt import Receipt
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -24,6 +25,7 @@ __all__ = [
     "EmailVerificationToken",
     "InvitationApplication",
     "Product",
+    "RateLimitBucket",
     "Receipt",
     "Transaction",
     "User",
