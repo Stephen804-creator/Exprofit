@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_business_membership
 from app.config import get_settings
 from app.db.session import get_db
-from app.models import Budget, Business, BusinessMembership, FinancialAlert, Receipt, RecurringTransaction, Transaction
+from app.models import Budget, Business, BusinessMembership, FinancialAlert, Product, Receipt, RecurringTransaction, Transaction
 from app.permissions import require_permission
 from app.services.financial_analysis import profitability, summarize_transactions
 
@@ -372,7 +372,7 @@ def onboarding_progress(
     checks = [
         ("first_transaction", "Record your first transaction", db.scalar(select(func.count(Transaction.id)).where(Transaction.business_id == business_id)) or 0, 1),
         ("receipt", "Attach and review a receipt", db.scalar(select(func.count(Receipt.id)).where(Receipt.business_id == business_id)) or 0, 1),
-        ("product", "Add a product or service", db.scalar(select(func.count()).select_from(__import__("app.models", fromlist=["Product"]).Product).where(__import__("app.models", fromlist=["Product"]).Product.business_id == business_id)) or 0, 1),
+        ("product", "Add a product or service", db.scalar(select(func.count(Product.id)).where(Product.business_id == business_id)) or 0, 1),
         ("budget", "Set a spending budget", db.scalar(select(func.count(Budget.id)).where(Budget.business_id == business_id)) or 0, 1),
         ("recurring", "Add an expected recurring payment", db.scalar(select(func.count(RecurringTransaction.id)).where(RecurringTransaction.business_id == business_id)) or 0, 1),
     ]
