@@ -34,11 +34,11 @@ The first target users are Nigerian microbusinesses, small retailers, and side-h
 
 ## Planned technology
 
-The current baseline uses React + TypeScript + Vite, Python + FastAPI, and a PostgreSQL data layer built with SQLAlchemy and Alembic. Optional AI and OCR are not implemented yet and will sit behind explicit boundaries.
+The current baseline uses React + TypeScript + Vite, Python + FastAPI, and a PostgreSQL data layer built with SQLAlchemy and Alembic. Receipt OCR/PDF extraction and optional Hugging Face financial explanations are implemented behind explicit boundaries; their quality and provider behaviour still require deployment testing.
 
 ## Project status
 
-This repository is the Exprofit project home. The feature branch `feat/core-financial-workflow-builds-1-8` adds the authenticated transaction workspace UI, private receipt upload and human confirmation, date-filtered summaries, deterministic gross-profit calculations, and evidence-backed MarginGuard comparisons. The branch CI workflow checks backend lint/tests, PostgreSQL migrations, frontend typechecking, and the production build. Use the pull request's latest check results; passing CI is necessary but does not replace manual end-to-end testing. These changes need the full CI and manual end-to-end checks before they are release-ready. Gemma integration, the what-if simulator, production deployment, and challenge demo remain outside Builds 1–8.
+This repository is the Exprofit project home. Current implementation includes authenticated workspaces and transaction lifecycle, private receipt upload with human confirmation, date-filtered summaries, deterministic gross-profit calculations, evidence-backed MarginGuard comparisons, a what-if simulator, and an optional AI financial brief. PR #9 adds guided camera-permission recovery, database-backed authentication rate limits, product/customer attribution, product/customer profitability reports, and category budgets. Check the PR's latest CI results; passing CI is necessary but does not replace mobile and deployed end-to-end testing.
 
 See:
 - [Workspace collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md)

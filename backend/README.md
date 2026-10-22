@@ -26,7 +26,7 @@ The configured `DATABASE_URL` must point to a PostgreSQL database. Do not commit
 - `GET/POST /businesses` lists or creates the caller's business workspaces.
 - `/businesses/{business_id}/transactions` supports authenticated transaction create/list/read/update/void operations.
 
-Protected business and transaction endpoints require a bearer token and verify business membership server-side. Access tokens expire after 30 minutes; logout revokes the associated database session. Passwords are Argon2-hashed. Login/register rate limiting and broader production hardening are not yet implemented, so this is not yet a production release.
+Protected business and transaction endpoints require a bearer token and verify business membership server-side. Access tokens expire after 30 minutes; logout revokes the associated database session. Passwords are Argon2-hashed. Database-backed login/register rate limits are implemented on the current feature branch. Proxy-aware IP handling, browser end-to-end coverage, and broader production verification remain outstanding, so passing CI alone does not make this a production release.
 
 ## Verification
 
@@ -55,7 +55,7 @@ Workspace invitation and review endpoints:
 - `POST /businesses/{business_id}/invitation-applications/{application_id}/reject` rejects the applicant and disables the link.
 - `POST /businesses/{business_id}/invitations/{invitation_id}/revoke` revokes an unused link.
 
-Raw invitation tokens are never stored; only SHA-256 digests are persisted. Application submission alone does not grant access. The workflow does not require SMTP or email verification. Photos are limited to JPEG up to 2 MB, stored privately in PostgreSQL for pending review, and deleted after approval, rejection, revocation, or expiry cleanup. The photo supports manual owner-assisted recognition only; it is not biometric authentication. Manual browser/end-to-end checks and production rate limiting remain outstanding.
+Raw invitation tokens are never stored; only SHA-256 digests are persisted. Application submission alone does not grant access. The workflow does not require SMTP or email verification. Photos are limited to JPEG up to 15 MiB, stored privately in PostgreSQL for pending review, and deleted after approval, rejection, revocation, or expiry cleanup. The photo supports manual owner-assisted recognition only; it is not biometric authentication. Manual browser/end-to-end checks and production rate limiting remain outstanding.
 
 
 The React client includes sign-in/register, workspace selection/creation, shareable-link creation/copying, an applicant form with camera/photo input and consent, and a private owner review screen. It uses `VITE_API_BASE_URL`; the UI does not replace server-side authorization and is not yet the complete bookkeeping dashboard.

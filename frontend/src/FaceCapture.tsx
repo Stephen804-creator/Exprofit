@@ -16,10 +16,34 @@ type VisionModule = {
     createFromOptions: (files: unknown, options: Record<string, unknown>) => Promise<FaceDetectorInstance>;
   };
 };
+
 const VISION_MODULE_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/+esm";
 const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm";
 const FACE_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite";
 const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
+
+function cameraErrorMessage(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : "";
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Camera permission is blocked by your browser or device. Open the browser's site settings for exprofit.onrender.com, set Camera to Allow, return here, and tap Try camera again. On Android, open this page directly in Chrome instead of an in-app browser.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No camera was found on this device. Connect or enable a camera, then try again.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "The camera is already being used by another app or is unavailable. Close other camera apps and try again.";
+  }
+  if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
+    return "This device could not start the requested camera mode. Try again or use another camera-enabled browser.";
+  }
+  if (name === "SecurityError" || !window.isSecureContext) {
+    return "Camera access requires a secure HTTPS page. Open Exprofit using its https:// address.";
+  }
+  if (error instanceof Error && /fetch|network|import|wasm|model/i.test(error.message)) {
+    return "The camera opened, but face-detection files could not load. Check your internet connection, then tap Try camera again.";
+  }
+  return "The camera could not be started. Check browser permissions and device settings, then tap Try camera again.";
+}
 
 export default function FaceCapture({ onCapture, onError }: FaceCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -29,64 +53,89 @@ export default function FaceCapture({ onCapture, onError }: FaceCaptureProps) {
   const [loading, setLoading] = useState(true);
   const [cameraReady, setCameraReady] = useState(false);
   const [faceReady, setFaceReady] = useState(false);
-  const [status, setStatus] = useState("Starting the front camera…");
+  const [status, setStatus] = useState("Requesting camera access…");
   const [capturing, setCapturing] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    let detector: FaceDetectorInstance | null = null;
+    const stopCamera = () => {
+      if (frameRef.current !== null) window.clearTimeout(frameRef.current);
+      frameRef.current = null;
+      detector?.close();
+      detector = null;
+      detectorRef.current = null;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+
     async function start(): Promise<void> {
+      setLoading(true);
+      setCameraReady(false);
+      setFaceReady(false);
+      setCameraError("");
+      setStatus("Requesting camera access…");
       try {
+        if (!window.isSecureContext) {
+          throw new DOMException("Camera access requires HTTPS.", "SecurityError");
+        }
         if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error("This browser does not support camera access. Open Exprofit over HTTPS in a recent browser.");
+          throw new DOMException("Camera API unavailable.", "SecurityError");
         }
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 1280 } },
+          video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 1280 } },
         });
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
         streamRef.current = stream;
-        if (!videoRef.current) throw new Error("Camera preview could not be started.");
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        const video = videoRef.current;
+        if (!video) throw new Error("Camera preview could not be started.");
+        video.srcObject = stream;
+        await video.play();
+        if (cancelled) return;
         setCameraReady(true);
-        setStatus("Loading face detection…");
+        setStatus("Camera opened. Loading face detection…");
 
-        // The detector and model load only when this screen is used.
         const dynamicImport = new Function("url", "return import(url)") as (url: string) => Promise<VisionModule>;
         const vision = await dynamicImport(VISION_MODULE_URL);
         const files = await vision.FilesetResolver.forVisionTasks(WASM_URL);
-        const detector = await vision.FaceDetector.createFromOptions(files, {
+        detector = await vision.FaceDetector.createFromOptions(files, {
           baseOptions: { modelAssetPath: FACE_MODEL_URL, delegate: "CPU" },
           runningMode: "VIDEO",
           minDetectionConfidence: 0.65,
         });
         if (cancelled) {
           detector.close();
+          detector = null;
           return;
         }
         detectorRef.current = detector;
         setLoading(false);
 
         const scan = () => {
-          const video = videoRef.current;
-          if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !detectorRef.current) {
-            frameRef.current = window.setTimeout(scan, 120);
+          const currentVideo = videoRef.current;
+          const currentDetector = detectorRef.current;
+          if (cancelled) return;
+          if (!currentVideo || currentVideo.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !currentDetector) {
+            frameRef.current = window.setTimeout(scan, 160);
             return;
           }
           try {
-            const result = detectorRef.current.detectForVideo(video, performance.now());
+            const result = currentDetector.detectForVideo(currentVideo, performance.now());
             const box = result.detections?.[0]?.boundingBox;
-            if (!box || video.videoWidth === 0 || video.videoHeight === 0) {
+            if (!box || currentVideo.videoWidth === 0 || currentVideo.videoHeight === 0) {
               setFaceReady(false);
               setStatus("No face detected. Face the camera and move into the oval.");
             } else {
-              const centerX = (box.originX + box.width / 2) / video.videoWidth;
-              const centerY = (box.originY + box.height / 2) / video.videoHeight;
-              const widthRatio = box.width / video.videoWidth;
-              const heightRatio = box.height / video.videoHeight;
+              const centerX = (box.originX + box.width / 2) / currentVideo.videoWidth;
+              const centerY = (box.originY + box.height / 2) / currentVideo.videoHeight;
+              const widthRatio = box.width / currentVideo.videoWidth;
+              const heightRatio = box.height / currentVideo.videoHeight;
               const centered = centerX >= 0.28 && centerX <= 0.72 &&
                 centerY >= 0.22 && centerY <= 0.76 &&
                 widthRatio >= 0.12 && widthRatio <= 0.72 &&
@@ -100,28 +149,26 @@ export default function FaceCapture({ onCapture, onError }: FaceCaptureProps) {
             setFaceReady(false);
             setStatus("Could not analyze this camera frame. Keep the camera open and try again.");
           }
-          frameRef.current = window.setTimeout(scan, 120);
+          frameRef.current = window.setTimeout(scan, 160);
         };
-        frameRef.current = window.setTimeout(scan, 120);
+        frameRef.current = window.setTimeout(scan, 160);
       } catch (error) {
         if (!cancelled) {
-          const message = error instanceof Error ? error.message : "Could not start face capture.";
+          stopCamera();
+          const message = cameraErrorMessage(error);
+          setCameraError(message);
           setStatus(message);
-          onError(message);
           setLoading(false);
+          onError(message);
         }
       }
     }
     void start();
     return () => {
       cancelled = true;
-      if (frameRef.current !== null) window.clearTimeout(frameRef.current);
-      detectorRef.current?.close();
-      detectorRef.current = null;
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
+      stopCamera();
     };
-  }, [onError]);
+  }, [attempt, onError]);
 
   async function captureFace(): Promise<void> {
     const video = videoRef.current;
@@ -175,6 +222,16 @@ export default function FaceCapture({ onCapture, onError }: FaceCaptureProps) {
         {(!cameraReady || loading) && <div className="face-camera-loading">{status}</div>}
       </div>
       <p className={"face-capture-status " + (faceReady ? "face-capture-status--ready" : "")} role="status">{status}</p>
+      {cameraError && <div className="camera-permission-help" role="alert">
+        <strong>Camera or face detection needs attention</strong>
+        <p>{cameraError}</p>
+        <ol>
+          <li>Open the browser menu and find Site settings or Permissions.</li>
+          <li>Set Camera to Allow for exprofit.onrender.com.</li>
+          <li>Return to this page and tap Try camera again. If the browser previously blocked it, reload the page after changing settings.</li>
+        </ol>
+        <button className="button button--primary" type="button" onClick={() => setAttempt((value) => value + 1)}>Try camera again</button>
+      </div>}
       <div className="face-capture-actions">
         <button className="button button--primary" type="button" onClick={() => void captureFace()} disabled={!faceReady || loading || capturing}>
           {capturing ? "Capturing…" : "Capture face photo"}

@@ -328,3 +328,17 @@ h2 { font-family: Manrope, sans-serif; font-size: clamp(24px, 3.5vw, 36px); lett
 .face-capture-actions { display: grid; gap: 0.5rem; }
 .captured-face-preview { display: grid; gap: 0.5rem; margin-block: 0.5rem 1rem; }
 .captured-face-preview img { display: block; width: min(100%, 220px); aspect-ratio: 3 / 4; object-fit: cover; border-radius: 0.8rem; border: 1px solid #cbd5df; }
+
+
+.camera-permission-help {
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid #d8b58a;
+  border-radius: 10px;
+  background: #fff8ec;
+  color: #4c3520;
+  line-height: 1.6;
+}
+.camera-permission-help p { margin: 8px 0; }
+.camera-permission-help ol { padding-left: 22px; margin: 8px 0 16px; }
+.camera-permission-help .button { cursor: pointer; }

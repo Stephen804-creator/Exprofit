@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Business, Transaction
+from app.models import Business, Customer, Product, Transaction
 from app.schemas.transactions import TransactionCreate, TransactionUpdate
 
 
@@ -34,6 +34,39 @@ class InvalidTransactionStateError(TransactionServiceError):
     """Raised when an operation is not allowed for the current transaction state."""
 
 
+class InvalidTransactionAttributionError(TransactionServiceError):
+    """Raised when linked product/customer records are outside the workspace."""
+
+
+def _validate_attribution(
+    db: Session, business_id: UUID, product_id: UUID | None, customer_id: UUID | None
+) -> None:
+    if product_id is not None:
+        product = db.scalar(
+            select(Product).where(
+                Product.id == product_id,
+                Product.business_id == business_id,
+                Product.is_active.is_(True),
+            )
+        )
+        if product is None:
+            raise InvalidTransactionAttributionError(
+                "Selected product is unavailable in this workspace"
+            )
+    if customer_id is not None:
+        customer = db.scalar(
+            select(Customer).where(
+                Customer.id == customer_id,
+                Customer.business_id == business_id,
+                Customer.is_active.is_(True),
+            )
+        )
+        if customer is None:
+            raise InvalidTransactionAttributionError(
+                "Selected customer is unavailable in this workspace"
+            )
+
+
 def create_transaction(db: Session, payload: TransactionCreate) -> Transaction:
     """Create a transaction after checking business and currency consistency."""
     business = db.get(Business, payload.business_id)
@@ -44,6 +77,8 @@ def create_transaction(db: Session, payload: TransactionCreate) -> Transaction:
         raise CurrencyMismatchError(
             "Transaction currency must match the business currency; conversion is not supported"
         )
+
+    _validate_attribution(db, payload.business_id, payload.product_id, payload.customer_id)
 
     if payload.idempotency_key:
         existing = db.scalar(
@@ -112,7 +147,13 @@ def update_transaction(
     if transaction.status == "void":
         raise InvalidTransactionStateError("Voided transactions cannot be edited")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    _validate_attribution(
+        db, business_id,
+        changes.get("product_id", transaction.product_id),
+        changes.get("customer_id", transaction.customer_id),
+    )
+    for field, value in changes.items():
         if value is None and field != "category":
             continue
         setattr(transaction, field, value)

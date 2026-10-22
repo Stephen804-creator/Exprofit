@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.businesses import router as businesses_router
+from app.api.routes.catalog_finance import router as catalog_finance_router
 from app.api.routes.financial import router as financial_router
 from app.api.routes.intelligence import router as intelligence_router
 from app.api.routes.invitations import router as invitations_router
@@ -33,11 +34,29 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(businesses_router)
+app.include_router(catalog_finance_router)
 app.include_router(invitations_router)
 app.include_router(members_router)
 app.include_router(transactions_router)
 app.include_router(financial_router)
 app.include_router(intelligence_router)
+
+
+@app.middleware("http")
+async def browser_security_headers(request, call_next):
+    """Set baseline browser protections without blocking the camera or model CDN."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Permissions-Policy", "camera=(self), microphone=(), geolocation=()"
+    )
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    if request.url.scheme == "https":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return response
 
 
 @app.get("/health", tags=["operations"])
