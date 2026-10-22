@@ -12,18 +12,28 @@ from app.models import RateLimitBucket
 
 
 def enforce_rate_limit(
-    db: Session, request: Request, *, action: str, identity: str, limit: int, window_seconds: int, include_client_ip: bool = True
+    db: Session,
+    request: Request,
+    *,
+    action: str,
+    identity: str,
+    limit: int,
+    window_seconds: int,
+    include_client_ip: bool = True,
 ) -> None:
     """Count an action in a fixed UTC window and reject requests beyond the configured limit."""
     client_ip = request.client.host if request.client else "unknown"
     ip_part = client_ip if include_client_ip else "shared"
-    key_hash = sha256(f"{action}|{ip_part}|{identity.strip().lower()}".encode()).hexdigest()
+    key_hash = sha256(
+        f"{action}|{ip_part}|{identity.strip().lower()}".encode()
+    ).hexdigest()
     now = datetime.now(UTC)
     window_epoch = int(now.timestamp()) // window_seconds * window_seconds
     window_start = datetime.fromtimestamp(window_epoch, UTC)
     table = RateLimitBucket.__table__
     values = {"key_hash": key_hash, "window_start": window_start, "hits": 1}
     dialect = db.get_bind().dialect.name
+
     if dialect == "postgresql":
         statement = pg_insert(table).values(**values).on_conflict_do_update(
             index_elements=[table.c.key_hash, table.c.window_start],
@@ -37,7 +47,11 @@ def enforce_rate_limit(
     else:
         bucket = db.get(RateLimitBucket, (key_hash, window_start))
         if bucket is None:
-            bucket = RateLimitBucket(key_hash=key_hash, window_start=window_start, hits=1)
+            bucket = RateLimitBucket(
+                key_hash=key_hash,
+                window_start=window_start,
+                hits=1,
+            )
             db.add(bucket)
             db.flush()
         else:
@@ -45,19 +59,29 @@ def enforce_rate_limit(
         hits = bucket.hits
         db.commit()
         if hits > limit:
-            retry_after = max(1, window_seconds - int((now - window_start).total_seconds()))
-            raise HTTPException(status_code=429, detail="Too many attempts. Try again later.", headers={"Retry-After": str(retry_after)})
+            _raise_rate_limit(now, window_start, window_seconds)
         return
+
     hits = int(db.scalar(statement) or 1)
-    # Expired hashed buckets are periodically removed so the table stays bounded.
-    db.execute(delete(RateLimitBucket).where(
-        RateLimitBucket.window_start < now - timedelta(days=2)
-    ))
+    # Expired hashed buckets are removed so the table stays bounded.
+    db.execute(
+        delete(RateLimitBucket).where(
+            RateLimitBucket.window_start < now - timedelta(days=2)
+        )
+    )
     db.commit()
     if hits > limit:
-        retry_after = max(1, window_seconds - int((now - window_start).total_seconds()))
-        raise HTTPException(
-            status_code=429,
-            detail="Too many attempts. Try again later.",
-            headers={"Retry-After": str(retry_after)},
-        )
+        _raise_rate_limit(now, window_start, window_seconds)
+
+
+def _raise_rate_limit(
+    now: datetime, window_start: datetime, window_seconds: int
+) -> None:
+    retry_after = max(
+        1, window_seconds - int((now - window_start).total_seconds())
+    )
+    raise HTTPException(
+        status_code=429,
+        detail="Too many attempts. Try again later.",
+        headers={"Retry-After": str(retry_after)},
+    )
