@@ -20,6 +20,8 @@ class TransactionCreate(BaseModel):
     category: str | None = Field(default=None, max_length=80)
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=128)
     status: Literal["draft", "posted"] = "draft"
+    product_id: UUID | None = None
+    customer_id: UUID | None = None
 
     @field_validator("currency_code")
     @classmethod
@@ -57,6 +59,8 @@ class TransactionUpdate(BaseModel):
     transaction_date: date | None = None
     description: str | None = Field(default=None, min_length=1, max_length=500)
     category: str | None = Field(default=None, max_length=80)
+    product_id: UUID | None = None
+    customer_id: UUID | None = None
 
     @field_validator("description")
     @classmethod
@@ -91,5 +95,7 @@ class TransactionRead(BaseModel):
     transaction_date: date
     description: str
     category: str | None
+    product_id: UUID | None
+    customer_id: UUID | None
     created_at: datetime
     updated_at: datetime
