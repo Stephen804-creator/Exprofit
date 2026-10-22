@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -216,17 +216,7 @@ def budget_vs_actual(
     ).order_by(Budget.period_start.desc(), Budget.category.asc()).limit(500)).all()
     rows = []
     for budget in budgets:
-        actual = db.scalar(select(Transaction.amount).where(
-            Transaction.business_id == business_id,
-            Transaction.status == "posted",
-            Transaction.direction == "expense",
-            Transaction.currency_code == budget.currency_code,
-            Transaction.category == budget.category,
-            Transaction.transaction_date >= budget.period_start,
-            Transaction.transaction_date <= budget.period_end,
-        ))
-        # Aggregate in SQL rather than summing only the first matching row.
-        from sqlalchemy import func
+        # Aggregate in SQL rather than summing only one matching transaction.
         actual = db.scalar(select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.business_id == business_id,
             Transaction.status == "posted",
