@@ -2,9 +2,9 @@
 
 from app.models.audit_event import AuditEvent
 from app.models.auth_session import AuthSession
+from app.models.budget import Budget
 from app.models.business import Business
 from app.models.business_membership import BusinessMembership
-from app.models.budget import Budget
 from app.models.customer import Customer
 from app.models.email_verification_token import EmailVerificationToken
 from app.models.invitation_application import InvitationApplication
