@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import FinancialWorkspace from "./FinancialWorkspace";
+import FaceCapture from "./FaceCapture";
 
 type ApiStatus = "checking" | "online" | "offline";
 type RouteMode = "app" | "accept-invitation";
@@ -638,21 +639,14 @@ export default function App() {
                 <input id="application-phone" type="tel" autoComplete="tel" value={applicationPhone} onChange={(event) => setApplicationPhone(event.target.value)} maxLength={40} />
                 <label htmlFor="application-details">Details the owner can use to recognize you</label>
                 <textarea id="application-details" value={applicationDetails} onChange={(event) => setApplicationDetails(event.target.value)} maxLength={1200} rows={4} placeholder="For example, where you met or the role you discussed." required />
-                <label htmlFor="application-photo">Face photo (JPEG, up to 2 MB)</label>
-                <input id="application-photo" type="file" accept="image/jpeg" capture="user" onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (!file) { setApplicationPhoto(""); return; }
-                  if (file.size > 2 * 1024 * 1024 || file.type !== "image/jpeg") {
-                    setApplicationPhoto("");
-                    setNotice("Choose a JPEG photo no larger than 2 MB.");
-                    return;
-                  }
-                  const reader = new FileReader();
-                  reader.onload = () => setApplicationPhoto(typeof reader.result === "string" ? reader.result : "");
-                  reader.onerror = () => setNotice("Could not read the selected photo. Please try again.");
-                  reader.readAsDataURL(file);
-                }} required />
-                {applicationPhoto && <p className="form-hint">Photo ready to submit. The owner can view it privately while the application is pending.</p>}
+                <label>Face photo</label>
+                <FaceCapture onCapture={setApplicationPhoto} onError={setNotice} />
+                {applicationPhoto && (
+                  <div className="captured-face-preview">
+                    <p className="form-hint">Captured photo preview. Use the camera again to retake it if needed.</p>
+                    <img src={applicationPhoto} alt="Preview of your captured face photo" />
+                  </div>
+                )}
                 <label className="consent-option">
                   <input type="checkbox" checked={applicationConsent} onChange={(event) => setApplicationConsent(event.target.checked)} required />
                   <span>I consent to the workspace owner reviewing my submitted details and face photo for this invitation. The photo is stored privately while the application is pending and deleted after a decision or expiry cleanup.</span>

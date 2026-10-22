@@ -56,7 +56,7 @@ class InvitationApplicationCreate(BaseModel):
     full_name: str = Field(min_length=2, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
     identifying_details: str = Field(min_length=5, max_length=1200)
-    photo_data_url: str = Field(min_length=100, max_length=2_800_000)
+    photo_data_url: str = Field(min_length=100, max_length=21_000_100)
     consent: bool
 
     @field_validator("full_name", "identifying_details")
