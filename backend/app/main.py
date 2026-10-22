@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.businesses import router as businesses_router
+from app.api.routes.catalog_finance import router as catalog_finance_router
 from app.api.routes.financial import router as financial_router
 from app.api.routes.intelligence import router as intelligence_router
 from app.api.routes.invitations import router as invitations_router
@@ -33,6 +34,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(businesses_router)
+app.include_router(catalog_finance_router)
 app.include_router(invitations_router)
 app.include_router(members_router)
 app.include_router(transactions_router)
