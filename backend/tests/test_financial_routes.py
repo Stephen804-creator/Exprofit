@@ -421,3 +421,34 @@ def test_browser_security_headers_are_present(client: TestClient) -> None:
     assert response.headers["referrer-policy"] == "strict-origin-when-cross-origin"
     assert response.headers["permissions-policy"] == "camera=(self), microphone=(), geolocation=()"
     assert response.headers["x-frame-options"] == "DENY"
+
+
+def test_transaction_cannot_reference_product_from_another_workspace(
+    client: TestClient,
+) -> None:
+    owner = register(client, "workspace-attribution-owner@example.com")
+    token = owner["access_token"]
+    headers = bearer(token)
+    first_workspace = make_business(client, token)
+    second_workspace = make_business(client, token)
+    product = client.post(
+        f"/businesses/{first_workspace}/products",
+        headers=headers,
+        json={"name": "Private Product"},
+    )
+    assert product.status_code == 201, product.text
+    response = client.post(
+        f"/businesses/{second_workspace}/transactions",
+        headers=headers,
+        json={
+            "business_id": second_workspace,
+            "direction": "income",
+            "amount": "10.00",
+            "currency_code": "NGN",
+            "transaction_date": date.today().isoformat(),
+            "description": "Must not cross workspaces",
+            "status": "posted",
+            "product_id": product.json()["id"],
+        },
+    )
+    assert response.status_code == 422
