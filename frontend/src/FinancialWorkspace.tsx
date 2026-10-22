@@ -13,7 +13,14 @@ const localDate = (date: Date) => date.getFullYear() + "-" + String(date.getMont
 const today = () => localDate(new Date());
 const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return localDate(d); };
 const cash = (value: string, currency: string) => currency + " " + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const errorText = (value: unknown) => value && typeof value === "object" && "detail" in value && typeof value.detail === "string" ? value.detail : "Request failed. Please try again.";
+const errorText = (value: unknown) => {
+  if (value && typeof value === "object" && "detail" in value) {
+    const detail = value.detail;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail === "object" && "message" in detail && typeof detail.message === "string") return detail.message;
+  }
+  return "Request failed. Please try again.";
+};
 
 export default function FinancialWorkspace({ workspace, accessToken, membership, membershipResolved }: { workspace: Workspace; accessToken: string; membership: MembershipAccess; membershipResolved: boolean }) {
   const [activePanel, setActivePanel] = useState<"overview" | "transactions" | "receipts" | "insights">("overview");
@@ -144,6 +151,20 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     catch (e) { setError(e instanceof Error ? e.message : "Could not void transaction."); }
     finally { setBusy(false); }
   }
+  async function importTransactionsCsv(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const file = (form.elements.namedItem("transaction-csv") as HTMLInputElement).files?.[0];
+    if (!file) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const body = new FormData(); body.append("file", file);
+      const result = await request<{ created_count: number }>("/businesses/" + workspace.id + "/transactions/import", { method: "POST", body });
+      form.reset(); setNotice(`${result.created_count} transactions imported as drafts. Review them before posting.`); await refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "CSV import failed."); }
+    finally { setBusy(false); }
+  }
+
   async function uploadReceipt(e: FormEvent<HTMLFormElement>) {
     e.preventDefault(); const form = e.currentTarget; const file = (form.elements.namedItem("receipt-file") as HTMLInputElement).files?.[0]; if (!file) return;
     setBusy(true); setError("");
@@ -230,6 +251,7 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
           <button className="finance-button" disabled={busy}>{busy ? "Saving…" : "Save transaction"}</button>
         </form><p className="finance-footnote">Voiding preserves history. Amounts use decimal storage.</p>
       </section>}
+      {activePanel === "transactions" && canWriteAny && <section className="finance-card"><p className="eyebrow">02 / IMPORT</p><h3>Import transactions from CSV</h3><p className="finance-muted">Required columns: direction, amount, transaction_date, description. Optional: currency_code, category, status. Amounts must use this workspace currency; rows import as drafts by default.</p><form className="finance-upload" onSubmit={importTransactionsCsv}><input name="transaction-csv" type="file" accept=".csv,text/csv" required /><button className="finance-button" disabled={busy}>{busy ? "Importing…" : "Validate and import CSV"}</button></form><p className="finance-footnote">Up to 500 rows and 2 MB. If any row is invalid or you lack permission for a row, nothing is imported. Review imported drafts before posting.</p></section>}
       {activePanel === "receipts" && canReadExpenses && <section className="finance-card"><p className="eyebrow">02 / CAPTURE</p><h3>Scan a receipt</h3><p className="finance-muted">JPEG, PNG, WebP or PDF up to 5 MB. Confirm every field before saving.</p>
         {canWriteExpenses && <form className="finance-upload" onSubmit={uploadReceipt}><input name="receipt-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required /><button className="finance-button" disabled={busy}>Upload and extract</button></form>}
         <p className="finance-footnote">Files are private to this workspace. OCR is best-effort; enter details manually if text extraction is unavailable.</p>

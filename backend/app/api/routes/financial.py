@@ -20,6 +20,7 @@ from app.api.deps import require_business_membership
 from app.db.session import get_db
 from app.models import Business, BusinessMembership, Receipt, Transaction
 from app.permissions import require_permission
+from app.services.audit import record_audit_event
 from app.services.financial_analysis import compare_periods, profitability, summarize_transactions
 
 router = APIRouter(prefix="/businesses/{business_id}", tags=["financial"])
@@ -240,6 +241,12 @@ async def upload_receipt(
         review_status="pending",
     )
     db.add(receipt)
+    db.flush()
+    record_audit_event(
+        db, business_id=business_id, actor_user_id=membership.user_id,
+        event_type="receipt.uploaded", target_type="receipt", target_id=receipt.id,
+        metadata={"content_type": content_type, "sha256_hex": digest, "review_status": "pending"},
+    )
     try:
         db.commit()
     except IntegrityError as exc:
@@ -310,6 +317,19 @@ def confirm_receipt(
     receipt.review_status = "confirmed"
     db.flush()
     receipt.linked_transaction_id = transaction.id
+    record_audit_event(
+        db, business_id=business_id, actor_user_id=membership.user_id,
+        event_type="receipt.confirmed", target_type="receipt", target_id=receipt.id,
+        metadata={"transaction_id": str(transaction.id), "direction": payload.direction,
+                  "amount": str(payload.amount), "currency_code": business.currency_code},
+    )
+    record_audit_event(
+        db, business_id=business_id, actor_user_id=membership.user_id,
+        event_type="transaction.created_from_receipt", target_type="transaction",
+        target_id=transaction.id, metadata={"receipt_id": str(receipt.id),
+        "direction": payload.direction, "amount": str(payload.amount),
+        "currency_code": business.currency_code},
+    )
     db.commit()
     db.refresh(receipt)
     return {"receipt": _receipt_payload(receipt), "transaction_id": str(transaction.id)}
@@ -334,5 +354,9 @@ def reject_receipt(
     receipt.review_status = "rejected"
     receipt.file_bytes = b""
     receipt.extracted_text = ""
+    record_audit_event(
+        db, business_id=business_id, actor_user_id=membership.user_id,
+        event_type="receipt.rejected", target_type="receipt", target_id=receipt.id,
+    )
     db.commit()
     return _receipt_payload(receipt)

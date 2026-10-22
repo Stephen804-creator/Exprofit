@@ -1,6 +1,7 @@
 """SMTP delivery for account verification messages."""
 
 import smtplib
+from datetime import datetime
 from email.message import EmailMessage
 
 from app.config import Settings
@@ -48,6 +49,7 @@ def send_invitation_email(
     invitation_url: str,
     workspace_name: str,
     settings: Settings,
+    expires_at: datetime | None = None,
 ) -> None:
     """Send a recipient-bound invitation without exposing the token in API output."""
     if not settings.email_delivery_configured:
@@ -60,10 +62,10 @@ def send_invitation_email(
     message.set_content(
         f"You have been invited to join the {workspace_name} workspace on Exprofit.\n\n"
         f"Review and accept the invitation here: {invitation_url}\n\n"
-        f"This invitation expires in {settings.workspace_invitation_ttl_minutes} minutes. "
-        "You must sign in with the exact email address that received this invitation, "
-        "and that email address must be verified. If you were not expecting this invite, "
-        "you can ignore this message."
+        (f"This invitation expires at {expires_at.isoformat()} (UTC). " if expires_at else "")
+        + "You must sign in with the exact email address that received this invitation, "
+        + "and that email address must be verified. If you were not expecting this invite, "
+        + "you can ignore this message."
     )
 
     try:

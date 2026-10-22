@@ -60,7 +60,7 @@ def create_transaction(db: Session, payload: TransactionCreate) -> Transaction:
     transaction = Transaction(**payload.model_dump())
     db.add(transaction)
     try:
-        db.commit()
+        db.flush()
     except IntegrityError:
         db.rollback()
         raise
@@ -117,7 +117,7 @@ def update_transaction(
             continue
         setattr(transaction, field, value)
 
-    db.commit()
+    db.flush()
     db.refresh(transaction)
     return transaction
 
@@ -128,6 +128,6 @@ def void_transaction(db: Session, business_id: UUID, transaction_id: UUID) -> Tr
     if transaction.status == "void":
         raise InvalidTransactionStateError("Transaction is already void")
     transaction.status = "void"
-    db.commit()
+    db.flush()
     db.refresh(transaction)
     return transaction
