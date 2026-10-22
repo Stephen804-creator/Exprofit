@@ -26,8 +26,8 @@ from app.services.transactions import (
     BusinessNotFoundError,
     CurrencyMismatchError,
     DuplicateTransactionRequestError,
-    InvalidTransactionStateError,
     InvalidTransactionAttributionError,
+    InvalidTransactionStateError,
     TransactionNotFoundError,
     create_transaction,
     get_transaction,
@@ -74,7 +74,12 @@ def create(
         )
         db.commit()
         return transaction
-    except (BusinessNotFoundError, CurrencyMismatchError, DuplicateTransactionRequestError, InvalidTransactionAttributionError) as exc:
+    except (
+        BusinessNotFoundError,
+        CurrencyMismatchError,
+        DuplicateTransactionRequestError,
+        InvalidTransactionAttributionError,
+    ) as exc:
         _raise_service_error(exc)
     except IntegrityError as exc:
         db.rollback()
@@ -263,7 +268,11 @@ def update_entry(
         )
         db.commit()
         return transaction
-    except (TransactionNotFoundError, InvalidTransactionStateError, InvalidTransactionAttributionError) as exc:
+    except (
+        TransactionNotFoundError,
+        InvalidTransactionStateError,
+        InvalidTransactionAttributionError,
+    ) as exc:
         _raise_service_error(exc)
 
 
