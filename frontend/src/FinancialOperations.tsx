@@ -114,6 +114,16 @@ export default function FinancialOperations({ workspaceId, accessToken, currency
     } catch (e) { setError(e instanceof Error ? e.message : "Could not prepare report."); }
     finally { setBusy(false); }
   }
+  function downloadAccountantReport() {
+    if (accountantReport === null) return;
+    const blob = new Blob([JSON.stringify(accountantReport, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "exprofit-accountant-summary.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
   async function askCopilot(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(""); setCopilot(null);
     try {
@@ -163,7 +173,7 @@ export default function FinancialOperations({ workspaceId, accessToken, currency
       <p className="finance-muted">Download posted transactions as CSV or review totals by currency/category. This is an export aid, not a tax filing or audited statement.</p>
       <div className="finance-form"><label>From<input type="date" value={reportStart} onChange={e => setReportStart(e.target.value)} /></label><label>To<input type="date" value={reportEnd} onChange={e => setReportEnd(e.target.value)} /></label></div>
       <div className="finance-actions"><button className="finance-button" type="button" disabled={busy} onClick={() => void downloadCsv()}>Download transaction CSV</button><button className="finance-button finance-button--quiet" type="button" disabled={busy} onClick={() => void loadAccountantReport()}>Build accountant summary</button></div>
-      {accountantReport !== null && <pre className="finance-report-json">{JSON.stringify(accountantReport,null,2)}</pre>}
+      {accountantReport !== null && <><div className="finance-actions"><button className="finance-button finance-button--quiet" type="button" onClick={downloadAccountantReport}>Download accountant summary JSON</button></div><pre className="finance-report-json">{JSON.stringify(accountantReport,null,2)}</pre></>}
     </div>
 
     <div className="finance-card">
