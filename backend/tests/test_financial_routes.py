@@ -327,7 +327,12 @@ def test_product_customer_attribution_and_profitability(client: TestClient) -> N
     product_response = client.post(
         f"/businesses/{business_id}/products",
         headers=headers,
-        json={"name": "Handmade Bag", "sku": "BAG-001", "unit_price": "1000.00", "unit_cost": "400.00"},
+        json={
+            "name": "Handmade Bag",
+            "sku": "BAG-001",
+            "unit_price": "1000.00",
+            "unit_cost": "400.00",
+        },
     )
     assert product_response.status_code == 201, product_response.text
     product_id = product_response.json()["id"]
@@ -364,7 +369,9 @@ def test_product_customer_attribution_and_profitability(client: TestClient) -> N
     assert cost.status_code == 201, cost.text
 
     product_report = client.get(f"/businesses/{business_id}/product-profitability", headers=headers)
-    customer_report = client.get(f"/businesses/{business_id}/customer-profitability", headers=headers)
+    customer_report = client.get(
+        f"/businesses/{business_id}/customer-profitability", headers=headers
+    )
     assert product_report.status_code == 200, product_report.text
     assert customer_report.status_code == 200, customer_report.text
     assert product_report.json()["items"][0]["revenue"] == "1000.00"
