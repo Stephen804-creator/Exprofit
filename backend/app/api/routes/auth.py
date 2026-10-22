@@ -60,8 +60,23 @@ def register(
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenResponse:
     """Create an account, private Solo workspace, owner membership, and session."""
-    enforce_rate_limit(db, request, action="auth:register:ip", identity="register", limit=5, window_seconds=3600)
-    enforce_rate_limit(db, request, action="auth:register:email", identity=str(payload.email), limit=3, window_seconds=3600, include_client_ip=False)
+    enforce_rate_limit(
+        db,
+        request,
+        action="auth:register:ip",
+        identity="register",
+        limit=5,
+        window_seconds=3600,
+    )
+    enforce_rate_limit(
+        db,
+        request,
+        action="auth:register:email",
+        identity=str(payload.email),
+        limit=3,
+        window_seconds=3600,
+        include_client_ip=False,
+    )
     if db.scalar(select(User.id).where(User.email == payload.email)) is not None:
         raise HTTPException(status_code=409, detail="An account with this email already exists")
 
@@ -124,8 +139,23 @@ def login(
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenResponse:
     """Authenticate with a generic error that avoids account enumeration."""
-    enforce_rate_limit(db, request, action="auth:login:ip", identity="login", limit=30, window_seconds=900)
-    enforce_rate_limit(db, request, action="auth:login:email", identity=str(payload.email), limit=10, window_seconds=900, include_client_ip=False)
+    enforce_rate_limit(
+        db,
+        request,
+        action="auth:login:ip",
+        identity="login",
+        limit=30,
+        window_seconds=900,
+    )
+    enforce_rate_limit(
+        db,
+        request,
+        action="auth:login:email",
+        identity=str(payload.email),
+        limit=10,
+        window_seconds=900,
+        include_client_ip=False,
+    )
     user = db.scalar(select(User).where(User.email == payload.email))
     if user is None or not user.is_active or not verify_password(
         payload.password, user.password_hash
