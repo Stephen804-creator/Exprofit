@@ -26,7 +26,7 @@ The configured `DATABASE_URL` must point to a PostgreSQL database. Do not commit
 - `GET/POST /businesses` lists or creates the caller's business workspaces.
 - `/businesses/{business_id}/transactions` supports authenticated transaction create/list/read/update/void operations.
 
-Protected business and transaction endpoints require a bearer token and verify business membership server-side. Access tokens expire after 30 minutes; logout revokes the associated database session. Passwords are Argon2-hashed. Database-backed login/register rate limits are implemented on the current feature branch. Proxy-aware IP handling, browser end-to-end coverage, and broader production verification remain outstanding, so passing CI alone does not make this a production release.
+Protected business and transaction endpoints require a bearer token and verify business membership server-side. Access tokens expire after 30 minutes; logout revokes the associated database session. Passwords are Argon2-hashed. Database-backed login/register rate limits are implemented on `main`. Proxy-aware IP handling, browser end-to-end coverage, and broader production verification remain outstanding, so passing CI alone does not make this a production release.
 
 ## Verification
 
