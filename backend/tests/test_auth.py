@@ -396,3 +396,16 @@ def test_email_verification_rejects_unknown_token(client: TestClient) -> None:
         json={"token": "x" * 48},
     )
     assert response.status_code == 400
+
+
+def test_login_rate_limit_returns_retry_after(client: TestClient) -> None:
+    register(client, "limited@example.com")
+    response = None
+    for _ in range(11):
+        response = client.post(
+            "/auth/login",
+            json={"email": "limited@example.com", "password": "incorrect-password"},
+        )
+    assert response is not None
+    assert response.status_code == 429
+    assert int(response.headers["retry-after"]) > 0
