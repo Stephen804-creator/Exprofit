@@ -223,7 +223,7 @@ export default function FaceCapture({ onCapture, onError }: FaceCaptureProps) {
       </div>
       <p className={"face-capture-status " + (faceReady ? "face-capture-status--ready" : "")} role="status">{status}</p>
       {cameraError && <div className="camera-permission-help" role="alert">
-        <strong>Camera access is blocked</strong>
+        <strong>Camera or face detection needs attention</strong>
         <p>{cameraError}</p>
         <ol>
           <li>Open the browser menu and find Site settings or Permissions.</li>
