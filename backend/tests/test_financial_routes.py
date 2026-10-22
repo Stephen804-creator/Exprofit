@@ -1,6 +1,7 @@
 """Integration tests for the receipt and financial API workflow."""
 
 from collections.abc import Generator
+from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
@@ -337,7 +338,7 @@ def test_product_customer_attribution_and_profitability(client: TestClient) -> N
     )
     assert customer_response.status_code == 201, customer_response.text
     customer_id = customer_response.json()["id"]
-    today = __import__("datetime").date.today().isoformat()
+    today = date.today().isoformat()
 
     income = client.post(
         f"/businesses/{business_id}/transactions",
