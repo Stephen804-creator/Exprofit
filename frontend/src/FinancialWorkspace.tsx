@@ -1,9 +1,11 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import FinancialIntelligence from "./FinancialIntelligence";
+import FinancialCatalogBudget from "./FinancialCatalogBudget";
 
 type Workspace = { id: string; currency_code: string; workspace_type: "solo" | "business"; name: string; display_name: string | null };
-type Tx = { id: string; direction: "income" | "expense"; status: "draft" | "posted" | "void"; amount: string; currency_code: string; transaction_date: string; description: string; category: string | null };
+type Tx = { id: string; direction: "income" | "expense"; status: "draft" | "posted" | "void"; amount: string; currency_code: string; transaction_date: string; description: string; category: string | null; product_id?: string | null; customer_id?: string | null };
+type CatalogOption = { id: string; name: string };
 type Summary = { currencies: Array<{ currency_code: string; income: string; expenses: string; net_cash_movement: string; income_count: number; expense_count: number }>; profitability: { currencies: Array<{ currency_code: string; revenue: string; direct_costs: string; gross_profit: string | null; gross_margin_percent: string | null; note: string }> } };
 type Finding = { kind: string; severity: string; currency_code: string; summary: string; uncertainty: string; evidence?: Array<{ id: string; date: string; direction: string; amount: string; description: string }> };
 type Receipt = { id: string; original_filename: string; candidate_merchant: string | null; candidate_date: string | null; candidate_amount: string | null; extracted_text: string; review_status: string };
@@ -23,11 +25,15 @@ const errorText = (value: unknown) => {
 };
 
 export default function FinancialWorkspace({ workspace, accessToken, membership, membershipResolved }: { workspace: Workspace; accessToken: string; membership: MembershipAccess; membershipResolved: boolean }) {
-  const [activePanel, setActivePanel] = useState<"overview" | "transactions" | "receipts" | "insights">("overview");
+  const [activePanel, setActivePanel] = useState<"overview" | "transactions" | "receipts" | "insights" | "catalog">("overview");
   const [rows, setRows] = useState<Tx[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [products, setProducts] = useState<CatalogOption[]>([]);
+  const [customers, setCustomers] = useState<CatalogOption[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [from, setFrom] = useState(daysAgo(29)); const [to, setTo] = useState(today());
   const [direction, setDirection] = useState<"income" | "expense">("expense");
   const [amount, setAmount] = useState(""); const [date, setDate] = useState(today());
@@ -111,6 +117,13 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
         txPromise, totalsPromise, guardPromise, receiptsPromise
       ]);
       setRows(tx); setSummary(totals); setFindings(guard.findings); setReceipts(receiptRows);
+      if (canRead("sales")) {
+        const [productRows, customerRows] = await Promise.all([
+          request<CatalogOption[]>("/businesses/" + workspace.id + "/products"),
+          request<CatalogOption[]>("/businesses/" + workspace.id + "/customers"),
+        ]);
+        setProducts(productRows); setCustomers(customerRows);
+      } else { setProducts([]); setCustomers([]); }
       setReceiptFields(old => {
         const next = { ...old };
         receiptRows.forEach(r => { if (!next[r.id]) next[r.id] = { amount: r.candidate_amount ?? "", date: r.candidate_date ?? today(), description: r.candidate_merchant ?? r.original_filename, category: "Uncategorised", direction: "expense" }; });
@@ -129,9 +142,9 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     try {
       await request("/businesses/" + workspace.id + "/transactions", { method: "POST", body: JSON.stringify({
         business_id: workspace.id, direction, amount, currency_code: workspace.currency_code, transaction_date: date,
-        description, category: category || null, status: "posted"
+        description, category: category || null, product_id: selectedProductId || null, customer_id: selectedCustomerId || null, status: "posted"
       }) });
-      setAmount(""); setDescription(""); setNotice("Transaction saved."); await refresh();
+      setAmount(""); setDescription(""); setSelectedProductId(""); setSelectedCustomerId(""); setNotice("Transaction saved."); await refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save transaction."); }
     finally { setBusy(false); }
   }
@@ -197,12 +210,13 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
   }
 
   return <section className="finance-workspace">
-    <div className="finance-heading"><div><p className="eyebrow">FINANCIAL WORKSPACE</p><h2>{activePanel === "overview" ? "Your money at a glance" : activePanel === "transactions" ? "Transactions" : activePanel === "receipts" ? "Receipt inbox" : "Profit and financial intelligence"}</h2><p className="finance-muted">Only posted records contribute to totals. Workspace records stay separate.</p></div><span className="finance-currency">{workspace.currency_code}</span></div>
+    <div className="finance-heading"><div><p className="eyebrow">FINANCIAL WORKSPACE</p><h2>{activePanel === "overview" ? "Your money at a glance" : activePanel === "transactions" ? "Transactions" : activePanel === "receipts" ? "Receipt inbox" : activePanel === "catalog" ? "Products, customers & budgets" : "Profit and financial intelligence"}</h2><p className="finance-muted">Only posted records contribute to totals. Workspace records stay separate.</p></div><span className="finance-currency">{workspace.currency_code}</span></div>
     <nav className="finance-nav" aria-label="Financial tools">
       <button type="button" className={activePanel === "overview" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("overview")}>Overview</button>
       <button type="button" className={activePanel === "transactions" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("transactions")}>Transactions <span>＋</span></button>
       <button type="button" className={activePanel === "receipts" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("receipts")}>Receipts</button>
       <button type="button" className={activePanel === "insights" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("insights")}>MarginGuard & AI</button>
+      <button type="button" className={activePanel === "catalog" ? "finance-nav-item finance-nav-item--active" : "finance-nav-item"} onClick={() => setActivePanel("catalog")}>Products & budgets</button>
     </nav>
     <div className="finance-filters"><label>From<input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label><label>To<input type="date" value={to} min={from} max={today()} onChange={e => setTo(e.target.value)} /></label><button className="finance-button finance-button--quiet" type="button" onClick={() => { setFrom(daysAgo(29)); setTo(today()); }}>Last 30 days</button></div>
     {error && <p className="form-message form-message--error" role="alert">{error}</p>}{notice && <p className="form-message" role="status">{notice}</p>}{loading && <p className="form-hint">Loading financial records…</p>}
@@ -247,6 +261,8 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
           <label>Amount ({workspace.currency_code})<input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required /></label>
           <label>Date<input type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} required /></label>
           <label>Category<select value={category} onChange={e => setCategory(e.target.value)}>{["Uncategorised","Sales","COGS","Cost of goods sold","Cost of sales","Direct costs","Inventory cost","Rent","Transport","Utilities","Marketing","Equipment","Other"].map(c => <option key={c}>{c}</option>)}</select></label>
+          {canRead("sales") && <label>Product/service (optional)<select value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)}><option value="">Not attributed</option>{products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
+          {canRead("sales") && <label>Customer (optional)<select value={selectedCustomerId} onChange={e => setSelectedCustomerId(e.target.value)}><option value="">Not attributed</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
           <label className="finance-full">Description<input value={description} onChange={e => setDescription(e.target.value)} maxLength={500} required /></label>
           <button className="finance-button" disabled={busy}>{busy ? "Saving…" : "Save transaction"}</button>
         </form><p className="finance-footnote">Voiding preserves history. Amounts use decimal storage.</p>
@@ -287,6 +303,7 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
       {findings.map((f, i) => <article className="guard-finding" key={f.kind + f.currency_code + i}><span className={"finance-status finance-status--" + (f.severity === "warning" ? "warning" : "posted")}>{f.severity}</span><strong>{f.summary}</strong><p>{f.uncertainty}</p><details><summary>Evidence ({f.evidence?.length ?? 0} records)</summary>{(f.evidence ?? []).map(ev => <div className="evidence-row" key={ev.id}><span>{ev.date} · {ev.description}</span><strong>{ev.direction} {cash(ev.amount, f.currency_code)}</strong></div>)}</details></article>)}
     </section></div>}
     {activePanel === "insights" && canViewCombined && <FinancialIntelligence workspaceId={workspace.id} accessToken={accessToken} />}
+    {activePanel === "catalog" && <FinancialCatalogBudget workspaceId={workspace.id} accessToken={accessToken} currencyCode={workspace.currency_code} canReadSales={canRead("sales")} canWriteSales={canWrite("sales")} canReadExpenses={canRead("expenses")} canWriteExpenses={canWrite("expenses")} />}
     {activePanel === "insights" && !canViewCombined && <p className="finance-empty">MarginGuard and combined financial intelligence require read access to both sales and expenses in this workspace.</p>}
     <p className="finance-disclaimer">Exprofit reports recorded information only. Cash movement is not profit. Check source records before making a business decision.</p>
   </section>;
