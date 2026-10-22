@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     @property
     def email_delivery_configured(self) -> bool:
         """Return whether all required SMTP sender settings are present."""
-        return bool(self.smtp_host.strip() and self.smtp_from_email.strip())
+        return bool(self.smtp_host.strip() and self.smtp_username.strip() and self.smtp_password.strip() and self.smtp_from_email.strip() and self.smtp_port > 0)
 
     @property
     def allowed_origins(self) -> list[str]:
