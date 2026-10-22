@@ -314,3 +314,17 @@ h2 { font-family: Manrope, sans-serif; font-size: clamp(24px, 3.5vw, 36px); lett
   .overview-profit-values { flex-wrap:wrap; gap:18px; }
   .overview-profit-values strong { font-size:18px; }
 }
+
+/* Guided face capture for workspace invitation applications */
+.face-capture { display: grid; gap: 0.75rem; margin: 0.5rem 0 1rem; }
+.face-camera-frame { position: relative; width: min(100%, 420px); aspect-ratio: 4 / 5; margin-inline: auto; overflow: hidden; border-radius: 1.25rem; background: #101820; border: 2px solid #aab4bf; }
+.face-camera-frame--ready { border-color: #23966a; box-shadow: 0 0 0 3px rgb(35 150 106 / 15%); }
+.face-camera-video { display: block; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.face-guide-oval { position: absolute; left: 50%; top: 47%; width: 58%; height: 70%; transform: translate(-50%, -50%); border: 3px dashed rgb(255 255 255 / 90%); border-radius: 50%; box-shadow: 0 0 0 999px rgb(0 0 0 / 18%); pointer-events: none; }
+.face-camera-frame--ready .face-guide-oval { border-color: #54e0a0; border-style: solid; }
+.face-camera-loading { position: absolute; inset: auto 0 0; padding: 0.9rem; color: #fff; background: rgb(0 0 0 / 72%); text-align: center; font-size: 0.9rem; }
+.face-capture-status { margin: 0; font-size: 0.95rem; font-weight: 600; }
+.face-capture-status--ready { color: #168355; }
+.face-capture-actions { display: grid; gap: 0.5rem; }
+.captured-face-preview { display: grid; gap: 0.5rem; margin-block: 0.5rem 1rem; }
+.captured-face-preview img { display: block; width: min(100%, 220px); aspect-ratio: 3 / 4; object-fit: cover; border-radius: 0.8rem; border: 1px solid #cbd5df; }
