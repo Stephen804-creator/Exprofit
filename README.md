@@ -38,7 +38,7 @@ The current baseline uses React + TypeScript + Vite, Python + FastAPI, and a Pos
 
 ## Project status
 
-This repository is the Exprofit project home. Current implementation includes authenticated workspaces and transaction lifecycle, private receipt upload with human confirmation, date-filtered summaries, deterministic gross-profit calculations, evidence-backed MarginGuard comparisons, a what-if simulator, and an optional AI financial brief. PR #9 adds guided camera-permission recovery, database-backed authentication rate limits, product/customer attribution, product/customer profitability reports, and category budgets. Check the PR's latest CI results; passing CI is necessary but does not replace mobile and deployed end-to-end testing.
+This repository is the Exprofit project home. Current implementation includes authenticated workspaces and transaction lifecycle, private receipt upload with human confirmation, date-filtered summaries, deterministic gross-profit calculations, evidence-backed MarginGuard comparisons, a what-if simulator, and an optional AI financial brief. Merged PR #9 adds guided camera-permission recovery, database-backed authentication rate limits, product/customer attribution, product/customer profitability reports, and category budgets. Check the PR's latest CI results; passing CI is necessary but does not replace mobile and deployed end-to-end testing.
 
 See:
 - [Workspace collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md)
