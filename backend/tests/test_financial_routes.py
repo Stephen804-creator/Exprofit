@@ -316,3 +316,100 @@ def test_financial_brief_falls_back_when_hugging_face_is_unavailable(
     assert response.json()["provider"] == "rules"
     assert response.json()["ai_status"] == "unavailable_fallback"
     assert response.json()["brief"]
+
+
+def test_product_customer_attribution_and_profitability(client: TestClient) -> None:
+    owner = register(client, "catalog-owner@example.com")
+    token = owner["access_token"]
+    business_id = make_business(client, token)
+    headers = bearer(token)
+    product_response = client.post(
+        f"/businesses/{business_id}/products",
+        headers=headers,
+        json={"name": "Handmade Bag", "sku": "BAG-001", "unit_price": "1000.00", "unit_cost": "400.00"},
+    )
+    assert product_response.status_code == 201, product_response.text
+    product_id = product_response.json()["id"]
+    customer_response = client.post(
+        f"/businesses/{business_id}/customers",
+        headers=headers,
+        json={"name": "Ada Buyer", "email": "ada@example.com"},
+    )
+    assert customer_response.status_code == 201, customer_response.text
+    customer_id = customer_response.json()["id"]
+    today = __import__("datetime").date.today().isoformat()
+
+    income = client.post(
+        f"/businesses/{business_id}/transactions",
+        headers=headers,
+        json={
+            "business_id": business_id, "direction": "income", "amount": "1000.00",
+            "currency_code": "NGN", "transaction_date": today, "description": "Bag sale",
+            "category": "Sales", "status": "posted", "product_id": product_id,
+            "customer_id": customer_id,
+        },
+    )
+    assert income.status_code == 201, income.text
+    cost = client.post(
+        f"/businesses/{business_id}/transactions",
+        headers=headers,
+        json={
+            "business_id": business_id, "direction": "expense", "amount": "400.00",
+            "currency_code": "NGN", "transaction_date": today, "description": "Bag materials",
+            "category": "COGS", "status": "posted", "product_id": product_id,
+            "customer_id": customer_id,
+        },
+    )
+    assert cost.status_code == 201, cost.text
+
+    product_report = client.get(f"/businesses/{business_id}/product-profitability", headers=headers)
+    customer_report = client.get(f"/businesses/{business_id}/customer-profitability", headers=headers)
+    assert product_report.status_code == 200, product_report.text
+    assert customer_report.status_code == 200, customer_report.text
+    assert product_report.json()["items"][0]["revenue"] == "1000.00"
+    assert product_report.json()["items"][0]["direct_costs"] == "400.00"
+    assert product_report.json()["items"][0]["gross_profit"] == "600.00"
+    assert customer_report.json()["items"][0]["gross_profit"] == "600.00"
+
+
+def test_budget_vs_actual_uses_all_posted_matching_expenses(client: TestClient) -> None:
+    owner = register(client, "budget-owner@example.com")
+    token = owner["access_token"]
+    business_id = make_business(client, token)
+    headers = bearer(token)
+    today = __import__("datetime").date.today().isoformat()
+    budget = client.post(
+        f"/businesses/{business_id}/budgets",
+        headers=headers,
+        json={
+            "category": "Rent", "period_start": today, "period_end": today,
+            "amount": "1000.00", "warning_threshold_percent": 80,
+        },
+    )
+    assert budget.status_code == 201, budget.text
+    for amount in ("300.00", "250.00"):
+        response = client.post(
+            f"/businesses/{business_id}/transactions",
+            headers=headers,
+            json={
+                "business_id": business_id, "direction": "expense", "amount": amount,
+                "currency_code": "NGN", "transaction_date": today, "description": "Rent",
+                "category": "Rent", "status": "posted",
+            },
+        )
+        assert response.status_code == 201, response.text
+    result = client.get(f"/businesses/{business_id}/budget-vs-actual", headers=headers)
+    assert result.status_code == 200, result.text
+    row = result.json()["items"][0]
+    assert row["actual_spend"] == "550.00"
+    assert row["remaining"] == "450.00"
+    assert row["status"] == "on_track"
+
+
+def test_browser_security_headers_are_present(client: TestClient) -> None:
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    assert response.headers["permissions-policy"] == "camera=(self), microphone=(), geolocation=()"
+    assert response.headers["x-frame-options"] == "DENY"
