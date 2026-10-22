@@ -140,7 +140,7 @@ export default function FinancialCatalogBudget({ workspaceId, accessToken, curre
       <label>Warning threshold (%)<input type="number" min="1" max="200" value={threshold} onChange={e => setThreshold(e.target.value)} required /></label>
       <button className="finance-button" disabled={busy}>Save budget</button>
     </form><p className="finance-footnote">A warning appears at the chosen threshold. An over-budget status appears at 100%. Duplicate category/date budgets are rejected.</p></section>}
-    {canReadExpenses && <section className="finance-card"><h3>Budget versus actual</h3>
+    {canReadExpenses && <section className="finance-card"><h3>Budget versus actual</h3><p className="finance-muted">{budgets.length} saved budget(s)</p>
       {!budgetActual.length && <p className="finance-empty">No budgets have been created yet.</p>}
       <div className="finance-table-wrap"><table className="finance-table"><thead><tr><th>Category / period</th><th>Budget</th><th>Actual spend</th><th>Remaining</th><th>Used</th><th>Status</th></tr></thead><tbody>
         {budgetActual.map(b => <tr key={b.id}><td><strong>{b.category}</strong><small>{b.period_start} – {b.period_end}</small></td><td>{cash(b.budget_amount, b.currency_code)}</td><td>{cash(b.actual_spend, b.currency_code)}</td><td>{cash(b.remaining, b.currency_code)}</td><td>{b.used_percent}%</td><td><span className={"finance-status " + (b.status === "over_budget" ? "finance-status--warning" : b.status === "warning" ? "finance-status--warning" : "finance-status--posted")}>{b.status.replace("_", " ")}</span></td></tr>)}
