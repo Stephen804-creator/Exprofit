@@ -189,7 +189,7 @@ def cash_flow_forecast(
     for schedule in schedules:
         due = schedule.next_due_date
         loops = 0
-        while due <= forecast_end and loops < 500:
+        while due <= forecast_end and loops < 10000:
             if due > end_date and (schedule.end_date is None or due <= schedule.end_date):
                 recurring_items.append({
                     "date": due.isoformat(), "direction": schedule.direction,
@@ -221,7 +221,7 @@ def cash_flow_forecast(
     return {
         "method": "Historical daily averages plus separately listed recurring expectations",
         "forecasts": forecasts, "scheduled_items": sorted(recurring_items, key=lambda x: x["date"]),
-        "disclaimer": "An estimate, not a guarantee or accounting forecast. Historical averages and future schedules are shown separately; irregular events and unrecorded obligations are not known. Recurring schedules never create ledger transactions.",
+        "disclaimer": "An estimate, not a guarantee or accounting forecast. Historical averages and future schedules are shown separately; scheduled amounts may overlap with patterns in the historical averages, so inspect the assumptions before using the combined estimate. Irregular events and unrecorded obligations are not known. Recurring schedules never create ledger transactions.",
     }
 
 
@@ -261,18 +261,31 @@ def list_alerts(
         percent = (Decimal(spent) / budget.amount) * 100
         if percent >= budget.warning_threshold_percent:
             severity = "critical" if percent >= 100 else "warning"
-            _ensure_alert(db, business_id, f"budget:{budget.id}:{budget.period_end}", "budget_threshold", severity,
+            _ensure_alert(db, business_id, f"budget:{budget.id}:{budget.period_end}:{severity}", "budget_threshold", severity,
                 f"{budget.category} budget {'exceeded' if percent >= 100 else 'near limit'}",
                 f"Recorded spend is {percent.quantize(Decimal('0.1'))}% of the {budget.currency_code} {budget.amount} budget. Check posted transactions and the budget period.")
     schedules = db.scalars(select(RecurringTransaction).where(
-        RecurringTransaction.business_id == business_id, RecurringTransaction.is_active.is_(True),
-        RecurringTransaction.next_due_date >= today,
-        RecurringTransaction.next_due_date <= today + timedelta(days=7),
+        RecurringTransaction.business_id == business_id,
+        RecurringTransaction.is_active.is_(True),
     )).all()
     for row in schedules:
-        _ensure_alert(db, business_id, f"recurring:{row.id}:{row.next_due_date}", "payment_due", "info",
-            f"Expected payment due: {row.description}",
-            f"{row.direction.title()} of {row.currency_code} {row.amount} is scheduled for {row.next_due_date.isoformat()}. This is an expectation, not a confirmed payment.")
+        due = row.next_due_date
+        loops = 0
+        while due < today and loops < 10000:
+            due = _advance_due(due, row.interval)
+            loops += 1
+        while today <= due <= today + timedelta(days=7) and loops < 10010:
+            _ensure_alert(
+                db,
+                business_id,
+                f"recurring:{row.id}:{due}",
+                "payment_due",
+                "info",
+                f"Expected payment due: {row.description}",
+                f"{row.direction.title()} of {row.currency_code} {row.amount} is scheduled for {due.isoformat()}. This is an expectation, not a confirmed payment.",
+            )
+            due = _advance_due(due, row.interval)
+            loops += 1
     db.commit()
     query = select(FinancialAlert).where(FinancialAlert.business_id == business_id)
     if not include_dismissed:
@@ -346,7 +359,9 @@ def accountant_report(
     rows = db.scalars(select(Transaction).where(
         Transaction.business_id == business_id, Transaction.status == "posted",
         Transaction.transaction_date >= start_date, Transaction.transaction_date <= end_date,
-    ).order_by(Transaction.transaction_date.asc()).limit(10000)).all()
+    ).order_by(Transaction.transaction_date.asc()).limit(10001)).all()
+    truncated = len(rows) > 10000
+    rows = rows[:10000]
     currencies = {}
     categories = {}
     for row in rows:
@@ -361,7 +376,7 @@ def accountant_report(
         "period": {"start_date": start_date.isoformat(), "end_date": end_date.isoformat()},
         "currency_totals": {code: {key: str(value) if isinstance(value, Decimal) else value for key, value in values.items()} for code, values in currencies.items()},
         "category_totals": [{"currency_code": code, "direction": direction, "category": category, "amount": str(amount)} for (code, direction, category), amount in sorted(categories.items())],
-        "record_count": len(rows), "truncated": len(rows) == 10000,
+        "record_count": len(rows), "truncated": truncated,
         "notes": ["Posted transactions only.", "Currencies are reported separately and are never converted.", "This is an export aid, not a tax filing or audited statement. Reconcile source records with your accountant."],
     }
 
