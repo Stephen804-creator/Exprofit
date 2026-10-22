@@ -138,4 +138,4 @@ Branch: `feat/units-18-23-financial-operations`. These units are implemented on 
 - **22 Onboarding:** non-blocking checklist based on existing workspace records.
 - **23 Financial copilot:** deterministic recorded-data answer with optional Hugging Face explanation only when explicitly enabled; fallback remains available.
 
-Verification pending on this branch: Ruff, backend tests, PostgreSQL migration chain through `20261022_0014`, frontend typecheck/build, and endpoint/workspace-isolation checks. Production deployment and live workflow checks are not yet verified.
+**CI verification passed:** GitHub Actions run #360 on commit `4c5875b62c8d4f90ea512d802579cee4e6d1a68f` passed Ruff, the PostgreSQL migration chain through `20261022_0014`, 72 backend tests, frontend typecheck, and frontend production build. One test warning remains. This verifies automated checks only; Render deployment, production API workflows, and manual acceptance checks remain outstanding.
