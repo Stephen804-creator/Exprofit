@@ -1,3 +1,4 @@
+# ruff: noqa: E501, I001
 """Financial operations: recurring expectations, forecasts, alerts, exports, onboarding, and copilot."""
 import csv
 import io
