@@ -1,6 +1,6 @@
 # Units 14–17 implementation and verification
 
-Status date: 2026-10-22. Changes are on branch `feat/units-14-17-face-capture-budget-profitability`. Do not describe this work as production-verified until CI, deployment, and manual browser checks pass.
+Status date: 2026-10-22. Merged to `main` via [PR #9](https://github.com/Stephen804-creator/Exprofit/pull/9), commit `7923bd0d0d3780d20674043e4aac6bbe9f2824e6`. PR CI passed Ruff, backend tests, PostgreSQL migrations, frontend typecheck, and production build. Render deployment, actual Brevo delivery, and manual Android browser checks are still not verified.
 
 ## Unit 14 — security and release readiness
 
