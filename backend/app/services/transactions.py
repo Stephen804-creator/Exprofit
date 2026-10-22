@@ -38,15 +38,33 @@ class InvalidTransactionAttributionError(TransactionServiceError):
     """Raised when linked product/customer records are outside the workspace."""
 
 
-def _validate_attribution(db: Session, business_id: UUID, product_id, customer_id) -> None:
+def _validate_attribution(
+    db: Session, business_id: UUID, product_id: UUID | None, customer_id: UUID | None
+) -> None:
     if product_id is not None:
-        product = db.scalar(select(Product).where(Product.id == product_id, Product.business_id == business_id, Product.is_active.is_(True)))
+        product = db.scalar(
+            select(Product).where(
+                Product.id == product_id,
+                Product.business_id == business_id,
+                Product.is_active.is_(True),
+            )
+        )
         if product is None:
-            raise InvalidTransactionAttributionError("Selected product is unavailable in this workspace")
+            raise InvalidTransactionAttributionError(
+                "Selected product is unavailable in this workspace"
+            )
     if customer_id is not None:
-        customer = db.scalar(select(Customer).where(Customer.id == customer_id, Customer.business_id == business_id, Customer.is_active.is_(True)))
+        customer = db.scalar(
+            select(Customer).where(
+                Customer.id == customer_id,
+                Customer.business_id == business_id,
+                Customer.is_active.is_(True),
+            )
+        )
         if customer is None:
-            raise InvalidTransactionAttributionError("Selected customer is unavailable in this workspace")
+            raise InvalidTransactionAttributionError(
+                "Selected customer is unavailable in this workspace"
+            )
 
 
 def create_transaction(db: Session, payload: TransactionCreate) -> Transaction:
