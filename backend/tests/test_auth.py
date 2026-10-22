@@ -324,6 +324,8 @@ def test_email_verification_requires_delivery_configuration(
 ) -> None:
     account = register(client, "email-config@example.com")
     monkeypatch.delenv("SMTP_HOST", raising=False)
+    monkeypatch.delenv("SMTP_USERNAME", raising=False)
+    monkeypatch.delenv("SMTP_PASSWORD", raising=False)
     monkeypatch.delenv("SMTP_FROM_EMAIL", raising=False)
     get_settings.cache_clear()
 
@@ -343,6 +345,8 @@ def test_email_verification_token_is_hashed_single_use_and_updates_identity(
 ) -> None:
     account = register(client, "verified@example.com")
     monkeypatch.setenv("SMTP_HOST", "smtp.example.test")
+    monkeypatch.setenv("SMTP_USERNAME", "test-smtp-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "test-smtp-password")
     monkeypatch.setenv("SMTP_FROM_EMAIL", "no-reply@example.test")
     monkeypatch.setenv("SMTP_STARTTLS", "false")
     get_settings.cache_clear()
