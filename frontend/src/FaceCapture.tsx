@@ -100,9 +100,9 @@ export default function FaceCapture({ onCapture, onError }: FaceCaptureProps) {
             setFaceReady(false);
             setStatus("Could not analyze this camera frame. Keep the camera open and try again.");
           }
-          frameRef.current = requestAnimationFrame(scan);
+          frameRef.current = window.setTimeout(scan, 120);
         };
-        frameRef.current = requestAnimationFrame(scan);
+        frameRef.current = window.setTimeout(scan, 120);
       } catch (error) {
         if (!cancelled) {
           const message = error instanceof Error ? error.message : "Could not start face capture.";
