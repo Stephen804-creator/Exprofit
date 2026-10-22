@@ -6,7 +6,7 @@ from hashlib import sha256
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -33,6 +33,7 @@ from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserR
 from app.schemas.email_verification import MessageResponse, VerifyEmailRequest
 from app.security import hash_password, verify_password
 from app.services.audit import record_audit_event
+from app.services.rate_limit import enforce_rate_limit
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -55,9 +56,12 @@ def _new_session(db: Session, user: User) -> TokenResponse:
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(
     payload: RegisterRequest,
+    request: Request,
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenResponse:
     """Create an account, private Solo workspace, owner membership, and session."""
+    enforce_rate_limit(db, request, action="auth:register:ip", identity="register", limit=5, window_seconds=3600)
+    enforce_rate_limit(db, request, action="auth:register:email", identity=str(payload.email), limit=3, window_seconds=3600, include_client_ip=False)
     if db.scalar(select(User.id).where(User.email == payload.email)) is not None:
         raise HTTPException(status_code=409, detail="An account with this email already exists")
 
@@ -116,9 +120,12 @@ def register(
 @router.post("/login", response_model=TokenResponse)
 def login(
     payload: LoginRequest,
+    request: Request,
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenResponse:
     """Authenticate with a generic error that avoids account enumeration."""
+    enforce_rate_limit(db, request, action="auth:login:ip", identity="login", limit=30, window_seconds=900)
+    enforce_rate_limit(db, request, action="auth:login:email", identity=str(payload.email), limit=10, window_seconds=900, include_client_ip=False)
     user = db.scalar(select(User).where(User.email == payload.email))
     if user is None or not user.is_active or not verify_password(
         payload.password, user.password_hash
