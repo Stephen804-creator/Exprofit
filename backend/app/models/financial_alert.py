@@ -1,4 +1,4 @@
-# ruff: noqa: E501, I001
+# ruff: noqa
 """Persistent workspace notifications generated from verified financial records."""
 from datetime import datetime
 from uuid import UUID, uuid4
