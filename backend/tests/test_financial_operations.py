@@ -1,6 +1,6 @@
 from datetime import date
 
-from app.api.routes.financial_operations import _advance_due, _safe_csv_cell
+from app.api.routes.financial_operations import _advance_due, _due_dates_in_window, _safe_csv_cell
 
 
 def test_monthly_schedule_clamps_to_month_end() -> None:
@@ -31,3 +31,22 @@ def test_csv_export_escapes_spreadsheet_formula_prefixes() -> None:
 def test_csv_export_preserves_normal_text_and_empty_values() -> None:
     assert _safe_csv_cell("Market sales") == "Market sales"
     assert _safe_csv_cell(None) == ""
+
+
+
+def test_recurring_dates_stop_at_schedule_end_date() -> None:
+    assert _due_dates_in_window(
+        date(2026, 10, 20), "weekly", date(2026, 10, 23), date(2026, 11, 20), date(2026, 11, 3)
+    ) == [date(2026, 10, 27), date(2026, 11, 3)]
+
+
+def test_expired_recurring_schedule_produces_no_future_dates() -> None:
+    assert _due_dates_in_window(
+        date(2026, 1, 1), "monthly", date(2026, 10, 23), date(2026, 11, 23), date(2026, 2, 1)
+    ) == []
+
+
+def test_recurring_date_window_includes_start_and_end_boundaries() -> None:
+    assert _due_dates_in_window(
+        date(2026, 10, 23), "weekly", date(2026, 10, 23), date(2026, 11, 6)
+    ) == [date(2026, 10, 23), date(2026, 10, 30), date(2026, 11, 6)]
