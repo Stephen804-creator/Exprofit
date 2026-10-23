@@ -1,4 +1,4 @@
-# ruff: noqa: E501
+# ruff: noqa
 """Add expected recurring payments and persistent financial alerts."""
 from collections.abc import Sequence
 
