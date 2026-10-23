@@ -110,6 +110,29 @@ def _advance_due(day: date, interval: str) -> date:
     return date(year, month, min(day.day, monthrange(year, month)[1]))
 
 
+def _due_dates_in_window(
+    next_due_date: date,
+    interval: str,
+    window_start: date,
+    window_end: date,
+    schedule_end: date | None = None,
+) -> list[date]:
+    """Return recurrence dates in a window without crossing the schedule's end date."""
+    if window_start > window_end or (schedule_end is not None and schedule_end < window_start):
+        return []
+    due = next_due_date
+    loops = 0
+    while due < window_start and loops < 10000:
+        due = _advance_due(due, interval)
+        loops += 1
+    dates = []
+    while due <= window_end and (schedule_end is None or due <= schedule_end) and loops < 20000:
+        dates.append(due)
+        due = _advance_due(due, interval)
+        loops += 1
+    return dates
+
+
 @router.get("/recurring-transactions")
 def list_recurring(
     business_id: UUID,
@@ -196,17 +219,18 @@ def cash_flow_forecast(
     recurring_items = []
     forecast_end = end_date + timedelta(days=forecast_days)
     for schedule in schedules:
-        due = schedule.next_due_date
-        loops = 0
-        while due <= forecast_end and loops < 10000:
-            if due > end_date and (schedule.end_date is None or due <= schedule.end_date):
-                recurring_items.append({
-                    "date": due.isoformat(), "direction": schedule.direction,
-                    "amount": str(schedule.amount), "currency_code": schedule.currency_code,
-                    "description": schedule.description, "source": "recurring_schedule",
-                })
-            due = _advance_due(due, schedule.interval)
-            loops += 1
+        for due in _due_dates_in_window(
+            schedule.next_due_date,
+            schedule.interval,
+            end_date + timedelta(days=1),
+            forecast_end,
+            schedule.end_date,
+        ):
+            recurring_items.append({
+                "date": due.isoformat(), "direction": schedule.direction,
+                "amount": str(schedule.amount), "currency_code": schedule.currency_code,
+                "description": schedule.description, "source": "recurring_schedule",
+            })
     currencies = set(currency_totals) | {item["currency_code"] for item in recurring_items}
     forecasts = []
     for currency in sorted(currencies):
@@ -278,12 +302,13 @@ def list_alerts(
         RecurringTransaction.is_active.is_(True),
     )).all()
     for row in schedules:
-        due = row.next_due_date
-        loops = 0
-        while due < today and loops < 10000:
-            due = _advance_due(due, row.interval)
-            loops += 1
-        while today <= due <= today + timedelta(days=7) and loops < 10010:
+        for due in _due_dates_in_window(
+            row.next_due_date,
+            row.interval,
+            today,
+            today + timedelta(days=7),
+            row.end_date,
+        ):
             _ensure_alert(
                 db,
                 business_id,
@@ -293,8 +318,6 @@ def list_alerts(
                 f"Expected payment due: {row.description}",
                 f"{row.direction.title()} of {row.currency_code} {row.amount} is scheduled for {due.isoformat()}. This is an expectation, not a confirmed payment.",
             )
-            due = _advance_due(due, row.interval)
-            loops += 1
     db.commit()
     query = select(FinancialAlert).where(FinancialAlert.business_id == business_id)
     if not include_dismissed:
