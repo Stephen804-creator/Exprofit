@@ -87,6 +87,15 @@ def _serialize_recurring(row: RecurringTransaction) -> dict:
     }
 
 
+def _safe_csv_cell(value: object) -> str:
+    """Prevent spreadsheet formula execution from user-controlled exported text."""
+    text = "" if value is None else str(value)
+    # Spreadsheet applications may interpret these leading characters as formulas.
+    if text.lstrip(" \t\r\n").startswith(("=", "+", "-", "@")):
+        return "'" + text
+    return text
+
+
 def _advance_due(day: date, interval: str) -> date:
     if interval == "weekly":
         return day + timedelta(days=7)
@@ -340,7 +349,7 @@ def export_transactions(
     writer = csv.writer(output)
     writer.writerow(["transaction_id", "date", "direction", "status", "description", "category", "amount", "currency", "product_id", "customer_id"])
     for row in rows:
-        writer.writerow([str(row.id), row.transaction_date.isoformat(), row.direction, row.status, row.description, row.category or "", str(row.amount), row.currency_code, str(row.product_id or ""), str(row.customer_id or "")])
+        writer.writerow([str(row.id), row.transaction_date.isoformat(), row.direction, row.status, _safe_csv_cell(row.description), _safe_csv_cell(row.category or ""), str(row.amount), row.currency_code, str(row.product_id or ""), str(row.customer_id or "")])
     filename = f"exprofit-transactions-{date.today().isoformat()}.csv"
     return StreamingResponse(iter([output.getvalue()]), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "no-store"})
 
