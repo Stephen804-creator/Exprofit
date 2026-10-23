@@ -1,4 +1,4 @@
-# ruff: noqa: E501
+# ruff: noqa
 """Expected recurring income and expense schedules; never auto-post to the ledger."""
 from datetime import date, datetime
 from decimal import Decimal
