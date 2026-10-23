@@ -342,3 +342,13 @@ h2 { font-family: Manrope, sans-serif; font-size: clamp(24px, 3.5vw, 36px); lett
 .camera-permission-help p { margin: 8px 0; }
 .camera-permission-help ol { padding-left: 22px; margin: 8px 0 16px; }
 .camera-permission-help .button { cursor: pointer; }
+
+/* Units 18–23: planning, exports, alerts, and copilot */
+.finance-operations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+.finance-operations > .finance-card { min-width: 0; }
+.finance-report-json { max-width: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 14px; border-radius: 8px; background: #f3f5ef; color: #30463a; font: 11px/1.7 "DM Mono", monospace; }
+.finance-progress { height: 8px; overflow: hidden; border-radius: 999px; background: #e4e9df; margin: 12px 0 18px; }
+.finance-progress span { display: block; height: 100%; border-radius: inherit; background: var(--forest); transition: width .2s ease; }
+.finance-operations details { margin-top: 12px; }
+.finance-operations summary { cursor: pointer; color: var(--forest); font-size: 12px; font-weight: 700; }
+@media (max-width: 760px) { .finance-operations { grid-template-columns: 1fr; } }
