@@ -258,7 +258,14 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
      {activePanel === "overview" && <div className="overview-quick-actions"><button type="button" className="finance-button" onClick={() => setActivePanel("transactions")}>＋ Add transaction</button><button type="button" className="finance-button finance-button--quiet" onClick={() => setActivePanel("receipts")}>Upload receipt</button><button type="button" className="finance-button finance-button--quiet" onClick={() => setActivePanel("insights")}>Review margin insights</button></div>}
      <div className="finance-filters"><label>From<input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label><label>To<input type="date" value={to} min={from} max={today()} onChange={e => setTo(e.target.value)} /></label><button className="finance-button finance-button--quiet" type="button" onClick={() => { setFrom(daysAgo(29)); setTo(today()); }}>Last 30 days</button></div>
     {error && <p className="form-message form-message--error" role="alert">{error}</p>}{notice && <p className="form-message" role="status">{notice}</p>}{loading && <p className="form-hint">Loading financial records…</p>}
-    {activePanel === "overview" && overviewProfit && <section className="overview-profit-card">
+    {activePanel === "overview" && <div className="finance-metrics">{(summary?.currencies ?? []).map(s => <div className="finance-metric-grid" key={s.currency_code}>
+      <article className="finance-metric"><span>Recorded income</span><strong>{cash(s.income, s.currency_code)}</strong><small>{s.income_count} entries</small></article>
+      <article className="finance-metric"><span>Recorded expenses</span><strong>{cash(s.expenses, s.currency_code)}</strong><small>{s.expense_count} entries</small></article>
+      <article className="finance-metric"><span>Net cash movement</span><strong>{cash(s.net_cash_movement, s.currency_code)}</strong><small>Not the same as profit</small></article>
+    </div>)}{!loading && canViewCombined && !summary?.currencies.length && <p className="finance-empty">No posted transactions in this period. Add one below.</p>}
+     {!canViewCombined && <p className="finance-footnote">Combined summaries and MarginGuard require read access to both sales and expenses.</p>}</div>}
+    
+     {activePanel === "overview" && overviewProfit && <section className="overview-profit-card">
       <div><p className="eyebrow">PROFITABILITY SNAPSHOT</p><h3>Know what the sales are really earning</h3><p className="finance-muted">Gross profit is revenue minus recognised direct costs. It is not the same as cash movement or final net profit.</p></div>
       <div className="overview-profit-values"><div><span>Gross profit</span><strong>{overviewProfit.gross_profit === null ? "Not available" : cash(overviewProfit.gross_profit, overviewProfit.currency_code)}</strong></div><div><span>Gross margin</span><strong>{overviewProfit.gross_margin_percent === null ? "Not available" : overviewProfit.gross_margin_percent + "%"}</strong></div></div>
       <p className="finance-footnote">{overviewProfit.note}</p>
@@ -286,13 +293,11 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
         <p className="finance-footnote">Category breakdown is based on the transactions currently loaded for this period, up to 100 records.</p>
       </section>
     </div>}
-    {activePanel === "overview" && <div className="finance-metrics">{(summary?.currencies ?? []).map(s => <div className="finance-metric-grid" key={s.currency_code}>
-      <article className="finance-metric"><span>Recorded income</span><strong>{cash(s.income, s.currency_code)}</strong><small>{s.income_count} entries</small></article>
-      <article className="finance-metric"><span>Recorded expenses</span><strong>{cash(s.expenses, s.currency_code)}</strong><small>{s.expense_count} entries</small></article>
-      <article className="finance-metric"><span>Net cash movement</span><strong>{cash(s.net_cash_movement, s.currency_code)}</strong><small>Not the same as profit</small></article>
-    </div>)}{!loading && canViewCombined && !summary?.currencies.length && <p className="finance-empty">No posted transactions in this period. Add one below.</p>}
-     {!canViewCombined && <p className="finance-footnote">Combined summaries and MarginGuard require read access to both sales and expenses.</p>}</div>}
-    <div className="finance-columns">
+    {activePanel === "overview" && <section className="finance-card overview-recent-card">
+       <div className="finance-card-heading"><div><p className="eyebrow">RECENT ACTIVITY</p><h3>Latest transactions</h3><p className="finance-muted">Recent records in the selected date range. Drafts and voided entries are labelled.</p></div><button className="finance-button finance-button--quiet" type="button" onClick={() => setActivePanel("transactions")}>View all</button></div>
+       {rows.length === 0 ? <p className="finance-empty">Your activity will appear here after you add a transaction. <button type="button" className="finance-link" onClick={() => setActivePanel("transactions")}>Add your first transaction</button></p> : <div className="overview-recent-list">{[...rows].sort((a,b) => b.transaction_date.localeCompare(a.transaction_date)).slice(0,5).map(tx => <div className="overview-recent-row" key={tx.id}><div><strong>{tx.description}</strong><small>{tx.transaction_date} · {tx.category || "Uncategorised"} · <span className={"finance-status finance-status--" + tx.status}>{tx.status}</span></small></div><strong className={tx.direction === "expense" ? "recent-amount recent-amount--expense" : "recent-amount recent-amount--income"}>{tx.direction === "expense" ? "−" : "+"}{cash(tx.amount, tx.currency_code)}</strong></div>)}</div>}
+     </section>}
+     <div className="finance-columns">
       {activePanel === "transactions" && writeDirections.length > 0 && <section className="finance-card"><p className="eyebrow">01 / TRACK</p><h3 id="transaction-entry-title">Quick-add a transaction</h3><p className="finance-muted">Save a completed entry or keep it as a draft to review later. Drafts do not affect totals.</p>
         <form className="finance-form" onSubmit={addTransaction}>
           <label>Type<select value={direction} onChange={e => setDirection(e.target.value as "income" | "expense")}>{canWrite("expenses") && <option value="expense">Expense</option>}{canWrite("sales") && <option value="income">Income / sale</option>}</select></label>
