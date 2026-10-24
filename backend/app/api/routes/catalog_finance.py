@@ -11,11 +11,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_business_membership
 from app.db.session import get_db
-from app.models import Budget, Business, BusinessMembership, Customer, Product, Transaction
+from app.models import Budget, Business, BusinessMembership, Customer, FinancialGoal, Product, Transaction
 from app.permissions import require_permission
 from app.schemas.catalog import (
     BudgetCreate,
     BudgetRead,
+    FinancialGoalCreate,
+    FinancialGoalRead,
     CustomerCreate,
     CustomerRead,
     ProductCreate,
@@ -287,6 +289,80 @@ def create_budget(
         ) from exc
     db.refresh(budget)
     return budget
+
+
+@router.get("/goals", response_model=list[FinancialGoalRead])
+def list_financial_goals(
+    business_id: UUID,
+    membership: Annotated[BusinessMembership, Depends(require_business_membership)],
+    db: Annotated[Session, Depends(get_db)],
+) -> list[FinancialGoal]:
+    require_permission(membership, "sales", "read")
+    require_permission(membership, "expenses", "read")
+    return list(db.scalars(
+        select(FinancialGoal).where(
+            FinancialGoal.business_id == business_id, FinancialGoal.is_active.is_(True)
+        ).order_by(FinancialGoal.period_end.asc(), FinancialGoal.name.asc()).limit(200)
+    ).all())
+
+
+@router.post("/goals", response_model=FinancialGoalRead, status_code=status.HTTP_201_CREATED)
+def create_financial_goal(
+    business_id: UUID,
+    payload: FinancialGoalCreate,
+    membership: Annotated[BusinessMembership, Depends(require_business_membership)],
+    db: Annotated[Session, Depends(get_db)],
+) -> FinancialGoal:
+    if payload.period_start > payload.period_end:
+        raise HTTPException(status_code=422, detail="period_start must be on or before period_end")
+    require_permission(membership, "sales", "write")
+    if payload.goal_kind == "gross_profit":
+        require_permission(membership, "expenses", "write")
+    business = _business(db, business_id)
+    goal = FinancialGoal(
+        business_id=business_id, currency_code=business.currency_code, **payload.model_dump()
+    )
+    db.add(goal)
+    db.commit()
+    db.refresh(goal)
+    return goal
+
+
+@router.get("/goal-progress")
+def financial_goal_progress(
+    business_id: UUID,
+    membership: Annotated[BusinessMembership, Depends(require_business_membership)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    require_permission(membership, "sales", "read")
+    require_permission(membership, "expenses", "read")
+    goals = db.scalars(select(FinancialGoal).where(
+        FinancialGoal.business_id == business_id, FinancialGoal.is_active.is_(True)
+    ).order_by(FinancialGoal.period_end.asc()).limit(200)).all()
+    output = []
+    for goal in goals:
+        records = db.scalars(select(Transaction).where(
+            Transaction.business_id == business_id,
+            Transaction.status == "posted",
+            Transaction.currency_code == goal.currency_code,
+            Transaction.transaction_date >= goal.period_start,
+            Transaction.transaction_date <= goal.period_end,
+        )).all()
+        revenue = sum((row.amount for row in records if row.direction == "income"), Decimal("0.00"))
+        direct_costs = sum((row.amount for row in records if row.direction == "expense" and (row.category or "").strip().casefold() in {category.casefold() for category in DIRECT_COST_CATEGORIES}), Decimal("0.00"))
+        actual = revenue if goal.goal_kind == "revenue" else revenue - direct_costs
+        target = Decimal(goal.target_amount)
+        percent = (actual / target * Decimal("100")).quantize(Decimal("0.01"))
+        output.append({
+            "id": str(goal.id), "name": goal.name, "goal_kind": goal.goal_kind,
+            "currency_code": goal.currency_code, "period_start": goal.period_start.isoformat(),
+            "period_end": goal.period_end.isoformat(), "target_amount": str(target),
+            "actual_amount": str(actual.quantize(Decimal("0.01"))),
+            "remaining_amount": str((target - actual).quantize(Decimal("0.01"))),
+            "progress_percent": str(percent), "status": "achieved" if actual >= target else "in_progress",
+            "basis": "Revenue is the sum of posted income. Gross profit is posted income minus posted expenses in recognised direct-cost categories; overhead and missing costs are not inferred.",
+        })
+    return {"items": output}
 
 
 @router.get("/budget-vs-actual")
