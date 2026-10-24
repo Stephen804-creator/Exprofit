@@ -1,8 +1,8 @@
 """Unit tests for SMTP message construction without contacting a mail provider."""
 
+import logging
 from datetime import UTC, datetime
 from email.message import EmailMessage
-import logging
 from smtplib import SMTPAuthenticationError
 from unittest.mock import patch
 
@@ -60,7 +60,6 @@ def test_invitation_email_body_includes_link_and_expiry() -> None:
     assert "must sign in with the exact email address" in body
 
 
-
 def test_invitation_email_failure_logs_safe_smtp_diagnostic(caplog) -> None:
     settings = Settings(
         smtp_host="smtp-relay.brevo.com",
@@ -72,7 +71,9 @@ def test_invitation_email_failure_logs_safe_smtp_diagnostic(caplog) -> None:
     )
     with patch(
         "app.email_delivery.smtplib.SMTP",
-        side_effect=SMTPAuthenticationError(535, b"Authentication failed for sender@example.com"),
+        side_effect=SMTPAuthenticationError(
+            535, b"Authentication failed for sender@example.com"
+        ),
     ):
         with caplog.at_level(logging.WARNING, logger="app.email_delivery"):
             try:
