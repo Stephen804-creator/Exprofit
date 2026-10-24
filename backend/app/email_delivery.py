@@ -1,10 +1,10 @@
 """SMTP delivery for account verification messages."""
 
-from datetime import datetime
-from email.message import EmailMessage
 import logging
 import re
 import smtplib
+from datetime import datetime
+from email.message import EmailMessage
 
 from app.config import Settings
 
