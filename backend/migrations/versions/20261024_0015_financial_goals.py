@@ -22,14 +22,22 @@ def upgrade() -> None:
         sa.Column("period_start", sa.Date(), nullable=False),
         sa.Column("period_end", sa.Date(), nullable=False),
         sa.Column("is_active", sa.Boolean(), server_default=sa.true(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.CheckConstraint("goal_kind IN ('revenue', 'gross_profit')", name="ck_financial_goals_kind"),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.CheckConstraint(
+            "goal_kind IN ('revenue', 'gross_profit')", name="ck_financial_goals_kind"
+        ),
         sa.CheckConstraint("target_amount > 0", name="ck_financial_goals_target_positive"),
         sa.CheckConstraint("period_end >= period_start", name="ck_financial_goals_period_order"),
         sa.ForeignKeyConstraint(["business_id"], ["businesses.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_financial_goals_business_period", "financial_goals", ["business_id", "period_start", "period_end"])
+    op.create_index(
+        "ix_financial_goals_business_period",
+        "financial_goals",
+        ["business_id", "period_start", "period_end"],
+    )
 
 
 def downgrade() -> None:
