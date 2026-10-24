@@ -215,11 +215,16 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     finally { setBusy(false); }
   }
 
+  function clearReceiptFile() {
+    setSelectedReceiptFile(null);
+    const input = document.querySelector<HTMLInputElement>('input[name="receipt-file"]');
+    if (input) input.value = "";
+  }
   function chooseReceiptFile(file: File | null) {
     if (!file) { setSelectedReceiptFile(null); return; }
     const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    if (!allowed.includes(file.type)) { setError("Choose a JPEG, PNG, WebP image, or PDF receipt."); return; }
-    if (file.size > 5 * 1024 * 1024) { setError("Receipt files must be 5 MB or smaller."); return; }
+    if (!allowed.includes(file.type)) { setSelectedReceiptFile(null); setError("Choose a JPEG, PNG, WebP image, or PDF receipt."); return; }
+    if (file.size > 5 * 1024 * 1024) { setSelectedReceiptFile(null); setError("Receipt files must be 5 MB or smaller."); return; }
     setError(""); setSelectedReceiptFile(file);
   }
   async function uploadReceipt(e: FormEvent<HTMLFormElement>) {
@@ -324,7 +329,7 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
       </section>}
       {activePanel === "transactions" && canWriteAny && <section className="finance-card"><p className="eyebrow">02 / IMPORT</p><h3>Import transactions from CSV</h3><p className="finance-muted">Required columns: direction, amount, transaction_date, description. Optional: currency_code, category, status. Amounts must use this workspace currency; rows import as drafts by default.</p><form className="finance-upload" onSubmit={importTransactionsCsv}><input name="transaction-csv" type="file" accept=".csv,text/csv" required /><button className="finance-button" disabled={busy}>{busy ? "Importing…" : "Validate and import CSV"}</button></form><p className="finance-footnote">Up to 500 rows and 2 MB. If any row is invalid or you lack permission for a row, nothing is imported. Review imported drafts before posting.</p></section>}
       {activePanel === "receipts" && canReadExpenses && <section className="finance-card"><p className="eyebrow">02 / CAPTURE</p><h3>Scan a receipt</h3><p className="finance-muted">JPEG, PNG, WebP or PDF up to 5 MB. Confirm every field before saving.</p>
-        {canWriteExpenses && <form className={"finance-upload finance-upload--drop" + (receiptDragActive ? " finance-upload--drag-active" : "")} onSubmit={uploadReceipt} onDragOver={event => { event.preventDefault(); setReceiptDragActive(true); }} onDragLeave={() => setReceiptDragActive(false)} onDrop={event => { event.preventDefault(); setReceiptDragActive(false); chooseReceiptFile(event.dataTransfer.files?.[0] ?? null); }}><div className="receipt-drop-copy"><strong>Drop a receipt here</strong><span>or choose a file · JPEG, PNG, WebP or PDF · max 5 MB</span></div><input name="receipt-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={event => chooseReceiptFile(event.target.files?.[0] ?? null)} /><button className="finance-button" disabled={busy || !(selectedReceiptFile || undefined)}>Upload and extract</button></form>{selectedReceiptFile && <p className="receipt-file-selected" role="status">Selected: {selectedReceiptFile.name} · {(selectedReceiptFile.size / 1024).toFixed(0)} KB <button type="button" className="finance-link" onClick={() => setSelectedReceiptFile(null)}>Remove</button></p>}}
+        {canWriteExpenses && <form className={"finance-upload finance-upload--drop" + (receiptDragActive ? " finance-upload--drag-active" : "")} onSubmit={uploadReceipt} onDragOver={event => { event.preventDefault(); setReceiptDragActive(true); }} onDragLeave={() => setReceiptDragActive(false)} onDrop={event => { event.preventDefault(); setReceiptDragActive(false); chooseReceiptFile(event.dataTransfer.files?.[0] ?? null); }}><div className="receipt-drop-copy"><strong>Drop a receipt here</strong><span>or choose a file · JPEG, PNG, WebP or PDF · max 5 MB</span></div><input name="receipt-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={event => chooseReceiptFile(event.target.files?.[0] ?? null)} /><button className="finance-button" disabled={busy || !(selectedReceiptFile || undefined)}>Upload and extract</button></form>{selectedReceiptFile && <p className="receipt-file-selected" role="status">Selected: {selectedReceiptFile.name} · {(selectedReceiptFile.size / 1024).toFixed(0)} KB <button type="button" className="finance-link" onClick={clearReceiptFile}>Remove</button></p>}}
         <p className="finance-footnote">Files are private to this workspace. OCR is best-effort; enter details manually if text extraction is unavailable.</p>
         {receipts.filter(r => r.review_status === "pending").map(r => {
           const f = receiptFields[r.id] ?? { amount: r.candidate_amount ?? "", date: r.candidate_date ?? today(), description: r.candidate_merchant ?? r.original_filename, category: "Uncategorised", direction: "expense" as const };
