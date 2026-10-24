@@ -184,6 +184,16 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     } catch (e) { setError(e instanceof Error ? e.message : "Could not update transaction."); }
     finally { setBusy(false); }
   }
+  async function postDraft(tx: Tx) {
+    if (tx.status !== "draft") return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await request("/businesses/" + workspace.id + "/transactions/" + tx.id + "/post", { method: "POST" });
+      setNotice("Draft reviewed and posted. It is now included in financial totals.");
+      await refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not post this draft."); }
+    finally { setBusy(false); }
+  }
   async function voidTx(tx: Tx) {
     if (!window.confirm("Void this transaction? It remains in history and is excluded from totals.")) return;
     setBusy(true); setError("");
@@ -338,7 +348,7 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
       {!rows.length && !canRead("sales") && !canRead("expenses") && <p className="finance-empty">You do not have read access to sales or expenses in this workspace.</p>}
       <div className="finance-table-wrap"><table className="finance-table"><thead><tr><th>Date</th><th>Details</th><th>Category</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>
         {visibleTransactions.map(tx => <tr key={tx.id} className={tx.status === "void" ? "finance-row--void" : ""}><td>{tx.transaction_date}</td><td><strong>{tx.description}</strong><small>{tx.direction}</small></td><td>{tx.category ?? "Uncategorised"}</td><td>{tx.direction === "expense" ? "−" : "+"}{cash(tx.amount, tx.currency_code)}</td><td><span className={"finance-status finance-status--" + tx.status}>{tx.status}</span></td>
-          <td>{tx.status !== "void" && canWrite(tx.direction === "income" ? "sales" : "expenses") && <div className="finance-actions"><button className="finance-link" type="button" onClick={() => startEdit(tx)}>Edit</button><button className="finance-link" type="button" onClick={() => duplicateTransaction(tx)}>Duplicate</button><button className="finance-link finance-link--danger" type="button" onClick={() => void voidTx(tx)} disabled={busy}>Void</button></div>}</td></tr>)}
+          <td>{tx.status !== "void" && canWrite(tx.direction === "income" ? "sales" : "expenses") && <div className="finance-actions"><button className="finance-link" type="button" onClick={() => startEdit(tx)}>Edit</button>{tx.status === "draft" && <button className="finance-link" type="button" onClick={() => void postDraft(tx)} disabled={busy}>Review & post</button>}<button className="finance-link" type="button" onClick={() => duplicateTransaction(tx)}>Duplicate</button><button className="finance-link finance-link--danger" type="button" onClick={() => void voidTx(tx)} disabled={busy}>Void</button></div>}</td></tr>)}
       </tbody></table></div>
       {editing && <form className="finance-edit" onSubmit={saveEdit}><h3>Edit transaction</h3><label>Amount<input type="number" min="0.01" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} required /></label><label>Date<input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} required /></label><label>Description<input value={editDescription} onChange={e => setEditDescription(e.target.value)} required /></label><label>Category<input value={editCategory} onChange={e => setEditCategory(e.target.value)} /></label><div className="finance-actions"><button className="finance-button" disabled={busy}>Save changes</button><button className="finance-button finance-button--quiet" type="button" onClick={() => setEditing(null)}>Cancel</button></div></form>}
     </section>}
