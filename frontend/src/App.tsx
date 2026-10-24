@@ -111,6 +111,15 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [activePage, setActivePage] = useState<"finance" | "workspaces" | "team">("finance");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const saved = localStorage.getItem("exprofit_theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("exprofit_theme", theme);
+  }, [theme]);
   const [notice, setNotice] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceDisplayName, setWorkspaceDisplayName] = useState("");
@@ -672,6 +681,9 @@ export default function App() {
           <span className={`connection connection--${apiStatus}`}>
             <span className="connection-dot" aria-hidden="true" />{statusLabel[apiStatus]}
           </span>
+          <button className="theme-toggle" type="button" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-pressed={theme === "dark"} onClick={() => setTheme(current => current === "dark" ? "light" : "dark")}>
+            <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span><span>{theme === "dark" ? "Light" : "Dark"} mode</span>
+          </button>
           {user && <button className="menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="app-navigation" onClick={() => setMenuOpen((open) => !open)}><span aria-hidden="true">{menuOpen ? "×" : "☰"}</span><span>{menuOpen ? "Close menu" : "Menu"}</span></button>}
           {user && <button className="text-button" type="button" onClick={() => void logout()} disabled={busy}>Sign out</button>}
         </div>
