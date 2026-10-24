@@ -318,6 +318,48 @@ def list_alerts(
                 f"Expected payment due: {row.description}",
                 f"{row.direction.title()} of {row.currency_code} {row.amount} is scheduled for {due.isoformat()}. This is an expectation, not a confirmed payment.",
             )
+    # Recent posted expenses without a linked receipt are surfaced for follow-up.
+    recent_expenses = db.scalars(select(Transaction).where(
+        Transaction.business_id == business_id,
+        Transaction.status == "posted",
+        Transaction.direction == "expense",
+        Transaction.transaction_date >= today - timedelta(days=7),
+        Transaction.transaction_date <= today,
+    ).order_by(Transaction.transaction_date.desc()).limit(50)).all()
+    linked_transaction_ids = set(db.scalars(select(Receipt.linked_transaction_id).where(
+        Receipt.business_id == business_id, Receipt.linked_transaction_id.is_not(None)
+    )).all())
+    for expense in recent_expenses:
+        if expense.id not in linked_transaction_ids:
+            _ensure_alert(
+                db, business_id, f"missing_receipt:{expense.id}", "missing_receipt", "warning",
+                "Receipt not attached",
+                f"Expense \"{expense.description}\" ({expense.currency_code} {expense.amount}) dated {expense.transaction_date.isoformat()} has no linked receipt. Attach or review the receipt if one is available.",
+            )
+
+    # Flag only strong outliers with at least three prior comparable category entries.
+    for expense in recent_expenses:
+        if not expense.category:
+            continue
+        previous = db.scalars(select(Transaction).where(
+            Transaction.business_id == business_id,
+            Transaction.status == "posted",
+            Transaction.direction == "expense",
+            Transaction.currency_code == expense.currency_code,
+            Transaction.category == expense.category,
+            Transaction.transaction_date >= expense.transaction_date - timedelta(days=30),
+            Transaction.transaction_date < expense.transaction_date,
+        ).order_by(Transaction.transaction_date.desc()).limit(20)).all()
+        if len(previous) < 3:
+            continue
+        average = sum((row.amount for row in previous), Decimal("0")) / Decimal(len(previous))
+        if average > 0 and Decimal(expense.amount) >= average * Decimal("2"):
+            _ensure_alert(
+                db, business_id, f"unusual_spend:{expense.id}", "unusual_spending", "warning",
+                f"Unusually large {expense.category} expense",
+                f"This {expense.currency_code} {expense.amount} expense is at least twice the average of {len(previous)} earlier posted {expense.category} expenses in the previous 30 days. Check the source record before treating it as an anomaly.",
+            )
+
     db.commit()
     query = select(FinancialAlert).where(FinancialAlert.business_id == business_id)
     if not include_dismissed:
