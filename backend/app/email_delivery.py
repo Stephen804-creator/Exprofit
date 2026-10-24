@@ -18,7 +18,12 @@ def _smtp_failure_summary(exc: Exception) -> str:
     if isinstance(detail, bytes):
         detail = detail.decode("utf-8", errors="replace")
     detail = str(detail)
-    detail = re.sub(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[email redacted]", detail, flags=re.IGNORECASE)
+    detail = re.sub(
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+        "[email redacted]",
+        detail,
+        flags=re.IGNORECASE,
+    )
     detail = re.sub(r"(?i)(password|token|api[_ -]?key)\s*[:=]\s*\S+", r"\1=[redacted]", detail)
     return detail[:240]
 
