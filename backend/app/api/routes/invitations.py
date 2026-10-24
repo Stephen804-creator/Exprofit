@@ -154,8 +154,10 @@ def create_invitation(
         raise HTTPException(
             status_code=503,
             detail=(
-                "Invitation email delivery is not configured. Check SMTP_HOST, "
-                "SMTP_USERNAME, SMTP_PASSWORD, and SMTP_FROM_EMAIL in Render."
+                "Invitation email delivery is not configured. Missing or empty Render "
+                "environment variable(s): "
+                + ", ".join(settings.missing_email_settings)
+                + ". Check the Exprofit web service Environment settings, then redeploy."
             ),
         )
     grants = validate_permission_delegation(actor, payload.role, payload.permissions)
