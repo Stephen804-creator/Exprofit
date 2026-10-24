@@ -163,6 +163,17 @@ def update_transaction(
     return transaction
 
 
+def post_transaction(db: Session, business_id: UUID, transaction_id: UUID) -> Transaction:
+    """Post a draft entry so it participates in financial summaries."""
+    transaction = get_transaction(db, business_id, transaction_id)
+    if transaction.status != "draft":
+        raise InvalidTransactionStateError("Only draft transactions can be posted")
+    transaction.status = "posted"
+    db.flush()
+    db.refresh(transaction)
+    return transaction
+
+
 def void_transaction(db: Session, business_id: UUID, transaction_id: UUID) -> Transaction:
     """Mark an entry void instead of deleting its financial history."""
     transaction = get_transaction(db, business_id, transaction_id)
