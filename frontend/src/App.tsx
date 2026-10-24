@@ -133,7 +133,7 @@ export default function App() {
   const [applicationConsent, setApplicationConsent] = useState(false);
   const [invitePermissions, setInvitePermissions] = useState<Record<string, boolean>>({ "sales:read": true });
   const [memberReason, setMemberReason] = useState("");
-  const [suspensionHours, setSuspensionHours] = useState("24");
+  const [suspensionHours, setSuspensionHours] = useState("");
   const [editingMemberId, setEditingMemberId] = useState("");
   const [editRole, setEditRole] = useState<"admin" | "worker">("worker");
   const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
@@ -895,11 +895,12 @@ export default function App() {
                   <div className="member-action-settings">
                     <p className="eyebrow">MEMBERSHIP SAFETY</p>
                     <h3>Suspend or revoke access</h3>
-                    <label htmlFor="suspension-hours">Suspension duration in hours <span>(blank = indefinite)</span></label>
-                    <input id="suspension-hours" type="number" min="1" max="720" value={suspensionHours} onChange={(event) => setSuspensionHours(event.target.value)} />
+                    <label htmlFor="suspension-hours">Automatic reinstatement after (hours) <span>(optional)</span></label>
+                    <input id="suspension-hours" type="number" min="1" max="720" value={suspensionHours} onChange={(event) => setSuspensionHours(event.target.value)} placeholder="Leave blank for manual reinstatement" />
+                    <p className="form-hint">Leave the duration empty to keep the member suspended until an administrator reinstates them. This setting applies only when you suspend a member; it does not control invitation links or email delivery.</p>
                     <label htmlFor="member-action-reason">Reason for member action</label>
                     <input id="member-action-reason" value={memberReason} onChange={(event) => setMemberReason(event.target.value)} maxLength={500} placeholder="Explain why access is changing" />
-                    <p className="form-hint">Suspension and revocation take effect immediately. A timed suspension is reinstated automatically after its deadline. Revoked members need a new invitation to return.</p>
+                    <p className="form-hint">Suspension and revocation take effect immediately. Revoked members need a new invitation to return.</p>
                   </div>
                 </div>
               )}
