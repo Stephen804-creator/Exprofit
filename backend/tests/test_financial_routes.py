@@ -1,7 +1,7 @@
 """Integration tests for the receipt and financial API workflow."""
 
 from collections.abc import Generator
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -503,9 +503,9 @@ def test_alerts_include_missing_receipts_and_large_category_outliers(client: Tes
     headers = bearer(owner["access_token"])
     today = date.today()
     entries = [
-        (today.replace(day=max(1, today.day - 3)), "100.00", "Usual expense 1"),
-        (today.replace(day=max(1, today.day - 2)), "100.00", "Usual expense 2"),
-        (today.replace(day=max(1, today.day - 1)), "100.00", "Usual expense 3"),
+        (today - timedelta(days=3), "100.00", "Usual expense 1"),
+        (today - timedelta(days=2), "100.00", "Usual expense 2"),
+        (today - timedelta(days=1), "100.00", "Usual expense 3"),
         (today, "250.00", "Large expense"),
     ]
     for entry_date, amount, description in entries:
