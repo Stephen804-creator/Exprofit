@@ -5,6 +5,10 @@ type Forecast = { currency_code: string; average_daily_income: string; average_d
 type Alert = { id: string; kind: string; severity: string; title: string; message: string; status: string; created_at: string };
 type Onboarding = { completed: number; total: number; percent: number; items: Array<{ key: string; title: string; complete: boolean; count: number }>; note: string };
 type Copilot = { answer: string; provider: string; ai_status: string; evidence_count: number; disclaimer: string };
+type SpeechAlternative = { transcript: string };
+type SpeechResultEvent = { results: ArrayLike<ArrayLike<SpeechAlternative>> };
+type BrowserSpeechRecognition = { lang: string; interimResults: boolean; maxAlternatives: number; onresult: ((event: SpeechResultEvent) => void) | null; onerror: (() => void) | null; onend: (() => void) | null; start: () => void };
+type SpeechWindow = Window & { SpeechRecognition?: new () => BrowserSpeechRecognition; webkitSpeechRecognition?: new () => BrowserSpeechRecognition };
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 const monthStart = () => today().slice(0, 8) + "01";
@@ -29,6 +33,8 @@ export default function FinancialOperations({ workspaceId, accessToken, currency
   const [reportStart, setReportStart] = useState(monthStart());
   const [reportEnd, setReportEnd] = useState(today());
   const [question, setQuestion] = useState("");
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
   const [useAi, setUseAi] = useState(false);
   const [copilot, setCopilot] = useState<Copilot | null>(null);
   const [accountantReport, setAccountantReport] = useState<unknown>(null);
@@ -124,6 +130,31 @@ export default function FinancialOperations({ workspaceId, accessToken, currency
     link.click();
     URL.revokeObjectURL(url);
   }
+  function startVoiceInput() {
+    const speechWindow = window as SpeechWindow;
+    const SpeechRecognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceError("Voice input is not supported in this browser. Type your question instead.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = navigator.language || "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = event => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      if (transcript) setQuestion(current => current.trim() ? current.trim() + " " + transcript : transcript);
+    };
+    recognition.onerror = () => setVoiceError("Microphone input failed. Check browser permission or type your question.");
+    recognition.onend = () => setVoiceListening(false);
+    setVoiceError("");
+    setVoiceListening(true);
+    try { recognition.start(); } catch {
+      setVoiceListening(false);
+      setVoiceError("Could not start voice input. Please type your question.");
+    }
+  }
+
   async function askCopilot(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(""); setCopilot(null);
     try {
@@ -184,7 +215,7 @@ export default function FinancialOperations({ workspaceId, accessToken, currency
     <div className="finance-card">
       <p className="eyebrow">12 / ASK EXPROFIT</p><h3>Financial copilot</h3>
       <p className="finance-muted">Ask a question about your last 30 days. The answer is grounded in posted transactions; optional AI receives only a bounded financial summary and your question.</p>
-      <form onSubmit={askCopilot}><label className="finance-full">Your question<input maxLength={500} minLength={3} required value={question} onChange={e => setQuestion(e.target.value)} placeholder="What should I review in my expenses?" /></label><label className="finance-check"><input type="checkbox" checked={useAi} onChange={e => setUseAi(e.target.checked)} /> Use optional Hugging Face AI for an explanation</label><div className="finance-actions"><button className="finance-button" disabled={busy}>Ask financial copilot</button></div></form>
+      <form onSubmit={askCopilot}><label className="finance-full">Your question<input maxLength={500} minLength={3} required value={question} onChange={e => setQuestion(e.target.value)} placeholder="What should I review in my expenses?" /></label><div className="finance-actions"><button className="finance-button finance-button--quiet" type="button" onClick={startVoiceInput} disabled={voiceListening} aria-label="Speak your financial question">{voiceListening ? "Listening…" : "🎙 Speak question"}</button></div>{voiceError && <p className="form-message form-message--error" role="status">{voiceError}</p>}<label className="finance-check"><input type="checkbox" checked={useAi} onChange={e => setUseAi(e.target.checked)} /> Use optional Hugging Face AI for an explanation</label><div className="finance-actions"><button className="finance-button" disabled={busy}>{busy ? "Thinking…" : "Ask financial copilot"}</button></div></form>
       {copilot && <article className="guard-finding"><p className="finance-muted">Provider: {copilot.provider} · AI status: {copilot.ai_status} · Evidence records: {copilot.evidence_count}</p><pre className="finance-report-json">{copilot.answer}</pre><p className="finance-muted">{copilot.disclaimer}</p></article>}
     </div>
     {error && <p className="form-message form-message--error" role="alert">{error}</p>}

@@ -36,6 +36,7 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
   const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [from, setFrom] = useState(daysAgo(29)); const [to, setTo] = useState(today());
+  const [transactionSearch, setTransactionSearch] = useState("");
   const [direction, setDirection] = useState<"income" | "expense">("expense");
   const [amount, setAmount] = useState(""); const [date, setDate] = useState(today());
   const [description, setDescription] = useState(""); const [category, setCategory] = useState("Uncategorised");
@@ -60,6 +61,8 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
 
   const overviewProfit = summary?.profitability.currencies.find((item) => item.currency_code === workspace.currency_code);
   const postedRows = rows.filter((tx) => tx.status === "posted" && tx.currency_code === workspace.currency_code);
+  const normalizedTransactionSearch = transactionSearch.trim().toLocaleLowerCase();
+  const visibleTransactions = rows.filter((tx) => !normalizedTransactionSearch || [tx.description, tx.category ?? "", tx.direction, tx.status, tx.transaction_date, tx.amount, tx.currency_code].some((value) => value.toLocaleLowerCase().includes(normalizedTransactionSearch)));
   const expenseCategories = Object.entries(postedRows.filter((tx) => tx.direction === "expense").reduce<Record<string, number>>((totals, tx) => {
     const key = tx.category?.trim() || "Uncategorised";
     totals[key] = (totals[key] ?? 0) + Number(tx.amount);
@@ -288,11 +291,13 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
         })}
       </section>}
     </div>
-    {activePanel === "transactions" && <section className="finance-card finance-records"><div className="finance-card-heading"><div><p className="eyebrow">03 / LEDGER</p><h3>Transactions</h3></div><span className="finance-muted">{rows.length} records</span></div>
+    {activePanel === "transactions" && <section className="finance-card finance-records"><div className="finance-card-heading"><div><p className="eyebrow">03 / LEDGER</p><h3>Transactions</h3></div><span className="finance-muted">{visibleTransactions.length} of {rows.length} records</span></div>
+      <label className="finance-search">Search transactions<input type="search" value={transactionSearch} onChange={e => setTransactionSearch(e.target.value)} placeholder="Description, category, date, amount or status" aria-label="Search loaded transactions" /></label>
       {!rows.length && (canRead("sales") || canRead("expenses")) && <p className="finance-empty">No transactions in this date range.</p>}
+      {rows.length > 0 && visibleTransactions.length === 0 && <p className="finance-empty">No transactions match “{transactionSearch}”. Try a different search.</p>}
       {!rows.length && !canRead("sales") && !canRead("expenses") && <p className="finance-empty">You do not have read access to sales or expenses in this workspace.</p>}
       <div className="finance-table-wrap"><table className="finance-table"><thead><tr><th>Date</th><th>Details</th><th>Category</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-        {rows.map(tx => <tr key={tx.id} className={tx.status === "void" ? "finance-row--void" : ""}><td>{tx.transaction_date}</td><td><strong>{tx.description}</strong><small>{tx.direction}</small></td><td>{tx.category ?? "Uncategorised"}</td><td>{tx.direction === "expense" ? "−" : "+"}{cash(tx.amount, tx.currency_code)}</td><td><span className={"finance-status finance-status--" + tx.status}>{tx.status}</span></td>
+        {visibleTransactions.map(tx => <tr key={tx.id} className={tx.status === "void" ? "finance-row--void" : ""}><td>{tx.transaction_date}</td><td><strong>{tx.description}</strong><small>{tx.direction}</small></td><td>{tx.category ?? "Uncategorised"}</td><td>{tx.direction === "expense" ? "−" : "+"}{cash(tx.amount, tx.currency_code)}</td><td><span className={"finance-status finance-status--" + tx.status}>{tx.status}</span></td>
           <td>{tx.status !== "void" && canWrite(tx.direction === "income" ? "sales" : "expenses") && <div className="finance-actions"><button className="finance-link" type="button" onClick={() => startEdit(tx)}>Edit</button><button className="finance-link finance-link--danger" type="button" onClick={() => void voidTx(tx)} disabled={busy}>Void</button></div>}</td></tr>)}
       </tbody></table></div>
       {editing && <form className="finance-edit" onSubmit={saveEdit}><h3>Edit transaction</h3><label>Amount<input type="number" min="0.01" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} required /></label><label>Date<input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} required /></label><label>Description<input value={editDescription} onChange={e => setEditDescription(e.target.value)} required /></label><label>Category<input value={editCategory} onChange={e => setEditCategory(e.target.value)} /></label><div className="finance-actions"><button className="finance-button" disabled={busy}>Save changes</button><button className="finance-button finance-button--quiet" type="button" onClick={() => setEditing(null)}>Cancel</button></div></form>}
