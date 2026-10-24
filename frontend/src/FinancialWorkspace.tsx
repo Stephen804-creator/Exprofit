@@ -11,6 +11,7 @@ type CatalogOption = { id: string; name: string };
 type Summary = { currencies: Array<{ currency_code: string; income: string; expenses: string; net_cash_movement: string; income_count: number; expense_count: number }>; profitability: { currencies: Array<{ currency_code: string; revenue: string; direct_costs: string; gross_profit: string | null; gross_margin_percent: string | null; note: string }> } };
 type Finding = { kind: string; severity: string; currency_code: string; summary: string; uncertainty: string; change?: string; current?: Record<string, string | number | boolean | null> | null; previous?: Record<string, string | number | boolean | null> | null; evidence?: Array<{ id: string; date: string; direction: string; amount: string; description: string }> };
 type RecurringTemplate = { id: string; direction: "income" | "expense"; description: string; category: string | null; amount: string; currency_code: string; interval: "weekly" | "monthly" | "yearly"; next_due_date: string; is_active: boolean };
+type TransactionFilterPreset = { id: string; name: string; query: string; direction: string; status: string; category: string; currency: string; minAmount: string; maxAmount: string; favoritesOnly: boolean; from: string; to: string };
 type Receipt = { id: string; original_filename: string; candidate_merchant: string | null; candidate_date: string | null; candidate_amount: string | null; extracted_text: string; review_status: string };
 type MembershipAccess = { role: "owner" | "admin" | "worker"; permissions: Record<string, boolean> } | null;
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
@@ -44,6 +45,17 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [from, setFrom] = useState(daysAgo(29)); const [to, setTo] = useState(today());
   const [transactionSearch, setTransactionSearch] = useState("");
+  const [filterDirection, setFilterDirection] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterCurrency, setFilterCurrency] = useState("all");
+  const [filterMinAmount, setFilterMinAmount] = useState("");
+  const [filterMaxAmount, setFilterMaxAmount] = useState("");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favoriteTransactionIds, setFavoriteTransactionIds] = useState<string[]>([]);
+  const [savedFilterPresets, setSavedFilterPresets] = useState<TransactionFilterPreset[]>([]);
+  const [selectedFilterPreset, setSelectedFilterPreset] = useState("");
+  const [filterStorageWorkspaceId, setFilterStorageWorkspaceId] = useState("");
   const [direction, setDirection] = useState<"income" | "expense">("expense");
   const [amount, setAmount] = useState(""); const [date, setDate] = useState(today());
   const [description, setDescription] = useState(""); const [category, setCategory] = useState("Uncategorised");
@@ -69,7 +81,19 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
   const overviewProfit = summary?.profitability.currencies.find((item) => item.currency_code === workspace.currency_code);
   const postedRows = rows.filter((tx) => tx.status === "posted" && tx.currency_code === workspace.currency_code);
   const normalizedTransactionSearch = transactionSearch.trim().toLocaleLowerCase();
-  const visibleTransactions = rows.filter((tx) => !normalizedTransactionSearch || [tx.description, tx.category ?? "", tx.direction, tx.status, tx.transaction_date, tx.amount, tx.currency_code].some((value) => value.toLocaleLowerCase().includes(normalizedTransactionSearch)));
+  const visibleTransactions = rows.filter((tx) => {
+    if (normalizedTransactionSearch && ![tx.description, tx.category ?? "", tx.direction, tx.status, tx.transaction_date, tx.amount, tx.currency_code].some((value) => value.toLocaleLowerCase().includes(normalizedTransactionSearch))) return false;
+    if (filterDirection !== "all" && tx.direction !== filterDirection) return false;
+    if (filterStatus !== "all" && tx.status !== filterStatus) return false;
+    if (filterCategory !== "all" && (tx.category || "Uncategorised") !== filterCategory) return false;
+    if (filterCurrency !== "all" && tx.currency_code !== filterCurrency) return false;
+    if (filterMinAmount !== "" && Number(tx.amount) < Number(filterMinAmount)) return false;
+    if (filterMaxAmount !== "" && Number(tx.amount) > Number(filterMaxAmount)) return false;
+    if (favoritesOnly && !favoriteTransactionIds.includes(tx.id)) return false;
+    return true;
+  });
+  const transactionCategories = [...new Set(rows.map(tx => tx.category || "Uncategorised"))].sort((a,b) => a.localeCompare(b));
+  const transactionCurrencies = [...new Set(rows.map(tx => tx.currency_code))].sort();
   const expenseCategories = Object.entries(postedRows.filter((tx) => tx.direction === "expense").reduce<Record<string, number>>((totals, tx) => {
     const key = tx.category?.trim() || "Uncategorised";
     totals[key] = (totals[key] ?? 0) + Number(tx.amount);
@@ -88,6 +112,49 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     expenses: postedRows.filter((tx) => tx.direction === "expense" && tx.transaction_date === day).reduce((sum, tx) => sum + Number(tx.amount), 0),
   }));
   const maxDailyAmount = Math.max(1, ...cashTrend.flatMap((day) => [day.income, day.expenses]));
+
+  useEffect(() => {
+    try {
+      const favorites = JSON.parse(localStorage.getItem("exprofit_favorites_" + workspace.id) || "[]");
+      const presets = JSON.parse(localStorage.getItem("exprofit_saved_filters_" + workspace.id) || "[]");
+      setFavoriteTransactionIds(Array.isArray(favorites) ? favorites.filter((id): id is string => typeof id === "string") : []);
+      setSavedFilterPresets(Array.isArray(presets) ? presets.filter((item): item is TransactionFilterPreset => !!item && typeof item.id === "string" && typeof item.name === "string") : []);
+    } catch { setFavoriteTransactionIds([]); setSavedFilterPresets([]); }
+    setFilterStorageWorkspaceId(workspace.id);
+  }, [workspace.id]);
+  useEffect(() => {
+    if (filterStorageWorkspaceId !== workspace.id) return;
+    localStorage.setItem("exprofit_favorites_" + workspace.id, JSON.stringify(favoriteTransactionIds));
+    localStorage.setItem("exprofit_saved_filters_" + workspace.id, JSON.stringify(savedFilterPresets));
+  }, [workspace.id, filterStorageWorkspaceId, favoriteTransactionIds, savedFilterPresets]);
+  function toggleFavoriteTransaction(id: string) {
+    setFavoriteTransactionIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]);
+  }
+  function saveCurrentFilter() {
+    const name = window.prompt("Name this saved filter");
+    if (!name?.trim()) return;
+    const preset: TransactionFilterPreset = {
+      id: window.crypto?.randomUUID?.() ?? String(Date.now()), name: name.trim().slice(0, 60),
+      query: transactionSearch, direction: filterDirection, status: filterStatus, category: filterCategory,
+      currency: filterCurrency, minAmount: filterMinAmount, maxAmount: filterMaxAmount,
+      favoritesOnly, from, to,
+    };
+    setSavedFilterPresets(current => [...current.filter(item => item.name.toLocaleLowerCase() !== preset.name.toLocaleLowerCase()), preset].slice(-20));
+    setSelectedFilterPreset(preset.id); setNotice("Filter saved on this device for this workspace.");
+  }
+  function applySavedFilter(id: string) {
+    setSelectedFilterPreset(id);
+    const preset = savedFilterPresets.find(item => item.id === id);
+    if (!preset) return;
+    setTransactionSearch(preset.query); setFilterDirection(preset.direction); setFilterStatus(preset.status);
+    setFilterCategory(preset.category); setFilterCurrency(preset.currency); setFilterMinAmount(preset.minAmount);
+    setFilterMaxAmount(preset.maxAmount); setFavoritesOnly(preset.favoritesOnly); setFrom(preset.from); setTo(preset.to);
+  }
+  function resetTransactionFilters() {
+    setTransactionSearch(""); setFilterDirection("all"); setFilterStatus("all"); setFilterCategory("all");
+    setFilterCurrency("all"); setFilterMinAmount(""); setFilterMaxAmount(""); setFavoritesOnly(false);
+    setSelectedFilterPreset("");
+  }
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
@@ -348,12 +415,27 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     </div>
     {activePanel === "transactions" && <section className="finance-card finance-records"><div className="finance-card-heading"><div><p className="eyebrow">03 / LEDGER</p><h3>Transactions</h3></div><span className="finance-muted">{visibleTransactions.length} of {rows.length} records</span></div>
       <label className="finance-search">Search transactions<input type="search" value={transactionSearch} onChange={e => setTransactionSearch(e.target.value)} placeholder="Description, category, date, amount or status" aria-label="Search loaded transactions" /></label>
+      <div className="transaction-filter-grid" aria-label="Transaction filters">
+        <label>Direction<select value={filterDirection} onChange={e => setFilterDirection(e.target.value)}><option value="all">All directions</option><option value="income">Income</option><option value="expense">Expense</option></select></label>
+        <label>Status<select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="all">All statuses</option><option value="posted">Posted</option><option value="draft">Draft</option><option value="void">Void</option></select></label>
+        <label>Category<select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}><option value="all">All categories</option>{transactionCategories.map(category => <option key={category} value={category}>{category}</option>)}</select></label>
+        <label>Currency<select value={filterCurrency} onChange={e => setFilterCurrency(e.target.value)}><option value="all">All currencies</option>{transactionCurrencies.map(currency => <option key={currency} value={currency}>{currency}</option>)}</select></label>
+        <label>Minimum amount<input type="number" min="0" step="0.01" value={filterMinAmount} onChange={e => setFilterMinAmount(e.target.value)} placeholder="No minimum" /></label>
+        <label>Maximum amount<input type="number" min="0" step="0.01" value={filterMaxAmount} onChange={e => setFilterMaxAmount(e.target.value)} placeholder="No maximum" /></label>
+      </div>
+      <div className="saved-filter-actions">
+        <label>Saved filters<select value={selectedFilterPreset} onChange={e => applySavedFilter(e.target.value)}><option value="">Choose a saved filter</option>{savedFilterPresets.map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></label>
+        <button type="button" className={favoritesOnly ? "finance-button" : "finance-button finance-button--quiet"} onClick={() => setFavoritesOnly(value => !value)} aria-pressed={favoritesOnly}>★ {favoritesOnly ? "Showing favourites" : "Favourites only"}</button>
+        <button type="button" className="finance-button finance-button--quiet" onClick={saveCurrentFilter}>Save filter</button>
+        {selectedFilterPreset && <button type="button" className="finance-button finance-button--quiet" onClick={() => setSavedFilterPresets(current => current.filter(item => item.id !== selectedFilterPreset))}>Delete saved filter</button>}
+        <button type="button" className="finance-button finance-button--quiet" onClick={resetTransactionFilters}>Clear filters</button>
+      </div>
       {!rows.length && (canRead("sales") || canRead("expenses")) && <p className="finance-empty">No transactions in this date range.</p>}
       {rows.length > 0 && visibleTransactions.length === 0 && <p className="finance-empty">No transactions match “{transactionSearch}”. Try a different search.</p>}
       {!rows.length && !canRead("sales") && !canRead("expenses") && <p className="finance-empty">You do not have read access to sales or expenses in this workspace.</p>}
       <div className="finance-table-wrap"><table className="finance-table"><thead><tr><th>Date</th><th>Details</th><th>Category</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>
         {visibleTransactions.map(tx => <tr key={tx.id} className={tx.status === "void" ? "finance-row--void" : ""}><td>{tx.transaction_date}</td><td><strong>{tx.description}</strong><small>{tx.direction}</small></td><td>{tx.category ?? "Uncategorised"}</td><td>{tx.direction === "expense" ? "−" : "+"}{cash(tx.amount, tx.currency_code)}</td><td><span className={"finance-status finance-status--" + tx.status}>{tx.status}</span></td>
-          <td>{tx.status !== "void" && canWrite(tx.direction === "income" ? "sales" : "expenses") && <div className="finance-actions"><button className="finance-link" type="button" onClick={() => startEdit(tx)}>Edit</button>{tx.status === "draft" && <button className="finance-link" type="button" onClick={() => void postDraft(tx)} disabled={busy}>Review & post</button>}<button className="finance-link" type="button" onClick={() => duplicateTransaction(tx)}>Duplicate</button><button className="finance-link finance-link--danger" type="button" onClick={() => void voidTx(tx)} disabled={busy}>Void</button></div>}</td></tr>)}
+          <td><button className="finance-link" type="button" aria-pressed={favoriteTransactionIds.includes(tx.id)} aria-label={favoriteTransactionIds.includes(tx.id) ? "Remove transaction from favourites" : "Add transaction to favourites"} onClick={() => toggleFavoriteTransaction(tx.id)}>{favoriteTransactionIds.includes(tx.id) ? "★ Saved" : "☆ Favourite"}</button>{tx.status !== "void" && canWrite(tx.direction === "income" ? "sales" : "expenses") && <div className="finance-actions"><button className="finance-link" type="button" onClick={() => startEdit(tx)}>Edit</button>{tx.status === "draft" && <button className="finance-link" type="button" onClick={() => void postDraft(tx)} disabled={busy}>Review & post</button>}<button className="finance-link" type="button" onClick={() => duplicateTransaction(tx)}>Duplicate</button><button className="finance-link finance-link--danger" type="button" onClick={() => void voidTx(tx)} disabled={busy}>Void</button></div>}</td></tr>)}
       </tbody></table></div>
       {editing && <form className="finance-edit" onSubmit={saveEdit}><h3>Edit transaction</h3><label>Amount<input type="number" min="0.01" step="0.01" value={editAmount} onChange={e => setEditAmount(e.target.value)} required /></label><label>Date<input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} required /></label><label>Description<input value={editDescription} onChange={e => setEditDescription(e.target.value)} required /></label><label>Category<input value={editCategory} onChange={e => setEditCategory(e.target.value)} /></label><div className="finance-actions"><button className="finance-button" disabled={busy}>Save changes</button><button className="finance-button finance-button--quiet" type="button" onClick={() => setEditing(null)}>Cancel</button></div></form>}
     </section>}

@@ -5,6 +5,7 @@ type Customer = { id: string; name: string; email: string | null; phone: string 
 type ProfitItem = { id: string; name: string; currency_code: string; revenue: string; direct_costs: string; gross_profit: string | null; gross_margin_percent: string | null; transaction_count: number; note: string; };
 type BudgetActual = { id: string; category: string; currency_code: string; period_start: string; period_end: string; budget_amount: string; actual_spend: string; remaining: string; used_percent: string; warning_threshold_percent: number; status: "on_track" | "warning" | "over_budget"; };
 type Budget = { id: string; category: string; period_start: string; period_end: string; amount: string; currency_code: string; warning_threshold_percent: number; };
+type GoalProgress = { id: string; name: string; goal_kind: "revenue" | "gross_profit"; currency_code: string; period_start: string; period_end: string; target_amount: string; actual_amount: string; remaining_amount: string; progress_percent: string; status: "achieved" | "in_progress"; basis: string };
 type Props = { workspaceId: string; accessToken: string; currencyCode: string; startDate: string; endDate: string; canReadSales: boolean; canWriteSales: boolean; canReadExpenses: boolean; canWriteExpenses: boolean; };
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
 const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
@@ -22,6 +23,12 @@ export default function FinancialCatalogBudget({ workspaceId, accessToken, curre
   const [customerProfit, setCustomerProfit] = useState<ProfitItem[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [budgetActual, setBudgetActual] = useState<BudgetActual[]>([]);
+  const [goals, setGoals] = useState<GoalProgress[]>([]);
+  const [goalName, setGoalName] = useState("Monthly revenue target");
+  const [goalKind, setGoalKind] = useState<"revenue" | "gross_profit">("revenue");
+  const [goalAmount, setGoalAmount] = useState("");
+  const [goalStart, setGoalStart] = useState(monthStart());
+  const [goalEnd, setGoalEnd] = useState(today());
   const [productName, setProductName] = useState("");
   const [productSku, setProductSku] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
@@ -63,6 +70,9 @@ export default function FinancialCatalogBudget({ workspaceId, accessToken, curre
       } else {
         setProductProfit([]); setCustomerProfit([]);
       }
+      if (canReadSales && canReadExpenses) {
+        tasks.push(request<{ items: GoalProgress[] }>("/businesses/" + workspaceId + "/goal-progress").then(x => setGoals(x.items)));
+      } else { setGoals([]); }
       if (canReadExpenses) {
         tasks.push(request<Budget[]>("/businesses/" + workspaceId + "/budgets").then(setBudgets));
         tasks.push(request<{ items: BudgetActual[] }>("/businesses/" + workspaceId + "/budget-vs-actual").then(x => setBudgetActual(x.items)));
@@ -110,6 +120,18 @@ export default function FinancialCatalogBudget({ workspaceId, accessToken, curre
     finally { setBusy(false); }
   }
 
+  async function addGoal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(""); setNotice("");
+    try {
+      await request("/businesses/" + workspaceId + "/goals", { method: "POST", body: JSON.stringify({
+        name: goalName, goal_kind: goalKind, target_amount: goalAmount,
+        period_start: goalStart, period_end: goalEnd,
+      }) });
+      setGoalAmount(""); setNotice("Financial goal saved. Progress uses posted records only."); await refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not save goal."); }
+    finally { setBusy(false); }
+  }
+
   return <section className="catalog-budget">
     <div className="finance-card-heading"><div><p className="eyebrow">UNIT 15–17</p><h3>Products, customers & budgets</h3><p className="finance-muted">Profitability reports use the selected date range ({startDate} to {endDate}); budget actuals use each budget’s own period.</p></div><button type="button" className="finance-button finance-button--quiet" onClick={() => void refresh()}>Refresh</button></div>
     {error && <p className="form-message form-message--error" role="alert">{error}</p>}
@@ -132,6 +154,22 @@ export default function FinancialCatalogBudget({ workspaceId, accessToken, curre
       <div><strong>Products/services ({products.length})</strong>{products.map(p => <div className="evidence-row" key={p.id}><span>{p.name}{p.sku ? " · " + p.sku : ""}</span><strong>{p.unit_price ? cash(p.unit_price, p.currency_code) : "Price not set"}</strong></div>)}{!products.length && <p className="finance-empty">No products yet.</p>}</div>
       <div><strong>Customers ({customers.length})</strong>{customers.map(c => <div className="evidence-row" key={c.id}><span>{c.name}</span><strong>{c.email ?? c.phone ?? "No contact saved"}</strong></div>)}{!customers.length && <p className="finance-empty">No customers yet.</p>}</div>
     </div></section>}
+    {canWriteSales && <section className="finance-card"><h3>Set a revenue or gross-profit goal</h3><p className="finance-muted">Goals track posted records within the chosen dates. Gross profit subtracts recognised direct-cost categories only; it does not guess missing costs.</p><form className="finance-form" onSubmit={addGoal}>
+      <label>Goal name<input value={goalName} onChange={e => setGoalName(e.target.value)} maxLength={120} required /></label>
+      <label>Goal type<select value={goalKind} onChange={e => setGoalKind(e.target.value as "revenue" | "gross_profit")}><option value="revenue">Revenue</option><option value="gross_profit" disabled={!canWriteExpenses}>Gross profit (requires expense access)</option></select></label>
+      <label>Target amount ({currencyCode})<input type="number" min="0.01" step="0.01" value={goalAmount} onChange={e => setGoalAmount(e.target.value)} required /></label>
+      <label>Period starts<input type="date" value={goalStart} onChange={e => setGoalStart(e.target.value)} required /></label>
+      <label>Period ends<input type="date" min={goalStart} value={goalEnd} onChange={e => setGoalEnd(e.target.value)} required /></label>
+      <button className="finance-button" disabled={busy || (goalKind === "gross_profit" && !canWriteExpenses)}>Save goal</button>
+    </form></section>}
+    {canReadSales && canReadExpenses && <section className="finance-card"><h3>Goal progress</h3>{!goals.length && <p className="finance-empty">No active goals yet. Create a revenue or gross-profit goal to track progress.</p>}
+      <div className="goal-progress-list">{goals.map(goal => { const progress = Math.max(0, Math.min(100, Number(goal.progress_percent))); return <article className="goal-progress-card" key={goal.id}>
+        <div className="finance-card-heading"><div><strong>{goal.name}</strong><p className="finance-muted">{goal.goal_kind === "revenue" ? "Revenue" : "Gross profit"} · {goal.period_start} – {goal.period_end}</p></div><span className={"finance-status " + (goal.status === "achieved" ? "finance-status--posted" : "finance-status--warning")}>{goal.status.replace("_", " ")}</span></div>
+        <div className="goal-progress-values"><strong>{cash(goal.actual_amount, goal.currency_code)}</strong><span>of {cash(goal.target_amount, goal.currency_code)} · {goal.progress_percent}%</span></div>
+        <div className="goal-progress-track" role="progressbar" aria-label={goal.name + " progress"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: progress + "%" }} /></div>
+        <p className="finance-footnote">{Number(goal.remaining_amount) > 0 ? cash(goal.remaining_amount, goal.currency_code) + " remaining to target." : "Target reached or exceeded."} {goal.basis}</p>
+      </article>; })}</div>
+    </section>}
     {canWriteExpenses && <section className="finance-card"><h3>Create a category budget</h3><form className="finance-form" onSubmit={addBudget}>
       <label>Expense category<input value={budgetCategory} onChange={e => setBudgetCategory(e.target.value)} maxLength={80} required /></label>
       <label>Budget amount ({currencyCode})<input type="number" min="0.01" step="0.01" value={budgetAmount} onChange={e => setBudgetAmount(e.target.value)} required /></label>

@@ -96,3 +96,33 @@ class BudgetRead(BaseModel):
     amount: Decimal
     warning_threshold_percent: int
     created_at: datetime
+
+
+class FinancialGoalCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    goal_kind: str = Field(pattern="^(revenue|gross_profit)$")
+    target_amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    period_start: date
+    period_end: date
+
+    @field_validator("name")
+    @classmethod
+    def clean_goal_name(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Goal name cannot be blank")
+        return cleaned
+
+
+class FinancialGoalRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    business_id: UUID
+    name: str
+    goal_kind: str
+    currency_code: str
+    target_amount: Decimal
+    period_start: date
+    period_end: date
+    is_active: bool
+    created_at: datetime

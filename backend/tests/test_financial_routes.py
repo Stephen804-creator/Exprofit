@@ -1,7 +1,7 @@
 """Integration tests for the receipt and financial API workflow."""
 
 from collections.abc import Generator
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -452,3 +452,74 @@ def test_transaction_cannot_reference_product_from_another_workspace(
         },
     )
     assert response.status_code == 422
+
+
+
+def test_revenue_and_gross_profit_goals_report_posted_actuals(client: TestClient) -> None:
+    owner = register(client, "goal-owner@example.com")
+    business_id = make_business(client, owner["access_token"])
+    headers = bearer(owner["access_token"])
+    period_start = date.today().replace(day=1).isoformat()
+    period_end = date.today().isoformat()
+
+    for name, kind, target in [
+        ("Revenue target", "revenue", "700.00"),
+        ("Gross profit target", "gross_profit", "400.00"),
+    ]:
+        response = client.post(
+            f"/businesses/{business_id}/goals",
+            headers=headers,
+            json={"name": name, "goal_kind": kind, "target_amount": target,
+                  "period_start": period_start, "period_end": period_end},
+        )
+        assert response.status_code == 201, response.text
+
+    for direction, amount, category, description in [
+        ("income", "500.00", "Sales", "Recorded sales"),
+        ("expense", "150.00", "COGS", "Stock purchase"),
+        ("income", "999.00", "Sales", "Unposted sale"),
+    ]:
+        response = client.post(
+            f"/businesses/{business_id}/transactions",
+            headers=headers,
+            json={"business_id": business_id, "direction": direction, "amount": amount,
+                  "currency_code": "NGN", "transaction_date": date.today().isoformat(),
+                  "description": description, "category": category,
+                  "status": "draft" if description == "Unposted sale" else "posted"},
+        )
+        assert response.status_code == 201, response.text
+
+    response = client.get(f"/businesses/{business_id}/goal-progress", headers=headers)
+    assert response.status_code == 200, response.text
+    progress = {item["goal_kind"]: item for item in response.json()["items"]}
+    assert progress["revenue"]["actual_amount"] == "500.00"
+    assert progress["gross_profit"]["actual_amount"] == "350.00"
+    assert progress["revenue"]["progress_percent"] == "71.43"
+
+
+def test_alerts_include_missing_receipts_and_large_category_outliers(client: TestClient) -> None:
+    owner = register(client, "alert-owner@example.com")
+    business_id = make_business(client, owner["access_token"])
+    headers = bearer(owner["access_token"])
+    today = date.today()
+    entries = [
+        (today - timedelta(days=3), "100.00", "Usual expense 1"),
+        (today - timedelta(days=2), "100.00", "Usual expense 2"),
+        (today - timedelta(days=1), "100.00", "Usual expense 3"),
+        (today, "250.00", "Large expense"),
+    ]
+    for entry_date, amount, description in entries:
+        response = client.post(
+            f"/businesses/{business_id}/transactions",
+            headers=headers,
+            json={"business_id": business_id, "direction": "expense", "amount": amount,
+                  "currency_code": "NGN", "transaction_date": entry_date.isoformat(),
+                  "description": description, "category": "Stock", "status": "posted"},
+        )
+        assert response.status_code == 201, response.text
+
+    response = client.get(f"/businesses/{business_id}/alerts", headers=headers)
+    assert response.status_code == 200, response.text
+    kinds = [item["kind"] for item in response.json()]
+    assert "missing_receipt" in kinds
+    assert "unusual_spending" in kinds

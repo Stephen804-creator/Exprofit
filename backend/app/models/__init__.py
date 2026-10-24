@@ -8,6 +8,7 @@ from app.models.business_membership import BusinessMembership
 from app.models.customer import Customer
 from app.models.email_verification_token import EmailVerificationToken
 from app.models.financial_alert import FinancialAlert
+from app.models.financial_goal import FinancialGoal
 from app.models.invitation_application import InvitationApplication
 from app.models.product import Product
 from app.models.rate_limit_bucket import RateLimitBucket
@@ -26,6 +27,7 @@ __all__ = [
     "Customer",
     "EmailVerificationToken",
     "FinancialAlert",
+    "FinancialGoal",
     "InvitationApplication",
     "Product",
     "RateLimitBucket",
