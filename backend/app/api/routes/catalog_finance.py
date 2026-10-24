@@ -11,7 +11,15 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_business_membership
 from app.db.session import get_db
-from app.models import Budget, Business, BusinessMembership, Customer, FinancialGoal, Product, Transaction
+from app.models import (
+    Budget,
+    Business,
+    BusinessMembership,
+    Customer,
+    FinancialGoal,
+    Product,
+    Transaction,
+)
 from app.permissions import require_permission
 from app.schemas.catalog import (
     BudgetCreate,
@@ -348,8 +356,19 @@ def financial_goal_progress(
             Transaction.transaction_date >= goal.period_start,
             Transaction.transaction_date <= goal.period_end,
         )).all()
-        revenue = sum((row.amount for row in records if row.direction == "income"), Decimal("0.00"))
-        direct_costs = sum((row.amount for row in records if row.direction == "expense" and (row.category or "").strip().casefold() in {category.casefold() for category in DIRECT_COST_CATEGORIES}), Decimal("0.00"))
+        revenue = sum(
+            (row.amount for row in records if row.direction == "income"), Decimal("0.00")
+        )
+        direct_cost_categories = {category.casefold() for category in DIRECT_COST_CATEGORIES}
+        direct_costs = sum(
+            (
+                row.amount
+                for row in records
+                if row.direction == "expense"
+                and (row.category or "").strip().casefold() in direct_cost_categories
+            ),
+            Decimal("0.00"),
+        )
         actual = revenue if goal.goal_kind == "revenue" else revenue - direct_costs
         target = Decimal(goal.target_amount)
         percent = (actual / target * Decimal("100")).quantize(Decimal("0.01"))
@@ -359,8 +378,13 @@ def financial_goal_progress(
             "period_end": goal.period_end.isoformat(), "target_amount": str(target),
             "actual_amount": str(actual.quantize(Decimal("0.01"))),
             "remaining_amount": str((target - actual).quantize(Decimal("0.01"))),
-            "progress_percent": str(percent), "status": "achieved" if actual >= target else "in_progress",
-            "basis": "Revenue is the sum of posted income. Gross profit is posted income minus posted expenses in recognised direct-cost categories; overhead and missing costs are not inferred.",
+            "progress_percent": str(percent),
+            "status": "achieved" if actual >= target else "in_progress",
+            "basis": (
+                "Revenue is the sum of posted income. Gross profit is posted income minus "
+                "posted expenses in recognised direct-cost categories; overhead and missing "
+                "costs are not inferred."
+            ),
         })
     return {"items": output}
 
