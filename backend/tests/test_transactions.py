@@ -18,6 +18,7 @@ from app.services.transactions import (
     create_transaction,
     get_transaction,
     list_transactions,
+    post_transaction,
     update_transaction,
     void_transaction,
 )
@@ -109,6 +110,17 @@ def test_update_and_void_preserve_entry(db_session: Session) -> None:
             saved.id,
             TransactionUpdate(description="Cannot change void entry"),
         )
+
+
+def test_draft_can_be_posted_once(db_session: Session) -> None:
+    business = make_business(db_session)
+    draft = create_transaction(db_session, make_payload(business.id, status="draft"))
+
+    posted = post_transaction(db_session, business.id, draft.id)
+    assert posted.status == "posted"
+
+    with pytest.raises(InvalidTransactionStateError):
+        post_transaction(db_session, business.id, draft.id)
 
 
 def test_amount_must_be_positive() -> None:
