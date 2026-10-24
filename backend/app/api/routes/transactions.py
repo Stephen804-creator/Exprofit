@@ -31,6 +31,7 @@ from app.services.transactions import (
     TransactionNotFoundError,
     create_transaction,
     get_transaction,
+    post_transaction,
     update_transaction,
     void_transaction,
 )
@@ -273,6 +274,30 @@ def update_entry(
         InvalidTransactionStateError,
         InvalidTransactionAttributionError,
     ) as exc:
+        _raise_service_error(exc)
+
+
+@router.post("/{transaction_id}/post", response_model=TransactionRead)
+def post_entry(
+    business_id: UUID,
+    transaction_id: UUID,
+    membership: Annotated[BusinessMembership, Depends(require_business_membership)],
+    db: Annotated[Session, Depends(get_db)],
+) -> Transaction:
+    """Explicitly post a draft after the user has reviewed it."""
+    try:
+        existing = get_transaction(db, business_id, transaction_id)
+        require_permission(membership, transaction_domain(existing.direction), "write")
+        transaction = post_transaction(db, business_id, transaction_id)
+        record_audit_event(
+            db, business_id=business_id, actor_user_id=membership.user_id,
+            event_type="transaction.posted", target_type="transaction", target_id=transaction.id,
+            metadata={"direction": transaction.direction, "amount": str(transaction.amount),
+                      "currency_code": transaction.currency_code},
+        )
+        db.commit()
+        return transaction
+    except (TransactionNotFoundError, InvalidTransactionStateError) as exc:
         _raise_service_error(exc)
 
 
