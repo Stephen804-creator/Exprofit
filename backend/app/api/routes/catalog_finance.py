@@ -24,10 +24,10 @@ from app.permissions import require_permission
 from app.schemas.catalog import (
     BudgetCreate,
     BudgetRead,
-    FinancialGoalCreate,
-    FinancialGoalRead,
     CustomerCreate,
     CustomerRead,
+    FinancialGoalCreate,
+    FinancialGoalRead,
     ProductCreate,
     ProductRead,
 )
