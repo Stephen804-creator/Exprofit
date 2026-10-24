@@ -48,15 +48,25 @@ class Settings(BaseSettings):
         return value
 
     @property
+    def missing_email_settings(self) -> list[str]:
+        """List missing SMTP setting names without exposing their values."""
+        missing = []
+        if not self.smtp_host.strip():
+            missing.append("SMTP_HOST")
+        if not self.smtp_username.strip():
+            missing.append("SMTP_USERNAME")
+        if not self.smtp_password.strip():
+            missing.append("SMTP_PASSWORD")
+        if not self.smtp_from_email.strip():
+            missing.append("SMTP_FROM_EMAIL")
+        if self.smtp_port <= 0:
+            missing.append("SMTP_PORT")
+        return missing
+
+    @property
     def email_delivery_configured(self) -> bool:
         """Return whether all required SMTP sender settings are present."""
-        return bool(
-            self.smtp_host.strip()
-            and self.smtp_username.strip()
-            and self.smtp_password.strip()
-            and self.smtp_from_email.strip()
-            and self.smtp_port > 0
-        )
+        return not self.missing_email_settings
 
     @property
     def allowed_origins(self) -> list[str]:
