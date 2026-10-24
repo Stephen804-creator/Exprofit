@@ -332,10 +332,10 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
           return <article className="receipt-review" key={r.id}><strong>{r.original_filename} — needs review</strong>
             <p className="receipt-review-warning"><strong>Review required:</strong> extracted values are suggestions, not verified facts. Compare them with the original receipt before confirming.</p>{r.extracted_text ? <details><summary>View extracted text</summary><pre>{r.extracted_text}</pre></details> : <p className="finance-muted">No text extracted; complete fields manually.</p>}
             <div className="finance-form"><label>Type<select disabled={!canWriteAny} value={f.direction} onChange={e => change({ direction: e.target.value as "income" | "expense" })}>{canWrite("expenses") && <option value="expense">Expense</option>}{canWrite("sales") && <option value="income">Income</option>}</select></label>
-              <label>Amount<input disabled={!canWriteAny} type="number" min="0.01" step="0.01" value={f.amount} onChange={e => change({ amount: e.target.value })} required /></label>
-              <label>Date<input disabled={!canWriteAny} type="date" value={f.date} onChange={e => change({ date: e.target.value })} required /></label>
+              <label>{r.candidate_amount ? "Amount · OCR suggestion" : "Amount"}<input disabled={!canWriteAny} type="number" min="0.01" step="0.01" value={f.amount} onChange={e => change({ amount: e.target.value })} required /></label>
+              <label>{r.candidate_date ? "Date · OCR suggestion" : "Date"}<input disabled={!canWriteAny} type="date" value={f.date} onChange={e => change({ date: e.target.value })} required /></label>
               <label>Category<input disabled={!canWriteAny} value={f.category} onChange={e => change({ category: e.target.value })} /></label>
-              <label className="finance-full">Merchant / description<input disabled={!canWriteAny} value={f.description} onChange={e => change({ description: e.target.value })} required /></label></div>
+              <label className="finance-full">{r.candidate_merchant ? "Merchant / description · OCR suggestion" : "Merchant / description"}<input disabled={!canWriteAny} value={f.description} onChange={e => change({ description: e.target.value })} required /></label></div>
             <div className="finance-actions">{canWrite(f.direction === "income" ? "sales" : "expenses") && <button className="finance-button" type="button" disabled={busy} onClick={() => void confirmReceipt(r)}>Confirm and save</button>}{canWriteExpenses && <button className="finance-button finance-button--quiet" type="button" disabled={busy} onClick={() => void rejectReceipt(r)}>Reject and delete file</button>}</div>
           </article>;
         })}
