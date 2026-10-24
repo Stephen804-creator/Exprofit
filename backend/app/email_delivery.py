@@ -1,10 +1,30 @@
 """SMTP delivery for account verification messages."""
 
+import logging
+import re
 import smtplib
 from datetime import datetime
 from email.message import EmailMessage
 
 from app.config import Settings
+
+logger = logging.getLogger(__name__)
+
+
+def _smtp_failure_summary(exc: Exception) -> str:
+    """Return a useful SMTP diagnostic without logging addresses or credentials."""
+    detail = getattr(exc, "smtp_error", None) or str(exc)
+    if isinstance(detail, bytes):
+        detail = detail.decode("utf-8", errors="replace")
+    detail = str(detail)
+    detail = re.sub(
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+        "[email redacted]",
+        detail,
+        flags=re.IGNORECASE,
+    )
+    detail = re.sub(r"(?i)(password|token|api[_ -]?key)\s*[:=]\s*\S+", r"\1=[redacted]", detail)
+    return detail[:240]
 
 
 class EmailDeliveryError(RuntimeError):
@@ -41,6 +61,12 @@ def send_verification_email(
                 server.login(settings.smtp_username, settings.smtp_password)
             server.send_message(message)
     except (OSError, smtplib.SMTPException) as exc:
+        logger.warning(
+            "Verification email delivery failed: type=%s smtp_code=%s detail=%s",
+            type(exc).__name__,
+            getattr(exc, "smtp_code", None),
+            _smtp_failure_summary(exc),
+        )
         raise EmailDeliveryError("Verification email could not be sent") from exc
 
 
@@ -83,4 +109,10 @@ def send_invitation_email(
                 server.login(settings.smtp_username, settings.smtp_password)
             server.send_message(message)
     except (OSError, smtplib.SMTPException) as exc:
+        logger.warning(
+            "Invitation email delivery failed: type=%s smtp_code=%s detail=%s",
+            type(exc).__name__,
+            getattr(exc, "smtp_code", None),
+            _smtp_failure_summary(exc),
+        )
         raise EmailDeliveryError("Invitation email could not be sent") from exc
