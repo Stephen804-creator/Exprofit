@@ -19,7 +19,9 @@ class FinancialGoal(Base):
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    business_id: Mapped[UUID] = mapped_column(ForeignKey("businesses.id", ondelete="RESTRICT"), nullable=False)
+    business_id: Mapped[UUID] = mapped_column(
+        ForeignKey("businesses.id", ondelete="RESTRICT"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     goal_kind: Mapped[str] = mapped_column(String(20), nullable=False)
     currency_code: Mapped[str] = mapped_column(String(3), nullable=False)
@@ -27,4 +29,6 @@ class FinancialGoal(Base):
     period_start: Mapped[date] = mapped_column(Date, nullable=False)
     period_end: Mapped[date] = mapped_column(Date, nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true", nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
