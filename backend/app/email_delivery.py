@@ -1,13 +1,12 @@
 """SMTP delivery for account verification messages."""
 
-from datetime import datetime
-from email.message import EmailMessage
 import logging
 import re
 import smtplib
+from datetime import datetime
+from email.message import EmailMessage
 
 from app.config import Settings
-
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +63,9 @@ def send_verification_email(
     except (OSError, smtplib.SMTPException) as exc:
         logger.warning(
             "Verification email delivery failed: type=%s smtp_code=%s detail=%s",
-            type(exc).__name__, getattr(exc, "smtp_code", None), _smtp_failure_summary(exc),
+            type(exc).__name__,
+            getattr(exc, "smtp_code", None),
+            _smtp_failure_summary(exc),
         )
         raise EmailDeliveryError("Verification email could not be sent") from exc
 
@@ -110,6 +111,8 @@ def send_invitation_email(
     except (OSError, smtplib.SMTPException) as exc:
         logger.warning(
             "Invitation email delivery failed: type=%s smtp_code=%s detail=%s",
-            type(exc).__name__, getattr(exc, "smtp_code", None), _smtp_failure_summary(exc),
+            type(exc).__name__,
+            getattr(exc, "smtp_code", None),
+            _smtp_failure_summary(exc),
         )
         raise EmailDeliveryError("Invitation email could not be sent") from exc
