@@ -1,4 +1,3 @@
-# ruff: noqa
 """Financial operations: recurring expectations, forecasts, alerts, exports, onboarding, and copilot."""
 import csv
 import io
@@ -11,7 +10,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request as FastAPIRequest
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
@@ -24,6 +23,7 @@ from app.db.session import get_db
 from app.models import Budget, Business, BusinessMembership, FinancialAlert, Product, Receipt, RecurringTransaction, Transaction
 from app.permissions import require_permission
 from app.services.financial_analysis import profitability, summarize_transactions
+from app.services.rate_limit import enforce_rate_limit
 
 router = APIRouter(prefix="/businesses/{business_id}", tags=["financial operations"])
 HF_CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
@@ -335,7 +335,7 @@ def update_alert(
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    _read_both(membership)
+    require_permission(membership, "staff_administration", "write")
     row = db.scalar(select(FinancialAlert).where(
         FinancialAlert.id == alert_id, FinancialAlert.business_id == business_id
     ))
@@ -435,10 +435,21 @@ def onboarding_progress(
 @router.post("/financial-copilot")
 def financial_copilot(
     business_id: UUID, payload: CopilotRequest,
+    request: FastAPIRequest,
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     _read_both(membership)
+    if payload.use_ai:
+        enforce_rate_limit(
+            db,
+            request,
+            action="ai:financial_copilot",
+            identity=f"{business_id}:{membership.user_id}",
+            limit=10,
+            window_seconds=3600,
+            include_client_ip=False,
+        )
     start = payload.end_date - timedelta(days=payload.period_days - 1)
     rows = list(db.scalars(select(Transaction).where(
         Transaction.business_id == business_id, Transaction.status == "posted",
