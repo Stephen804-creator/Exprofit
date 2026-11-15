@@ -91,7 +91,7 @@ export default function FinancialIntelligence({ workspaceId, accessToken }: { wo
     </div>
     <form onSubmit={generateBrief}>
       <label className="finance-full">What would you like explained? (optional)<input maxLength={300} value={question} onChange={e => setQuestion(e.target.value)} placeholder="Explain the biggest recorded change" /></label>
-      <label className="finance-check"><input type="checkbox" checked={useAi} onChange={e => setUseAi(e.target.checked)} /> Use optional Gemma AI via Hugging Face. A limited structured summary and this question will be sent to the provider.</label>
+      <label className="finance-check"><input type="checkbox" checked={useAi} onChange={e => setUseAi(e.target.checked)} /> Use optional Gemma AI via Hugging Face. Aggregated totals, profitability measures, the date range, currency codes, and your question are sent to Hugging Face; individual transaction rows and customer names are not included. Avoid putting names or personal details in your question.</label>
       <div className="finance-actions"><button className="finance-button" disabled={busy}>{busy ? "Working…" : "Generate financial brief"}</button></div>
     </form>
     {brief && <article className="guard-finding">
