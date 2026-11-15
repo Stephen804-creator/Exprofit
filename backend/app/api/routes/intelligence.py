@@ -3,7 +3,6 @@
 import json
 import urllib.error
 import urllib.request
-
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated
@@ -108,7 +107,14 @@ def _call_gemma(token: str, model: str, facts: dict, question: str | None) -> st
             cleaned = content.strip()
             return cleaned[:6000] if cleaned else None
     except (
-        urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError, IndexError, TypeError
+        urllib.error.HTTPError,
+        urllib.error.URLError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        KeyError,
+        IndexError,
+        TypeError,
     ):
         return None
     return None
