@@ -3,12 +3,13 @@
 import csv
 import io
 import json
+import urllib.error
+import urllib.request
+
 from calendar import monthrange
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated
-import urllib.error
-import urllib.request
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
