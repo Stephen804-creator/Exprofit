@@ -9,7 +9,7 @@ from pathlib import PurePath
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
@@ -19,8 +19,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_business_membership
 from app.db.session import get_db
 from app.models import Business, BusinessMembership, Receipt, Transaction
-from app.permissions import require_permission
+from app.permissions import has_permission, require_permission
 from app.services.audit import record_audit_event
+from app.services.rate_limit import enforce_rate_limit
 from app.services.financial_analysis import compare_periods, profitability, summarize_transactions
 
 router = APIRouter(prefix="/businesses/{business_id}", tags=["financial"])
@@ -47,7 +48,20 @@ class ReceiptConfirm(BaseModel):
 
 
 def _require_write(membership: BusinessMembership) -> None:
-    require_permission(membership, "expenses", "write")
+    """Receipts may document either income or expense transactions."""
+    if not (
+        has_permission(membership, "sales", "write")
+        or has_permission(membership, "expenses", "write")
+    ):
+        raise HTTPException(status_code=403, detail="Receipt write permission is required")
+
+
+def _require_read(membership: BusinessMembership) -> None:
+    if not (
+        has_permission(membership, "sales", "read")
+        or has_permission(membership, "expenses", "read")
+    ):
+        raise HTTPException(status_code=403, detail="Receipt read permission is required")
 
 
 def _receipt_payload(receipt: Receipt) -> dict:
@@ -191,11 +205,30 @@ def list_receipts(
 @router.post("/receipts", status_code=status.HTTP_201_CREATED)
 async def upload_receipt(
     business_id: UUID,
+    request: Request,
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
     file: Annotated[UploadFile, File(...)],
 ) -> dict:
     _require_write(membership)
+    raw_length = request.headers.get("content-length")
+    if raw_length:
+        try:
+            request_length = int(raw_length)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length header") from exc
+        if request_length > MAX_RECEIPT_BYTES + 64 * 1024:
+            raise HTTPException(status_code=413, detail="Receipt request exceeds the upload limit.")
+
+    enforce_rate_limit(
+        db,
+        request,
+        action="receipt:upload",
+        identity=f"{business_id}:{membership.user_id}",
+        limit=20,
+        window_seconds=3600,
+        include_client_ip=False,
+    )
     content_type = (file.content_type or "").lower()
     if content_type not in ALLOWED_TYPES:
         raise HTTPException(status_code=415, detail="Upload a JPEG, PNG, WebP image, or PDF.")
@@ -265,7 +298,7 @@ def download_receipt_file(
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
-    require_permission(membership, "expenses", "read")
+    _require_read(membership)
     receipt = db.scalar(select(Receipt).where(
         Receipt.id == receipt_id, Receipt.business_id == business_id
     ))
