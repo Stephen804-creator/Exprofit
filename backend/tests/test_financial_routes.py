@@ -548,3 +548,28 @@ def test_ai_financial_brief_is_rate_limited(client: TestClient, monkeypatch: pyt
         json={"end_date": "2026-10-19", "period_days": 30, "use_ai": True},
     )
     assert response.status_code == 429
+
+
+
+def test_ai_financial_copilot_is_rate_limited(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi import HTTPException
+    from app.api.routes import financial_operations
+
+    owner = register(client, "copilot-rate-owner@example.com")
+    business_id = make_business(client, owner["access_token"])
+
+    def reject(*args, **kwargs):
+        raise HTTPException(status_code=429, detail="rate limited")
+
+    monkeypatch.setattr(financial_operations, "enforce_rate_limit", reject)
+    response = client.post(
+        f"/businesses/{business_id}/financial-copilot",
+        headers=bearer(owner["access_token"]),
+        json={
+            "question": "Explain my recorded cash movement",
+            "end_date": "2026-10-19",
+            "period_days": 30,
+            "use_ai": True,
+        },
+    )
+    assert response.status_code == 429
