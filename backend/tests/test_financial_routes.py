@@ -573,3 +573,50 @@ def test_ai_financial_copilot_is_rate_limited(client: TestClient, monkeypatch: p
         },
     )
     assert response.status_code == 429
+
+
+
+def test_receipt_download_does_not_cross_financial_permission_domains(client: TestClient) -> None:
+    owner = register(client, "receipt-domain-owner@example.com")
+    member = register(client, "receipt-domain-sales@example.com")
+    business_id = make_business(client, owner["access_token"])
+    member_id = client.get("/auth/me", headers=bearer(member["access_token"])).json()["id"]
+
+    with client.app.state.test_session() as db:
+        db.add(BusinessMembership(
+            business_id=UUID(business_id),
+            user_id=UUID(member_id),
+            role="worker",
+            status="active",
+            permissions={"sales:read": True, "sales:write": True},
+        ))
+        db.commit()
+
+    uploaded = upload_receipt(client, owner["access_token"], business_id)
+    assert uploaded.status_code == 201, uploaded.text
+    receipt_id = uploaded.json()["id"]
+
+    pending_download = client.get(
+        f"/businesses/{business_id}/receipts/{receipt_id}/file",
+        headers=bearer(member["access_token"]),
+    )
+    assert pending_download.status_code == 403
+
+    confirmed = client.post(
+        f"/businesses/{business_id}/receipts/{receipt_id}/confirm",
+        headers=bearer(owner["access_token"]),
+        json={
+            "direction": "expense",
+            "amount": "10.00",
+            "transaction_date": date.today().isoformat(),
+            "description": "Private expense receipt",
+            "category": "COGS",
+        },
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+    expense_download = client.get(
+        f"/businesses/{business_id}/receipts/{receipt_id}/file",
+        headers=bearer(member["access_token"]),
+    )
+    assert expense_download.status_code == 403
