@@ -294,3 +294,28 @@ def test_admin_cannot_review_an_invitation_application(client: TestClient) -> No
         headers=bearer(admin["access_token"]),
     )
     assert response.status_code == 403
+
+
+
+def test_invitation_rejects_a_jpeg_signature_without_a_valid_image(client: TestClient) -> None:
+    owner = register(client, "owner-invalid-photo@example.com")
+    applicant = register(client, "applicant-invalid-photo@example.com")
+    business_id = make_business(client, owner["access_token"])
+    invite_token = make_invitation(client, owner["access_token"], business_id)
+    fake_photo = (
+        "data:image/jpeg;base64,"
+        + base64.b64encode(b"\\xff\\xd8\\xffnot-a-real-jpeg").decode("ascii")
+    )
+
+    response = client.post(
+        "/invitations/apply",
+        headers=bearer(applicant["access_token"]),
+        json={
+            "token": invite_token,
+            "full_name": "Test Applicant",
+            "identifying_details": "Testing an invalid photo payload",
+            "photo_data_url": fake_photo,
+            "consent": True,
+        },
+    )
+    assert response.status_code == 422
