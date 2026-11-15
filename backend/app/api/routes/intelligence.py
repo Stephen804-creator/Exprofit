@@ -8,7 +8,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ from app.db.session import get_db
 from app.models import BusinessMembership, Transaction
 from app.permissions import require_permission
 from app.services.financial_analysis import compare_periods, profitability, summarize_transactions
+from app.services.rate_limit import enforce_rate_limit
 from app.services.financial_intelligence import (
     build_verified_facts,
     explain_verified_facts,
@@ -121,10 +122,21 @@ def _require_financial_read(membership: BusinessMembership) -> None:
 def financial_brief(
     business_id: UUID,
     payload: BriefRequest,
+    request: Request,
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     _require_financial_read(membership)
+    if payload.use_ai:
+        enforce_rate_limit(
+            db,
+            request,
+            action="ai:financial_brief",
+            identity=f"{business_id}:{membership.user_id}",
+            limit=10,
+            window_seconds=3600,
+            include_client_ip=False,
+        )
     current, previous, cs, ce, ps, pe = _load_periods(
         db, business_id, payload.end_date, payload.period_days
     )
