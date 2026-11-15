@@ -6,11 +6,13 @@ from decimal import Decimal
 from uuid import UUID
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes import financial as financial_routes, financial_operations, intelligence
 from app.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
@@ -516,9 +518,9 @@ def test_read_only_member_cannot_dismiss_workspace_alert(client: TestClient) -> 
     assert response.status_code == 403
 
 
-def test_receipt_upload_is_rate_limited(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    from fastapi import HTTPException
-    from app.api.routes import financial as financial_routes
+def test_receipt_upload_is_rate_limited(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
 
     owner = register(client, "receipt-rate-owner@example.com")
     business_id = make_business(client, owner["access_token"])
@@ -531,9 +533,9 @@ def test_receipt_upload_is_rate_limited(client: TestClient, monkeypatch: pytest.
     assert response.status_code == 429
 
 
-def test_ai_financial_brief_is_rate_limited(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    from fastapi import HTTPException
-    from app.api.routes import intelligence
+def test_ai_financial_brief_is_rate_limited(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
 
     owner = register(client, "ai-rate-owner@example.com")
     business_id = make_business(client, owner["access_token"])
@@ -551,9 +553,9 @@ def test_ai_financial_brief_is_rate_limited(client: TestClient, monkeypatch: pyt
 
 
 
-def test_ai_financial_copilot_is_rate_limited(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    from fastapi import HTTPException
-    from app.api.routes import financial_operations
+def test_ai_financial_copilot_is_rate_limited(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
 
     owner = register(client, "copilot-rate-owner@example.com")
     business_id = make_business(client, owner["access_token"])
