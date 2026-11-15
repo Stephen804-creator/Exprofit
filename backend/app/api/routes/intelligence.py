@@ -5,10 +5,10 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request as URLRequest, urlopen
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request as FastAPIRequest
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -122,7 +122,7 @@ def _require_financial_read(membership: BusinessMembership) -> None:
 def financial_brief(
     business_id: UUID,
     payload: BriefRequest,
-    request: FastAPIRequest,
+    request: Request,
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
