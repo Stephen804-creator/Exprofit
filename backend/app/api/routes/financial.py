@@ -99,7 +99,7 @@ def _extract_text(content: bytes, content_type: str) -> str:
         with Image.open(io.BytesIO(content)) as image:
             if image.width * image.height > MAX_IMAGE_PIXELS:
                 return ""
-            return pytesseract.image_to_string(image.convert("RGB"))[:12000]
+            return pytesseract.image_to_string(image.convert("RGB"), timeout=10)[:12000]
     except Exception:
         return ""
 
