@@ -16,15 +16,18 @@ This roadmap preserves deferred ideas and distinguishes plans from implemented, 
 - [x] Tokens are random and stored as hashes; expired, revoked, or used invitations cannot be reused.
 - [x] Applicant photo is removed after approval, rejection, or revocation of a pending application.
 - [x] Verify the newest invitation/consent changes against GitHub Actions CI (Ruff, backend tests, PostgreSQL migrations, frontend typecheck, and production build).
-- [ ] Manually test the complete invitation flow on mobile before calling this slice release-ready.
-- [ ] Add focused security tests for invalid/replayed links, expiry, duplicate applications, owner-only review, and privilege escalation.
-- [ ] Add auth/sensitive-route rate limits, production security checks, and a frontend lockfile.
-- [ ] Verify on branch `feat/core-financial-workflow-builds-1-8`: private receipt capture and review, date-filtered currency-separated summaries, deterministic gross-profit calculations, and evidence-backed MarginGuard comparisons. Do not mark complete until CI, PostgreSQL migrations, access-control tests, and manual end-to-end checks pass.
-- [x] Implement the deterministic what-if simulator and evidence-backed plain-language financial brief in PR #3; AI is optional and never the source of arithmetic. CI and manual release gates remain pending.
+- [x] Implement private receipt capture/review, date-filtered currency-separated summaries, deterministic gross-profit calculations, and evidence-backed MarginGuard comparisons.
+- [x] Implement the deterministic what-if simulator and evidence-backed plain-language financial brief; AI is optional and never the source of arithmetic.
+- [x] Add database-backed rate limits for authentication, email-verification resend, invitations, receipt uploads, and optional external AI calls.
+- [x] Add production secret/database validation, streamed request-size limits, and stronger receipt/invitation-file validation.
+- [ ] Complete manual mobile and deployed end-to-end testing for invitations, receipt lifecycle, permission boundaries, and provider failure states.
+- [ ] Commit a frontend lockfile and verify clean reproducible installs.
+- [ ] Verify durable private receipt storage, backups, retention, and restore behaviour before production.
 
 ## Collaboration expansion — later
 
-- [ ] Workspace-switcher and member-administration UX refinements.
+- [x] Workspace switching, member administration, reasoned suspension/revocation/reinstatement, voluntary leave, and audit history are implemented.
+- [ ] Further workspace-switcher and member-administration UX refinements.
 - [ ] Customizable departments, teams, or units; department membership stays separate from financial permissions.
 - [ ] Department conversations and announcements.
 - [ ] Private direct messages visible only to their participants.
@@ -40,9 +43,9 @@ This roadmap preserves deferred ideas and distinguishes plans from implemented, 
 
 ## AI and product expansion — later
 
-- [ ] Optional Gemma-based explanations grounded only in records the current user is authorized to access.
-- [ ] Evidence-linked investigations and evaluation tests for unsupported claims.
-- [ ] Inventory, purchases, team reporting, and advanced financial workflows after the core data model stabilizes.
+- [x] Optional Gemma-based explanations grounded in server-calculated facts and protected by explicit per-request opt-in.
+- [x] Evidence-linked investigations and deterministic what-if calculations.
+- [ ] Expand inventory, purchases, team reporting, and advanced financial workflows after the core data model stabilizes.
 
 ## Invitation flow in this release
 
@@ -59,3 +62,9 @@ Photos are currently held temporarily in the application database, not a dedicat
 ## Builds 9–14 implementation status
 
 The branch `feat/intelligence-simulator-builds-9-14` and PR #3 add a deterministic brief, opt-in Hugging Face Gemma explanations, a non-persistent what-if simulator, and focused tests. Do not mark this release-ready until PR checks pass and manual authorization, provider-failure, mobile, and deployed end-to-end tests are complete. See `docs/BUILDS_9_14_IMPLEMENTATION.md`.
+
+
+
+## Production-hardening follow-up
+
+The current hardening branch adds production startup checks, request-size limits, rate limits for sensitive workflows, invitation JPEG validation, receipt permission boundaries, AI data-sharing disclosures, and audit protection for shared alert status. See [PR #21](https://github.com/Stephen804-creator/Exprofit/pull/21) and [Implementation Status](IMPLEMENTATION_STATUS.md). Automated CI does not replace manual mobile testing, hosted-provider checks, or durable receipt-storage verification.
