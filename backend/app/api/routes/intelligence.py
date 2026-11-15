@@ -4,8 +4,8 @@ import json
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated
-from urllib.error import HTTPError, URLError
-from urllib.request import Request as URLRequest, urlopen
+import urllib.error
+import urllib.request
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
