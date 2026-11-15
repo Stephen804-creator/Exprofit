@@ -10,6 +10,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from PIL import Image
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -75,7 +76,6 @@ def _decode_photo(data_url: str) -> bytes:
     if not photo or len(photo) > MAX_PHOTO_BYTES or not photo.startswith(b"\xff\xd8\xff"):
         raise HTTPException(status_code=422, detail="Photo must be a valid JPEG up to 15 MB")
     try:
-        from PIL import Image
         with Image.open(io.BytesIO(photo)) as image:
             if image.format != "JPEG" or image.width * image.height > MAX_PHOTO_PIXELS:
                 raise ValueError("JPEG dimensions or format are not supported")
