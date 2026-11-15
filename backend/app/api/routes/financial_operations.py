@@ -1,11 +1,9 @@
 """Financial operations: recurring expectations, forecasts, alerts, exports, onboarding, and copilot."""
-# ruff: noqa: E501
 import csv
 import io
 import json
 import urllib.error
 import urllib.request
-
 from calendar import monthrange
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
