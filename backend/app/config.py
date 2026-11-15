@@ -3,7 +3,7 @@
 import os
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +28,21 @@ class Settings(BaseSettings):
     hf_gemma_model: str = "google/gemma-3-12b-it:fastest"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+
+    @model_validator(mode="after")
+    def validate_production_settings(self) -> "Settings":
+        """Fail at startup rather than issuing tokens with weak production secrets."""
+        if self.app_env.strip().lower() == "production":
+            if len(self.auth_secret_key.strip()) < 32:
+                raise ValueError(
+                    "AUTH_SECRET_KEY must contain at least 32 characters in production"
+                )
+            database = self.database_url.lower()
+            if "change-me" in database or "localhost" in database or "127.0.0.1" in database:
+                raise ValueError(
+                    "DATABASE_URL must point to a configured production database"
+                )
+        return self
 
     @field_validator("database_url", mode="before")
     @classmethod
