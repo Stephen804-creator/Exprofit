@@ -81,7 +81,10 @@ def _decode_photo(data_url: str) -> bytes:
                 raise ValueError("JPEG dimensions or format are not supported")
             image.verify()
     except (OSError, ValueError, SyntaxError, Image.DecompressionBombError) as exc:
-        raise HTTPException(status_code=422, detail="The uploaded photo is not a safe, valid JPEG") from exc
+        raise HTTPException(
+            status_code=422,
+            detail="The uploaded photo is not a safe, valid JPEG",
+        ) from exc
     return photo
 
 
