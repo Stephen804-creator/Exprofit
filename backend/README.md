@@ -38,7 +38,7 @@ python -m pytest
 alembic upgrade head
 ```
 
-CI run #97 is a historical baseline (19 backend tests). Current remediation checks and the expanded test count are tracked in [PR #21](https://github.com/Stephen804-creator/Exprofit/pull/21). The root README and `docs/IMPLEMENTATION_STATUS.md` track the wider product plan and current verification state.
+Final-head CI run [#43732284888](https://github.com/Stephen804-creator/Exprofit/actions/runs/43732284888) passed Ruff, PostgreSQL migrations, 90 backend tests, frontend typecheck, and production build (one third-party deprecation warning). The root README and `docs/IMPLEMENTATION_STATUS.md` track the wider product plan and remaining manual release checks.
 
 
 Email verification endpoints:
