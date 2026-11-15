@@ -8,7 +8,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request as FastAPIRequest
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -122,7 +122,7 @@ def _require_financial_read(membership: BusinessMembership) -> None:
 def financial_brief(
     business_id: UUID,
     payload: BriefRequest,
-    request: Request,
+    request: FastAPIRequest,
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
