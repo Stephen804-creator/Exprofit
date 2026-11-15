@@ -8,10 +8,10 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request as URLRequest, urlopen
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request as FastAPIRequest
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
@@ -455,7 +455,7 @@ def onboarding_progress(
 @router.post("/financial-copilot")
 def financial_copilot(
     business_id: UUID, payload: CopilotRequest,
-    request: FastAPIRequest,
+    request: Request,
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
