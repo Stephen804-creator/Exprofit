@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes.auth import router as auth_router
@@ -18,12 +18,77 @@ from app.api.routes.members import router as members_router
 from app.api.routes.transactions import router as transactions_router
 from app.config import get_settings
 
+class RequestBodyTooLarge(Exception):
+    """Internal signal used to stop oversized request bodies while streaming."""
+
+
+class RequestSizeLimitMiddleware:
+    """Bound request bodies before FastAPI parses multipart uploads or JSON."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("method") not in {"POST", "PUT", "PATCH"}:
+            await self.app(scope, receive, send)
+            return
+
+        path = scope.get("path", "").rstrip("/")
+        if path == "/invitations/apply":
+            limit = 22 * 1024 * 1024
+        elif path.endswith("/receipts"):
+            limit = 5 * 1024 * 1024 + 64 * 1024
+        else:
+            limit = 2 * 1024 * 1024
+
+        headers = dict(scope.get("headers", []))
+        raw_length = headers.get(b"content-length")
+        if raw_length:
+            try:
+                if int(raw_length) > limit:
+                    response = JSONResponse(
+                        {"detail": "Request body exceeds the configured size limit."},
+                        status_code=413,
+                    )
+                    await response(scope, receive, send)
+                    return
+            except ValueError:
+                response = JSONResponse(
+                    {"detail": "Invalid Content-Length header."},
+                    status_code=400,
+                )
+                await response(scope, receive, send)
+                return
+
+        total = 0
+
+        async def limited_receive():
+            nonlocal total
+            message = await receive()
+            if message["type"] == "http.request":
+                total += len(message.get("body", b""))
+                if total > limit:
+                    raise RequestBodyTooLarge
+            return message
+
+        try:
+            await self.app(scope, limited_receive, send)
+        except RequestBodyTooLarge:
+            response = JSONResponse(
+                {"detail": "Request body exceeds the configured size limit."},
+                status_code=413,
+            )
+            await response(scope, receive, send)
+
+
 settings = get_settings()
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
     description="Expense tracking and evidence-backed profitability insights for small businesses.",
 )
+
+app.add_middleware(RequestSizeLimitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
