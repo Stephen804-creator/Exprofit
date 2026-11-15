@@ -1,6 +1,7 @@
 """Tests for the no-email, owner-reviewed invitation workflow."""
 
 import base64
+import io
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
@@ -8,6 +9,7 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -83,9 +85,10 @@ def make_invitation(client: TestClient, owner_token: str, business_id: str, hour
 
 
 def photo_data_url() -> str:
-    # Minimal JPEG-signature fixture for API validation; not a real person's image.
-    fake_jpeg = b"\xff\xd8\xff" + (b"test-image-data-" * 20)
-    return "data:image/jpeg;base64," + base64.b64encode(fake_jpeg).decode("ascii")
+    # Generate a tiny valid JPEG fixture; it contains no real person's image.
+    buffer = io.BytesIO()
+    Image.new("RGB", (16, 16), color=(120, 140, 160)).save(buffer, format="JPEG")
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
 def submit_application(client: TestClient, token: str, invite_token: str) -> dict:
