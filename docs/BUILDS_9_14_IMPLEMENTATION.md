@@ -28,3 +28,9 @@ Set HF_TOKEN only as a server-side environment secret with Inference Providers p
 - [ ] Simulator results are repeatable and do not change the ledger.
 - [ ] Exact selected Gemma model terms and provider availability are checked before deployment.
 - [ ] Manual mobile and deployed workflow checks pass before release.
+
+
+
+## Current provider-data and abuse controls
+
+When optional AI is enabled, the backend sends aggregated financial facts (totals, profitability measures, date range, currency context) and the user's question to the configured Hugging Face endpoint. It does not send individual transaction rows, customer names, receipt images, or provider credentials. The UI tells users not to include personal details in their questions. AI requests are rate-limited per user and workspace; the deterministic financial calculations and non-AI fallback remain available when AI is disabled or unavailable. The provider integration is still not claimed as live-tested without a separately configured credentialed test.
