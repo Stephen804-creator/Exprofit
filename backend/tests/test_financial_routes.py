@@ -12,7 +12,8 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.routes import financial as financial_routes, financial_operations, intelligence
+from app.api.routes import financial_operations, intelligence
+from app.api.routes import financial as financial_routes
 from app.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
