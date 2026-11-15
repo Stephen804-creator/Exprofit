@@ -2,13 +2,14 @@
 
 import base64
 import binascii
+import io
 import secrets
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -34,9 +35,11 @@ from app.schemas.invitations import (
     InvitationRead,
 )
 from app.services.audit import record_audit_event
+from app.services.rate_limit import enforce_rate_limit
 
 router = APIRouter(tags=["workspace invitations"])
 MAX_PHOTO_BYTES = 15 * 1024 * 1024
+MAX_PHOTO_PIXELS = 20_000_000
 
 
 def _utc(value: datetime) -> datetime:
@@ -71,6 +74,14 @@ def _decode_photo(data_url: str) -> bytes:
         raise HTTPException(status_code=422, detail="The photo could not be read") from exc
     if not photo or len(photo) > MAX_PHOTO_BYTES or not photo.startswith(b"\xff\xd8\xff"):
         raise HTTPException(status_code=422, detail="Photo must be a valid JPEG up to 15 MB")
+    try:
+        from PIL import Image
+        with Image.open(io.BytesIO(photo)) as image:
+            if image.format != "JPEG" or image.width * image.height > MAX_PHOTO_PIXELS:
+                raise ValueError("JPEG dimensions or format are not supported")
+            image.verify()
+    except (OSError, ValueError, SyntaxError, Image.DecompressionBombError) as exc:
+        raise HTTPException(status_code=422, detail="The uploaded photo is not a safe, valid JPEG") from exc
     return photo
 
 
@@ -140,12 +151,21 @@ def _expire_pending_applications(
     status_code=status.HTTP_201_CREATED,
 )
 def create_invitation(
-    business_id: UUID, payload: InvitationCreate,
+    business_id: UUID, payload: InvitationCreate, request: Request,
     actor: Annotated[BusinessMembership, Depends(require_business_membership)],
     user: Annotated[User, Depends(get_current_user)], db: Annotated[Session, Depends(get_db)],
 ) -> InvitationRead:
     """Create a shareable link or email a recipient-bound invitation."""
     _require_owner(actor)
+    enforce_rate_limit(
+        db,
+        request,
+        action="invitation:create",
+        identity=f"{business_id}:{user.id}",
+        limit=10,
+        window_seconds=3600,
+        include_client_ip=False,
+    )
     business = db.get(Business, business_id)
     if business is None or business.workspace_type != "business":
         raise HTTPException(status_code=404, detail="Business workspace not found")
@@ -211,10 +231,18 @@ def create_invitation(
 
 @router.post("/invitations/apply", response_model=InvitationApplicationRead, status_code=201)
 def submit_application(
-    payload: InvitationApplicationCreate, user: Annotated[User, Depends(get_current_user)],
+    payload: InvitationApplicationCreate, request: Request,
+    user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> InvitationApplicationRead:
     """Submit identifying details and a private photo; no access is granted yet."""
+    raw_length = request.headers.get("content-length")
+    if raw_length:
+        try:
+            if int(raw_length) > 22 * 1024 * 1024:
+                raise HTTPException(status_code=413, detail="Invitation photo request is too large")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length header") from exc
     token_hash = sha256(payload.token.encode()).hexdigest()
     invitation = db.scalar(
         select(WorkspaceInvitation)
@@ -227,6 +255,15 @@ def submit_application(
             _expire_pending_applications(db, invitation.business_id, now)
         raise HTTPException(status_code=400, detail="Invalid, expired, or unavailable invitation")
     assert invitation is not None
+    enforce_rate_limit(
+        db,
+        request,
+        action="invitation:apply",
+        identity=f"{invitation.id}:{user.id}",
+        limit=3,
+        window_seconds=3600,
+        include_client_ip=False,
+    )
     if invitation.recipient_email is not None:
         matches_recipient = user.email.strip().lower() == invitation.recipient_email.strip().lower()
         if not user.email_verified or not matches_recipient:
