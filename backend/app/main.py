@@ -18,6 +18,7 @@ from app.api.routes.members import router as members_router
 from app.api.routes.transactions import router as transactions_router
 from app.config import get_settings
 
+
 class RequestBodyTooLarge(Exception):
     """Internal signal used to stop oversized request bodies while streaming."""
 
