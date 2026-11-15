@@ -21,8 +21,8 @@ from app.db.session import get_db
 from app.models import Business, BusinessMembership, Receipt, Transaction
 from app.permissions import has_permission, require_permission
 from app.services.audit import record_audit_event
-from app.services.rate_limit import enforce_rate_limit
 from app.services.financial_analysis import compare_periods, profitability, summarize_transactions
+from app.services.rate_limit import enforce_rate_limit
 
 router = APIRouter(prefix="/businesses/{business_id}", tags=["financial"])
 MAX_RECEIPT_BYTES = 5 * 1024 * 1024
