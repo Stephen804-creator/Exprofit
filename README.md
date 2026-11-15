@@ -101,7 +101,7 @@ npm run typecheck
 npm run build
 ```
 
-GitHub Actions runs backend lint/tests and frontend type/build checks on pushes and pull requests to `main`. Run #97 was an earlier baseline (19 backend tests). The current production-hardening changes are tracked in [PR #21](https://github.com/Stephen804-creator/Exprofit/pull/21); use that PR's latest Actions results for the current test count and verification. The npm lockfile is still not committed; CI currently uses `npm install`, so lockfile-based installs remain a reproducibility follow-up.
+GitHub Actions runs backend lint/tests and frontend type/build checks on pushes and pull requests to `main`. Final-head CI run [#43732284888](https://github.com/Stephen804-creator/Exprofit/actions/runs/43732284888) passed Ruff, PostgreSQL migrations, 90 backend tests, frontend typecheck, and frontend production build (one third-party deprecation warning). The npm lockfile is still not committed; CI currently uses `npm install`, so lockfile-based installs remain a reproducibility follow-up.
 
 
 ## Development status and contributions
@@ -132,7 +132,7 @@ Authenticated transaction HTTP routes are now registered. Every route requires a
 
 ## Build 4 — authentication and access control (implemented; verification pending)
 
-The API now includes registration, login, current-user, logout, business-workspace, and business-scoped transaction routes. Passwords are Argon2-hashed; signed access tokens expire after 30 minutes and are linked to database sessions that can be revoked on logout. Registration creates an NGN/Africa-Lagos workspace and owner membership. Business and transaction routes check membership server-side. A test suite covers registration, login failures, logout revocation, duplicate email, cross-business isolation, and a transaction lifecycle. CI run #97 was the original baseline. The current hardening work adds production startup validation for `AUTH_SECRET_KEY` and `DATABASE_URL`, and expands rate limiting beyond registration/login to sensitive verification, invitation, receipt-upload, and optional AI routes. Set `AUTH_SECRET_KEY` to a unique random value of at least 32 bytes; do not reuse the example placeholder or commit a real secret.
+The API now includes registration, login, current-user, logout, business-workspace, and business-scoped transaction routes. Passwords are Argon2-hashed; signed access tokens expire after 30 minutes and are linked to database sessions that can be revoked on logout. Registration creates an NGN/Africa-Lagos workspace and owner membership. Business and transaction routes check membership server-side. A test suite covers registration, login failures, logout revocation, duplicate email, cross-business isolation, and a transaction lifecycle. Final-head CI run [#43732284888](https://github.com/Stephen804-creator/Exprofit/actions/runs/43732284888) passed Ruff, the PostgreSQL migration chain, 90 backend tests, frontend typecheck, and production build. The hardening adds production startup validation for `AUTH_SECRET_KEY` and `DATABASE_URL`, and rate limits sensitive verification, invitation, receipt-upload, and optional AI routes. Set `AUTH_SECRET_KEY` to a unique random value of at least 32 bytes; do not reuse the example placeholder or commit a real secret.
 
 
 ## Email verification foundation
