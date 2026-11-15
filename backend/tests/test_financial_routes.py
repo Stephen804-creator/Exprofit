@@ -528,7 +528,7 @@ def test_receipt_upload_is_rate_limited(
     def reject(*args, **kwargs):
         raise HTTPException(status_code=429, detail="rate limited")
 
-    monkeypatch.setattr(financial_routes, "enforce_rate_limit", reject)
+    monkeypatch.setattr(financial, "enforce_rate_limit", reject)
     response = upload_receipt(client, owner["access_token"], business_id)
     assert response.status_code == 429
 
