@@ -32,6 +32,7 @@ from app.models import (
     Transaction,
 )
 from app.permissions import require_permission
+from app.services.audit import record_audit_event
 from app.services.financial_analysis import profitability, summarize_transactions
 from app.services.rate_limit import enforce_rate_limit
 
@@ -353,6 +354,15 @@ def update_alert(
         raise HTTPException(status_code=404, detail="Alert not found")
     row.status = payload.status
     row.acknowledged_at = datetime.now(UTC)
+    record_audit_event(
+        db,
+        business_id=business_id,
+        actor_user_id=membership.user_id,
+        event_type="financial_alert.acknowledged",
+        target_type="financial_alert",
+        target_id=row.id,
+        metadata={"status": payload.status},
+    )
     db.commit()
     return {"id": str(row.id), "status": row.status, "acknowledged_at": row.acknowledged_at.isoformat()}
 
