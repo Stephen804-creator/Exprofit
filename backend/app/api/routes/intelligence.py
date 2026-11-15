@@ -19,12 +19,12 @@ from app.db.session import get_db
 from app.models import BusinessMembership, Transaction
 from app.permissions import require_permission
 from app.services.financial_analysis import compare_periods, profitability, summarize_transactions
-from app.services.rate_limit import enforce_rate_limit
 from app.services.financial_intelligence import (
     build_verified_facts,
     explain_verified_facts,
     simulate_scenario,
 )
+from app.services.rate_limit import enforce_rate_limit
 
 router = APIRouter(prefix="/businesses/{business_id}", tags=["financial intelligence"])
 HF_CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
