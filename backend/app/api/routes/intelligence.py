@@ -89,7 +89,7 @@ def _call_gemma(token: str, model: str, facts: dict, question: str | None) -> st
         "max_tokens": 500,
         "stream": False,
     }).encode("utf-8")
-    request = Request(
+    request = urllib.request.Request(
         HF_CHAT_URL,
         data=payload,
         headers={
@@ -100,14 +100,14 @@ def _call_gemma(token: str, model: str, facts: dict, question: str | None) -> st
         method="POST",
     )
     try:
-        with urlopen(request, timeout=AI_TIMEOUT_SECONDS) as response:
+        with urllib.request.urlopen(request, timeout=AI_TIMEOUT_SECONDS) as response:
             data = json.loads(response.read(512 * 1024).decode("utf-8"))
         content = data["choices"][0]["message"]["content"]
         if isinstance(content, str):
             cleaned = content.strip()
             return cleaned[:6000] if cleaned else None
     except (
-        HTTPError, URLError, TimeoutError, OSError, ValueError, KeyError, IndexError, TypeError
+        urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError, IndexError, TypeError
     ):
         return None
     return None
