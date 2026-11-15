@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Financial operations: recurring expectations, forecasts, alerts, exports, onboarding, and copilot."""
 import csv
 import io
@@ -20,7 +21,16 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_business_membership
 from app.config import get_settings
 from app.db.session import get_db
-from app.models import Budget, Business, BusinessMembership, FinancialAlert, Product, Receipt, RecurringTransaction, Transaction
+from app.models import (
+    Budget,
+    Business,
+    BusinessMembership,
+    FinancialAlert,
+    Product,
+    Receipt,
+    RecurringTransaction,
+    Transaction,
+)
 from app.permissions import require_permission
 from app.services.financial_analysis import profitability, summarize_transactions
 from app.services.rate_limit import enforce_rate_limit
