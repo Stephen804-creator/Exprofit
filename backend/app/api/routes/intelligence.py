@@ -1,11 +1,12 @@
 """Permission-checked financial brief and what-if scenario endpoints."""
 
 import json
+import urllib.error
+import urllib.request
+
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated
-import urllib.error
-import urllib.request
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
