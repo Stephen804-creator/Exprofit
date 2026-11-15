@@ -15,7 +15,7 @@ const monthStart = () => today().slice(0, 8) + "01";
 const cash = (value: string, currency: string) => currency + " " + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const errorText = (value: unknown) => value && typeof value === "object" && "detail" in value && typeof value.detail === "string" ? value.detail : "Request failed. Please try again.";
 
-export default function FinancialOperations({ workspaceId, accessToken, currencyCode }: { workspaceId: string; accessToken: string; currencyCode: string }) {
+export default function FinancialOperations({ workspaceId, accessToken, currencyCode, canManageAlerts }: { workspaceId: string; accessToken: string; currencyCode: string; canManageAlerts: boolean }) {
   const [recurring, setRecurring] = useState<Recurring[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [onboarding, setOnboarding] = useState<Onboarding | null>(null);
@@ -196,7 +196,7 @@ export default function FinancialOperations({ workspaceId, accessToken, currency
     <div className="finance-card">
       <p className="eyebrow">09 / NOTIFICATIONS</p><h3>Financial alerts</h3>
       <p className="finance-muted">Alerts are based on saved budgets and upcoming expected payments. Acknowledging an alert does not confirm payment.</p>
-      {alerts.length === 0 ? <p className="finance-empty">No active alerts.</p> : alerts.map(alert => <article className="guard-finding" key={alert.id}><span className={"finance-status finance-status--" + (alert.severity === "critical" ? "warning" : "posted")}>{alert.severity} · {alert.status}</span><strong>{alert.title}</strong><p>{alert.message}</p>{alert.status === "unread" && <div className="finance-actions"><button className="finance-button finance-button--quiet" type="button" onClick={() => void acknowledgeAlert(alert,"read")}>Mark read</button><button className="finance-button finance-button--quiet" type="button" onClick={() => void acknowledgeAlert(alert,"dismissed")}>Dismiss</button></div>}</article>)}
+      {alerts.length === 0 ? <p className="finance-empty">No active alerts.</p> : alerts.map(alert => <article className="guard-finding" key={alert.id}><span className={"finance-status finance-status--" + (alert.severity === "critical" ? "warning" : "posted")}>{alert.severity} · {alert.status}</span><strong>{alert.title}</strong><p>{alert.message}</p>{alert.status === "unread" && canManageAlerts && <div className="finance-actions"><button className="finance-button finance-button--quiet" type="button" onClick={() => void acknowledgeAlert(alert,"read")}>Mark read</button><button className="finance-button finance-button--quiet" type="button" onClick={() => void acknowledgeAlert(alert,"dismissed")}>Dismiss</button></div>}</article>)}
     </div>
 
     <div className="finance-card">
