@@ -298,12 +298,29 @@ def download_receipt_file(
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
-    _require_read(membership)
     receipt = db.scalar(select(Receipt).where(
         Receipt.id == receipt_id, Receipt.business_id == business_id
     ))
     if receipt is None or receipt.review_status == "rejected" or not receipt.file_bytes:
         raise HTTPException(status_code=404, detail="Receipt file not found.")
+
+    if receipt.review_status == "pending":
+        if receipt.uploaded_by_user_id == membership.user_id:
+            _require_read(membership)
+        else:
+            # A pending receipt has no confirmed direction, so only members who
+            # can read both financial domains may inspect another member's file.
+            require_permission(membership, "sales", "read")
+            require_permission(membership, "expenses", "read")
+    elif receipt.review_status == "confirmed" and receipt.linked_transaction_id:
+        transaction = db.get(Transaction, receipt.linked_transaction_id)
+        if transaction is None or transaction.business_id != business_id:
+            raise HTTPException(status_code=404, detail="Receipt file not found.")
+        domain = "sales" if transaction.direction == "income" else "expenses"
+        require_permission(membership, domain, "read")
+    else:
+        raise HTTPException(status_code=404, detail="Receipt file not found.")
+
     return Response(
         content=receipt.file_bytes,
         media_type=receipt.content_type,
