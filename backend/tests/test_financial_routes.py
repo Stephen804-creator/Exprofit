@@ -15,7 +15,7 @@ from app.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import Receipt, Transaction
+from app.models import BusinessMembership, FinancialAlert, Receipt, Transaction
 
 
 @pytest.fixture
@@ -452,3 +452,99 @@ def test_transaction_cannot_reference_product_from_another_workspace(
         },
     )
     assert response.status_code == 422
+
+
+
+def test_sales_only_member_can_upload_and_download_receipts(client: TestClient) -> None:
+    owner = register(client, "receipt-sales-owner@example.com")
+    member = register(client, "receipt-sales-member@example.com")
+    business_id = make_business(client, owner["access_token"])
+    member_id = client.get("/auth/me", headers=bearer(member["access_token"])).json()["id"]
+
+    with client.app.state.test_session() as db:
+        db.add(BusinessMembership(
+            business_id=UUID(business_id),
+            user_id=UUID(member_id),
+            role="worker",
+            status="active",
+            permissions={"sales:read": True, "sales:write": True},
+        ))
+        db.commit()
+
+    uploaded = upload_receipt(client, member["access_token"], business_id)
+    assert uploaded.status_code == 201, uploaded.text
+    receipt_id = uploaded.json()["id"]
+    downloaded = client.get(
+        f"/businesses/{business_id}/receipts/{receipt_id}/file",
+        headers=bearer(member["access_token"]),
+    )
+    assert downloaded.status_code == 200
+
+
+def test_read_only_member_cannot_dismiss_workspace_alert(client: TestClient) -> None:
+    owner = register(client, "alert-owner@example.com")
+    member = register(client, "alert-reader@example.com")
+    business_id = make_business(client, owner["access_token"])
+    member_id = client.get("/auth/me", headers=bearer(member["access_token"])).json()["id"]
+
+    with client.app.state.test_session() as db:
+        db.add(BusinessMembership(
+            business_id=UUID(business_id),
+            user_id=UUID(member_id),
+            role="worker",
+            status="active",
+            permissions={"sales:read": True, "expenses:read": True},
+        ))
+        alert = FinancialAlert(
+            business_id=UUID(business_id),
+            alert_key="test-alert-001",
+            kind="budget_threshold",
+            severity="warning",
+            title="Budget warning",
+            message="Test alert",
+        )
+        db.add(alert)
+        db.flush()
+        alert_id = str(alert.id)
+        db.commit()
+
+    response = client.patch(
+        f"/businesses/{business_id}/alerts/{alert_id}",
+        headers=bearer(member["access_token"]),
+        json={"status": "dismissed"},
+    )
+    assert response.status_code == 403
+
+
+def test_receipt_upload_is_rate_limited(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi import HTTPException
+    from app.api.routes import financial as financial_routes
+
+    owner = register(client, "receipt-rate-owner@example.com")
+    business_id = make_business(client, owner["access_token"])
+
+    def reject(*args, **kwargs):
+        raise HTTPException(status_code=429, detail="rate limited")
+
+    monkeypatch.setattr(financial_routes, "enforce_rate_limit", reject)
+    response = upload_receipt(client, owner["access_token"], business_id)
+    assert response.status_code == 429
+
+
+def test_ai_financial_brief_is_rate_limited(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi import HTTPException
+    from app.api.routes import intelligence
+
+    owner = register(client, "ai-rate-owner@example.com")
+    business_id = make_business(client, owner["access_token"])
+
+    def reject(*args, **kwargs):
+        raise HTTPException(status_code=429, detail="rate limited")
+
+    monkeypatch.setattr(intelligence, "enforce_rate_limit", reject)
+    response = client.post(
+        f"/businesses/{business_id}/financial-brief",
+        headers=bearer(owner["access_token"]),
+        json={"end_date": "2026-10-19", "period_days": 30, "use_ai": True},
+    )
+    assert response.status_code == 429
