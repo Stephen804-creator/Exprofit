@@ -2,6 +2,7 @@
 
 import os
 from functools import lru_cache
+from urllib.parse import urlparse
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -37,8 +38,11 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "AUTH_SECRET_KEY must contain at least 32 characters in production"
                 )
-            database = self.database_url.lower()
-            if "change-me" in database or "localhost" in database or "127.0.0.1" in database:
+            database = urlparse(self.database_url)
+            if (
+                "change-me" in self.database_url.lower()
+                or database.hostname in {None, "localhost", "127.0.0.1", "::1"}
+            ):
                 raise ValueError(
                     "DATABASE_URL must point to a configured production database"
                 )
