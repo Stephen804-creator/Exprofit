@@ -620,3 +620,13 @@ def test_receipt_download_does_not_cross_financial_permission_domains(client: Te
         headers=bearer(member["access_token"]),
     )
     assert expense_download.status_code == 403
+
+
+
+def test_receipt_request_body_is_limited_before_multipart_parsing(client: TestClient) -> None:
+    response = client.post(
+        "/businesses/00000000-0000-0000-0000-000000000001/receipts",
+        content=b"",
+        headers={"Content-Length": str(6 * 1024 * 1024)},
+    )
+    assert response.status_code == 413
