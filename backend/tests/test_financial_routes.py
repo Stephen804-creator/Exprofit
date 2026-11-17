@@ -681,6 +681,7 @@ def test_sales_only_member_lists_only_receipts_in_readable_domain(client: TestCl
         headers=bearer(member["access_token"]),
     )
     assert pending_list.status_code == 200, pending_list.text
+    assert pending_list.headers["cache-control"] == "private, no-store"
     pending_ids = {item["id"] for item in pending_list.json()}
     assert member_receipt_id in pending_ids
     assert expense_receipt_id not in pending_ids
