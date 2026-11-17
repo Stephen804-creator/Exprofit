@@ -9,7 +9,7 @@ from pathlib import PurePath
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
@@ -19,9 +19,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_business_membership
 from app.db.session import get_db
 from app.models import Business, BusinessMembership, Receipt, Transaction
-from app.permissions import require_permission
+from app.permissions import has_permission, require_permission
 from app.services.audit import record_audit_event
 from app.services.financial_analysis import compare_periods, profitability, summarize_transactions
+from app.services.rate_limit import enforce_rate_limit
 
 router = APIRouter(prefix="/businesses/{business_id}", tags=["financial"])
 MAX_RECEIPT_BYTES = 5 * 1024 * 1024
@@ -47,7 +48,20 @@ class ReceiptConfirm(BaseModel):
 
 
 def _require_write(membership: BusinessMembership) -> None:
-    require_permission(membership, "expenses", "write")
+    """Receipts may document either income or expense transactions."""
+    if not (
+        has_permission(membership, "sales", "write")
+        or has_permission(membership, "expenses", "write")
+    ):
+        raise HTTPException(status_code=403, detail="Receipt write permission is required")
+
+
+def _require_read(membership: BusinessMembership) -> None:
+    if not (
+        has_permission(membership, "sales", "read")
+        or has_permission(membership, "expenses", "read")
+    ):
+        raise HTTPException(status_code=403, detail="Receipt read permission is required")
 
 
 def _receipt_payload(receipt: Receipt) -> dict:
@@ -85,7 +99,7 @@ def _extract_text(content: bytes, content_type: str) -> str:
         with Image.open(io.BytesIO(content)) as image:
             if image.width * image.height > MAX_IMAGE_PIXELS:
                 return ""
-            return pytesseract.image_to_string(image.convert("RGB"))[:12000]
+            return pytesseract.image_to_string(image.convert("RGB"), timeout=10)[:12000]
     except Exception:
         return ""
 
@@ -181,21 +195,83 @@ def list_receipts(
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> list[dict]:
-    require_permission(membership, "expenses", "read")
+    _require_read(membership)
+    can_read_sales = has_permission(membership, "sales", "read")
+    can_read_expenses = has_permission(membership, "expenses", "read")
     receipts = db.scalars(select(Receipt).where(
         Receipt.business_id == business_id
-    ).order_by(Receipt.created_at.desc()).limit(50)).all()
-    return [_receipt_payload(item) for item in receipts]
+    ).order_by(Receipt.created_at.desc()).limit(100)).all()
+
+    transaction_ids = [
+        receipt.linked_transaction_id
+        for receipt in receipts
+        if receipt.review_status == "confirmed" and receipt.linked_transaction_id
+    ]
+    transactions = {}
+    if transaction_ids:
+        transactions = {
+            transaction.id: transaction
+            for transaction in db.scalars(select(Transaction).where(
+                Transaction.business_id == business_id,
+                Transaction.id.in_(transaction_ids),
+            )).all()
+        }
+
+    visible = []
+    for receipt in receipts:
+        if receipt.review_status == "pending":
+            allowed = (
+                receipt.uploaded_by_user_id == membership.user_id
+                or (can_read_sales and can_read_expenses)
+            )
+        elif receipt.review_status == "confirmed":
+            transaction = transactions.get(receipt.linked_transaction_id)
+            if transaction is None:
+                allowed = False
+            else:
+                domain = "sales" if transaction.direction == "income" else "expenses"
+                allowed = has_permission(membership, domain, "read")
+        elif receipt.review_status == "rejected":
+            allowed = (
+                receipt.uploaded_by_user_id == membership.user_id
+                or (can_read_sales and can_read_expenses)
+            )
+        else:
+            allowed = False
+
+        if allowed:
+            visible.append(_receipt_payload(receipt))
+
+    return visible
 
 
 @router.post("/receipts", status_code=status.HTTP_201_CREATED)
 async def upload_receipt(
     business_id: UUID,
+    request: Request,
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
     file: Annotated[UploadFile, File(...)],
 ) -> dict:
     _require_write(membership)
+    raw_length = request.headers.get("content-length")
+    if raw_length:
+        try:
+            request_length = int(raw_length)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length header") from exc
+        if request_length > MAX_RECEIPT_BYTES + 64 * 1024:
+            raise HTTPException(status_code=413, detail="Receipt request exceeds the upload limit.")
+
+    enforce_rate_limit(
+        db,
+        request,
+        action="receipt:upload",
+        identity=f"{business_id}:{membership.user_id}",
+        limit=20,
+        window_seconds=3600,
+        include_client_ip=False,
+    )
     content_type = (file.content_type or "").lower()
     if content_type not in ALLOWED_TYPES:
         raise HTTPException(status_code=415, detail="Upload a JPEG, PNG, WebP image, or PDF.")
@@ -265,12 +341,29 @@ def download_receipt_file(
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
-    require_permission(membership, "expenses", "read")
     receipt = db.scalar(select(Receipt).where(
         Receipt.id == receipt_id, Receipt.business_id == business_id
     ))
     if receipt is None or receipt.review_status == "rejected" or not receipt.file_bytes:
         raise HTTPException(status_code=404, detail="Receipt file not found.")
+
+    if receipt.review_status == "pending":
+        if receipt.uploaded_by_user_id == membership.user_id:
+            _require_read(membership)
+        else:
+            # A pending receipt has no confirmed direction, so only members who
+            # can read both financial domains may inspect another member's file.
+            require_permission(membership, "sales", "read")
+            require_permission(membership, "expenses", "read")
+    elif receipt.review_status == "confirmed" and receipt.linked_transaction_id:
+        transaction = db.get(Transaction, receipt.linked_transaction_id)
+        if transaction is None or transaction.business_id != business_id:
+            raise HTTPException(status_code=404, detail="Receipt file not found.")
+        domain = "sales" if transaction.direction == "income" else "expenses"
+        require_permission(membership, domain, "read")
+    else:
+        raise HTTPException(status_code=404, detail="Receipt file not found.")
+
     return Response(
         content=receipt.file_bytes,
         media_type=receipt.content_type,
@@ -351,6 +444,12 @@ def reject_receipt(
         raise HTTPException(status_code=404, detail="Receipt not found.")
     if receipt.review_status != "pending":
         raise HTTPException(status_code=409, detail="This receipt has already been reviewed.")
+    if receipt.uploaded_by_user_id != membership.user_id:
+        # A pending receipt has no confirmed financial direction. A member may
+        # reject their own upload, but another member's receipt requires write
+        # access to both financial domains.
+        require_permission(membership, "sales", "write")
+        require_permission(membership, "expenses", "write")
     receipt.review_status = "rejected"
     receipt.file_bytes = b""
     receipt.extracted_text = ""

@@ -2,8 +2,9 @@
 
 import os
 from functools import lru_cache
+from urllib.parse import urlparse
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +29,38 @@ class Settings(BaseSettings):
     hf_gemma_model: str = "google/gemma-3-12b-it:fastest"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+
+    @model_validator(mode="after")
+    def validate_production_settings(self) -> "Settings":
+        """Fail at startup rather than issuing tokens with weak production secrets."""
+        if self.app_env.strip().lower() == "production":
+            secret = self.auth_secret_key.strip()
+            if (
+                len(secret) < 32
+                or secret.lower() in {
+                    "replace-with-a-random-secret-at-least-32-bytes-long",
+                    "change-me",
+                    "changeme",
+                }
+                or secret.lower().startswith(("replace-with-", "your-secret-", "change-me-"))
+            ):
+                raise ValueError(
+                    "AUTH_SECRET_KEY must be a non-placeholder value of at least "
+                    "32 characters in production"
+                )
+            if "*" in self.allowed_origins:
+                raise ValueError(
+                    "CORS_ORIGINS must contain explicit trusted origins in production"
+                )
+            database = urlparse(self.database_url)
+            if (
+                "change-me" in self.database_url.lower()
+                or database.hostname in {None, "localhost", "127.0.0.1", "::1"}
+            ):
+                raise ValueError(
+                    "DATABASE_URL must point to a configured production database"
+                )
+        return self
 
     @field_validator("database_url", mode="before")
     @classmethod

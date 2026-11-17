@@ -32,13 +32,13 @@ The first target users are Nigerian microbusinesses, small retailers, and side-h
 - **Privacy by default.** Financial records and receipt files are private and access-controlled.
 - **Solo-first.** Team setup must not block an owner from using the core product.
 
-## Planned technology
+## Technology
 
-The current baseline uses React + TypeScript + Vite, Python + FastAPI, and a PostgreSQL data layer built with SQLAlchemy and Alembic. Receipt OCR/PDF extraction and optional Hugging Face financial explanations are implemented behind explicit boundaries; their quality and provider behaviour still require deployment testing.
+The current implementation uses React + TypeScript + Vite, Python + FastAPI, and PostgreSQL through SQLAlchemy and Alembic. Receipt OCR/PDF extraction, workspace collaboration, and optional Hugging Face financial explanations are implemented behind explicit boundaries; provider behaviour and complete deployed workflows still require manual testing.
 
 ## Project status
 
-This repository is the Exprofit project home. Current implementation includes authenticated workspaces and transaction lifecycle, private receipt upload with human confirmation, date-filtered summaries, deterministic gross-profit calculations, evidence-backed MarginGuard comparisons, a what-if simulator, and an optional AI financial brief. Merged PR #9 adds guided camera-permission recovery, database-backed authentication rate limits, product/customer attribution, product/customer profitability reports, and category budgets. Check the PR's latest CI results; passing CI is necessary but does not replace mobile and deployed end-to-end testing.
+This repository is the Exprofit project home. Current implementation includes authenticated Solo and Business workspaces, granular membership permissions, invitations and member administration, audit history, transaction lifecycle, private receipt upload with human confirmation, date-filtered summaries, deterministic gross-profit calculations, evidence-backed MarginGuard comparisons, a what-if simulator, and optional AI financial explanations. The current remediation PR adds stricter production configuration, upload and AI rate limits, request-size limits, direction-aware receipt permissions, and stronger invitation-photo validation. Passing CI is necessary but does not replace mobile and deployed end-to-end testing.
 
 See:
 - [Workspace collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md)
@@ -101,12 +101,12 @@ npm run typecheck
 npm run build
 ```
 
-GitHub Actions runs backend lint/tests and frontend type/build checks on pushes and pull requests to `main`. Run [#97](https://github.com/Stephen804-creator/Exprofit/actions/runs/39121683770) passed: Ruff, PostgreSQL migrations, 19 backend tests, frontend typecheck, and production build. The run included one third-party Starlette/AnyIO deprecation warning. The npm lockfile is not yet committed; CI currently uses `npm install`, so lockfile-based installs remain a reproducibility follow-up.
+GitHub Actions runs backend lint/tests and frontend type/build checks on pushes and pull requests to `main`. Final-head CI run [#43732284888](https://github.com/Stephen804-creator/Exprofit/actions/runs/43732284888) passed Ruff, PostgreSQL migrations, 90 backend tests, frontend typecheck, and frontend production build (one third-party deprecation warning). The npm lockfile is still not committed; CI currently uses `npm install`, so lockfile-based installs remain a reproducibility follow-up.
 
 
 ## Development status and contributions
 
-Builds 9–14 are proposed in the open PR for the evidence-backed financial brief, optional Hugging Face Gemma explanations, and a deterministic what-if simulator. They are not release-ready until their PR checks pass and manual deployed/mobile workflows are verified. See the [Builds 9–14 implementation record](docs/BUILDS_9_14_IMPLEMENTATION.md).
+Builds 9–14 are implemented on the current code line: the evidence-backed financial brief, optional Hugging Face Gemma explanations, and deterministic what-if simulator. AI remains opt-in and is not the source of financial arithmetic. See the [Builds 9–14 implementation record](docs/BUILDS_9_14_IMPLEMENTATION.md).
 
 
 The project is under active development. Treat it as an early financial application until the feature branch passes CI, migrations and API integration are verified against PostgreSQL, and the complete receipt-to-investigation flow is manually tested.
@@ -132,17 +132,17 @@ Authenticated transaction HTTP routes are now registered. Every route requires a
 
 ## Build 4 — authentication and access control (implemented; verification pending)
 
-The API now includes registration, login, current-user, logout, business-workspace, and business-scoped transaction routes. Passwords are Argon2-hashed; signed access tokens expire after 30 minutes and are linked to database sessions that can be revoked on logout. Registration creates an NGN/Africa-Lagos workspace and owner membership. Business and transaction routes check membership server-side. A test suite covers registration, login failures, logout revocation, duplicate email, cross-business isolation, and a transaction lifecycle. CI run #97 passed the PostgreSQL migrations, Ruff, all 19 backend tests, frontend typecheck, and production build. Rate limiting and broader production security hardening remain follow-up work. Set `AUTH_SECRET_KEY` to a unique random value of at least 32 bytes; do not reuse the example placeholder or commit a real secret.
+The API now includes registration, login, current-user, logout, business-workspace, and business-scoped transaction routes. Passwords are Argon2-hashed; signed access tokens expire after 30 minutes and are linked to database sessions that can be revoked on logout. Registration creates an NGN/Africa-Lagos workspace and owner membership. Business and transaction routes check membership server-side. A test suite covers registration, login failures, logout revocation, duplicate email, cross-business isolation, and a transaction lifecycle. Final-head CI run [#43732284888](https://github.com/Stephen804-creator/Exprofit/actions/runs/43732284888) passed Ruff, the PostgreSQL migration chain, 90 backend tests, frontend typecheck, and production build. The hardening adds production startup validation for `AUTH_SECRET_KEY` and `DATABASE_URL`, and rate limits sensitive verification, invitation, receipt-upload, and optional AI routes. Set `AUTH_SECRET_KEY` to a unique random value of at least 32 bytes; do not reuse the example placeholder or commit a real secret.
 
 
 ## Email verification foundation
 
-The collaboration branch adds account email verification endpoints. To use them, configure `FRONTEND_BASE_URL`, `EMAIL_VERIFICATION_TTL_MINUTES`, and the `SMTP_*` variables from `.env.example`. Sign in, call `POST /auth/request-email-verification`, then submit the token from the email to `POST /auth/verify-email` as JSON: `{"token":"..." }`. `GET /auth/me` reports `email_verified`. SMTP must be configured; the API does not return verification tokens. The frontend verification page and resend rate limiting are not yet implemented.
+The collaboration branch adds account email verification endpoints. To use them, configure `FRONTEND_BASE_URL`, `EMAIL_VERIFICATION_TTL_MINUTES`, and the `SMTP_*` variables from `.env.example`. Sign in, call `POST /auth/request-email-verification`, then submit the token from the email to `POST /auth/verify-email` as JSON: `{"token":"..." }`. `GET /auth/me` reports `email_verified`. SMTP must be configured; the API does not return verification tokens. The resend endpoint is rate-limited to three requests per hour per account. Email verification still does not gate ordinary login; recipient-bound invitations require the applicant's verified email to match the invited address.
 
 
 ## Workspace invitations
 
-The invitation flow does not require SMTP or email verification. The workspace Owner creates a unique link, chooses its expiry period (1–720 hours), and copies the link to share through any channel. The applicant signs in, submits identifying details and a JPEG face photo, and waits for owner review. Only the workspace Owner can approve or reject, and approval grants the assigned workspace role and permissions. Tokens are hashed at rest, and pending photos are private and deleted after approval, rejection, or revocation. The photo supports manual recognition only; it is not biometric authentication. See [the collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md) and [roadmap](docs/ROADMAP.md).
+A shareable invitation link can be created without SMTP. If the owner binds an invitation to a recipient email, the applicant must sign in with a verified matching address. The owner chooses its expiry period (1–720 hours), and the applicant submits identifying details and a validated JPEG photo for manual review. Only the workspace Owner can approve or reject, and approval grants the assigned role and permissions. Tokens are hashed at rest; photos are private, size/pixel bounded, and deleted after approval, rejection, or revocation/expiry cleanup. The photo supports manual recognition only; it is not biometric authentication. See [the collaboration design](docs/WORKSPACE_COLLABORATION_DESIGN.md) and [roadmap](docs/ROADMAP.md).
 
 
 ## Frontend account workflow

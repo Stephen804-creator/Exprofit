@@ -1,14 +1,14 @@
 """Permission-checked financial brief and what-if scenario endpoints."""
 
 import json
+import urllib.error
+import urllib.request
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -24,6 +24,7 @@ from app.services.financial_intelligence import (
     explain_verified_facts,
     simulate_scenario,
 )
+from app.services.rate_limit import enforce_rate_limit
 
 router = APIRouter(prefix="/businesses/{business_id}", tags=["financial intelligence"])
 HF_CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
@@ -88,7 +89,7 @@ def _call_gemma(token: str, model: str, facts: dict, question: str | None) -> st
         "max_tokens": 500,
         "stream": False,
     }).encode("utf-8")
-    request = Request(
+    request = urllib.request.Request(
         HF_CHAT_URL,
         data=payload,
         headers={
@@ -99,14 +100,21 @@ def _call_gemma(token: str, model: str, facts: dict, question: str | None) -> st
         method="POST",
     )
     try:
-        with urlopen(request, timeout=AI_TIMEOUT_SECONDS) as response:
+        with urllib.request.urlopen(request, timeout=AI_TIMEOUT_SECONDS) as response:
             data = json.loads(response.read(512 * 1024).decode("utf-8"))
         content = data["choices"][0]["message"]["content"]
         if isinstance(content, str):
             cleaned = content.strip()
             return cleaned[:6000] if cleaned else None
     except (
-        HTTPError, URLError, TimeoutError, OSError, ValueError, KeyError, IndexError, TypeError
+        urllib.error.HTTPError,
+        urllib.error.URLError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        KeyError,
+        IndexError,
+        TypeError,
     ):
         return None
     return None
@@ -121,10 +129,21 @@ def _require_financial_read(membership: BusinessMembership) -> None:
 def financial_brief(
     business_id: UUID,
     payload: BriefRequest,
+    request: Request,
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     _require_financial_read(membership)
+    if payload.use_ai:
+        enforce_rate_limit(
+            db,
+            request,
+            action="ai:financial_brief",
+            identity=f"{business_id}:{membership.user_id}",
+            limit=10,
+            window_seconds=3600,
+            include_client_ip=False,
+        )
     current, previous, cs, ce, ps, pe = _load_periods(
         db, business_id, payload.end_date, payload.period_days
     )

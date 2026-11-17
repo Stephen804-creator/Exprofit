@@ -1,6 +1,7 @@
 """Tests for the no-email, owner-reviewed invitation workflow."""
 
 import base64
+import io
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
@@ -8,6 +9,7 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -83,9 +85,10 @@ def make_invitation(client: TestClient, owner_token: str, business_id: str, hour
 
 
 def photo_data_url() -> str:
-    # Minimal JPEG-signature fixture for API validation; not a real person's image.
-    fake_jpeg = b"\xff\xd8\xff" + (b"test-image-data-" * 20)
-    return "data:image/jpeg;base64," + base64.b64encode(fake_jpeg).decode("ascii")
+    # Generate a tiny valid JPEG fixture; it contains no real person's image.
+    buffer = io.BytesIO()
+    Image.new("RGB", (16, 16), color=(120, 140, 160)).save(buffer, format="JPEG")
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
 def submit_application(client: TestClient, token: str, invite_token: str) -> dict:
@@ -291,3 +294,28 @@ def test_admin_cannot_review_an_invitation_application(client: TestClient) -> No
         headers=bearer(admin["access_token"]),
     )
     assert response.status_code == 403
+
+
+
+def test_invitation_rejects_a_jpeg_signature_without_a_valid_image(client: TestClient) -> None:
+    owner = register(client, "owner-invalid-photo@example.com")
+    applicant = register(client, "applicant-invalid-photo@example.com")
+    business_id = make_business(client, owner["access_token"])
+    invite_token = make_invitation(client, owner["access_token"], business_id)
+    fake_photo = (
+        "data:image/jpeg;base64,"
+        + base64.b64encode(b"\\xff\\xd8\\xffnot-a-real-jpeg").decode("ascii")
+    )
+
+    response = client.post(
+        "/invitations/apply",
+        headers=bearer(applicant["access_token"]),
+        json={
+            "token": invite_token,
+            "full_name": "Test Applicant",
+            "identifying_details": "Testing an invalid photo payload",
+            "photo_data_url": fake_photo,
+            "consent": True,
+        },
+    )
+    assert response.status_code == 422

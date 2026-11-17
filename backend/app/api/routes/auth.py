@@ -205,6 +205,7 @@ def logout(
     status_code=status.HTTP_202_ACCEPTED,
 )
 def request_email_verification(
+    request: Request,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> MessageResponse:
@@ -212,6 +213,15 @@ def request_email_verification(
     if user.email_verified:
         return MessageResponse(message="If verification is needed, an email will be sent.")
 
+    enforce_rate_limit(
+        db,
+        request,
+        action="auth:email_verification",
+        identity=str(user.id),
+        limit=3,
+        window_seconds=3600,
+        include_client_ip=False,
+    )
     settings = get_settings()
     if not settings.email_delivery_configured:
         raise HTTPException(

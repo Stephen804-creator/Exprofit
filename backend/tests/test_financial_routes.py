@@ -6,16 +6,18 @@ from decimal import Decimal
 from uuid import UUID
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes import financial, financial_operations, intelligence
 from app.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import Receipt, Transaction
+from app.models import BusinessMembership, FinancialAlert, Receipt, Transaction
 
 
 @pytest.fixture
@@ -452,3 +454,268 @@ def test_transaction_cannot_reference_product_from_another_workspace(
         },
     )
     assert response.status_code == 422
+
+
+
+def test_sales_only_member_can_upload_and_download_receipts(client: TestClient) -> None:
+    owner = register(client, "receipt-sales-owner@example.com")
+    member = register(client, "receipt-sales-member@example.com")
+    business_id = make_business(client, owner["access_token"])
+    member_id = client.get("/auth/me", headers=bearer(member["access_token"])).json()["id"]
+
+    with client.app.state.test_session() as db:
+        db.add(BusinessMembership(
+            business_id=UUID(business_id),
+            user_id=UUID(member_id),
+            role="worker",
+            status="active",
+            permissions={"sales:read": True, "sales:write": True},
+        ))
+        db.commit()
+
+    uploaded = upload_receipt(client, member["access_token"], business_id)
+    assert uploaded.status_code == 201, uploaded.text
+    receipt_id = uploaded.json()["id"]
+    downloaded = client.get(
+        f"/businesses/{business_id}/receipts/{receipt_id}/file",
+        headers=bearer(member["access_token"]),
+    )
+    assert downloaded.status_code == 200
+
+
+def test_read_only_member_cannot_dismiss_workspace_alert(client: TestClient) -> None:
+    owner = register(client, "alert-owner@example.com")
+    member = register(client, "alert-reader@example.com")
+    business_id = make_business(client, owner["access_token"])
+    member_id = client.get("/auth/me", headers=bearer(member["access_token"])).json()["id"]
+
+    with client.app.state.test_session() as db:
+        db.add(BusinessMembership(
+            business_id=UUID(business_id),
+            user_id=UUID(member_id),
+            role="worker",
+            status="active",
+            permissions={"sales:read": True, "expenses:read": True},
+        ))
+        alert = FinancialAlert(
+            business_id=UUID(business_id),
+            alert_key="test-alert-001",
+            kind="budget_threshold",
+            severity="warning",
+            title="Budget warning",
+            message="Test alert",
+        )
+        db.add(alert)
+        db.flush()
+        alert_id = str(alert.id)
+        db.commit()
+
+    response = client.patch(
+        f"/businesses/{business_id}/alerts/{alert_id}",
+        headers=bearer(member["access_token"]),
+        json={"status": "dismissed"},
+    )
+    assert response.status_code == 403
+
+
+def test_receipt_upload_is_rate_limited(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    owner = register(client, "receipt-rate-owner@example.com")
+    business_id = make_business(client, owner["access_token"])
+
+    def reject(*args, **kwargs):
+        raise HTTPException(status_code=429, detail="rate limited")
+
+    monkeypatch.setattr(financial, "enforce_rate_limit", reject)
+    response = upload_receipt(client, owner["access_token"], business_id)
+    assert response.status_code == 429
+
+
+def test_ai_financial_brief_is_rate_limited(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    owner = register(client, "ai-rate-owner@example.com")
+    business_id = make_business(client, owner["access_token"])
+
+    def reject(*args, **kwargs):
+        raise HTTPException(status_code=429, detail="rate limited")
+
+    monkeypatch.setattr(intelligence, "enforce_rate_limit", reject)
+    response = client.post(
+        f"/businesses/{business_id}/financial-brief",
+        headers=bearer(owner["access_token"]),
+        json={"end_date": "2026-10-19", "period_days": 30, "use_ai": True},
+    )
+    assert response.status_code == 429
+
+
+
+def test_ai_financial_copilot_is_rate_limited(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    owner = register(client, "copilot-rate-owner@example.com")
+    business_id = make_business(client, owner["access_token"])
+
+    def reject(*args, **kwargs):
+        raise HTTPException(status_code=429, detail="rate limited")
+
+    monkeypatch.setattr(financial_operations, "enforce_rate_limit", reject)
+    response = client.post(
+        f"/businesses/{business_id}/financial-copilot",
+        headers=bearer(owner["access_token"]),
+        json={
+            "question": "Explain my recorded cash movement",
+            "end_date": "2026-10-19",
+            "period_days": 30,
+            "use_ai": True,
+        },
+    )
+    assert response.status_code == 429
+
+
+
+def test_receipt_download_does_not_cross_financial_permission_domains(client: TestClient) -> None:
+    owner = register(client, "receipt-domain-owner@example.com")
+    member = register(client, "receipt-domain-sales@example.com")
+    business_id = make_business(client, owner["access_token"])
+    member_id = client.get("/auth/me", headers=bearer(member["access_token"])).json()["id"]
+
+    with client.app.state.test_session() as db:
+        db.add(BusinessMembership(
+            business_id=UUID(business_id),
+            user_id=UUID(member_id),
+            role="worker",
+            status="active",
+            permissions={"sales:read": True, "sales:write": True},
+        ))
+        db.commit()
+
+    uploaded = upload_receipt(client, owner["access_token"], business_id)
+    assert uploaded.status_code == 201, uploaded.text
+    receipt_id = uploaded.json()["id"]
+
+    pending_download = client.get(
+        f"/businesses/{business_id}/receipts/{receipt_id}/file",
+        headers=bearer(member["access_token"]),
+    )
+    assert pending_download.status_code == 403
+
+    confirmed = client.post(
+        f"/businesses/{business_id}/receipts/{receipt_id}/confirm",
+        headers=bearer(owner["access_token"]),
+        json={
+            "direction": "expense",
+            "amount": "10.00",
+            "transaction_date": date.today().isoformat(),
+            "description": "Private expense receipt",
+            "category": "COGS",
+        },
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+    expense_download = client.get(
+        f"/businesses/{business_id}/receipts/{receipt_id}/file",
+        headers=bearer(member["access_token"]),
+    )
+    assert expense_download.status_code == 403
+
+
+
+def test_receipt_request_body_is_limited_before_multipart_parsing(client: TestClient) -> None:
+    response = client.post(
+        "/businesses/00000000-0000-0000-0000-000000000001/receipts",
+        content=b"",
+        headers={"Content-Length": str(6 * 1024 * 1024)},
+    )
+    assert response.status_code == 413
+
+
+def test_sales_only_member_lists_only_receipts_in_readable_domain(client: TestClient) -> None:
+    owner = register(client, "receipt-list-owner@example.com")
+    member = register(client, "receipt-list-sales@example.com")
+    business_id = make_business(client, owner["access_token"])
+    member_id = client.get(
+        "/auth/me", headers=bearer(member["access_token"])
+    ).json()["id"]
+
+    with client.app.state.test_session() as db:
+        db.add(BusinessMembership(
+            business_id=UUID(business_id),
+            user_id=UUID(member_id),
+            role="worker",
+            status="active",
+            permissions={"sales:read": True, "sales:write": True},
+        ))
+        db.commit()
+
+    member_upload = client.post(
+        f"/businesses/{business_id}/receipts",
+        headers=bearer(member["access_token"]),
+        files={"file": (
+            "sales-receipt.jpg",
+            bytes((0xFF, 0xD8, 0xFF)) + b"sales-receipt-unique",
+            "image/jpeg",
+        )},
+    )
+    assert member_upload.status_code == 201, member_upload.text
+    member_receipt_id = member_upload.json()["id"]
+
+    owner_upload = client.post(
+        f"/businesses/{business_id}/receipts",
+        headers=bearer(owner["access_token"]),
+        files={"file": (
+            "expense-receipt.jpg",
+            bytes((0xFF, 0xD8, 0xFF)) + b"expense-receipt-unique",
+            "image/jpeg",
+        )},
+    )
+    assert owner_upload.status_code == 201, owner_upload.text
+    expense_receipt_id = owner_upload.json()["id"]
+
+    pending_list = client.get(
+        f"/businesses/{business_id}/receipts",
+        headers=bearer(member["access_token"]),
+    )
+    assert pending_list.status_code == 200, pending_list.text
+    assert pending_list.headers["cache-control"] == "private, no-store"
+    pending_ids = {item["id"] for item in pending_list.json()}
+    assert member_receipt_id in pending_ids
+    assert expense_receipt_id not in pending_ids
+
+    pending_download = client.get(
+        f"/businesses/{business_id}/receipts/{expense_receipt_id}/file",
+        headers=bearer(member["access_token"]),
+    )
+    assert pending_download.status_code == 403
+
+    forbidden_rejection = client.post(
+        f"/businesses/{business_id}/receipts/{expense_receipt_id}/reject",
+        headers=bearer(member["access_token"]),
+    )
+    assert forbidden_rejection.status_code == 403
+
+    confirmed = client.post(
+        f"/businesses/{business_id}/receipts/{expense_receipt_id}/confirm",
+        headers=bearer(owner["access_token"]),
+        json={
+            "direction": "expense",
+            "amount": "25.00",
+            "transaction_date": date.today().isoformat(),
+            "description": "Owner expense receipt",
+            "category": "Supplies",
+        },
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+    listed = client.get(
+        f"/businesses/{business_id}/receipts",
+        headers=bearer(member["access_token"]),
+    )
+    assert listed.status_code == 200, listed.text
+    visible_ids = {item["id"] for item in listed.json()}
+    assert member_receipt_id in visible_ids
+    assert expense_receipt_id not in visible_ids

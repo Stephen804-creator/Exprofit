@@ -29,7 +29,7 @@ This file separates planned work from verified work. A requirement is not marked
 
 ## Verification log
 
-The latest verification is GitHub Actions run #97 on commit `7af4001f429b76416928d8f27d8f911326d6475c` (2026-10-18): Ruff passed, `alembic upgrade head` passed against PostgreSQL 16, 19 pytest tests passed, and frontend typecheck/build passed. One third-party Starlette/AnyIO deprecation warning was emitted. Continue recording any new verification with the exact commit and environment.
+Run #97 on 2026-10-18 is the historical baseline (19 pytest tests). The current production-hardening remediation is tracked in [PR #21](https://github.com/Stephen804-creator/Exprofit/pull/21). Record the final CI run ID, commit, PostgreSQL result, Ruff result, pytest count, and frontend checks here once PR #21's latest run completes.
 
 
 ## Build 2 update — 2026-10-18
@@ -139,3 +139,27 @@ Branch: `feat/units-18-23-financial-operations`. These units are implemented on 
 - **23 Financial copilot:** deterministic recorded-data answer with optional Hugging Face explanation only when explicitly enabled; fallback remains available.
 
 **CI verification passed:** GitHub Actions run #360 on commit `4c5875b62c8d4f90ea512d802579cee4e6d1a68f` passed Ruff, the PostgreSQL migration chain through `20261022_0014`, 72 backend tests, frontend typecheck, and frontend production build. One test warning remains. This verifies automated checks only; Render deployment, production API workflows, and manual acceptance checks remain outstanding.
+
+
+
+## Production-hardening remediation — PR #21
+
+Branch: `remediation/exprofit-production-hardening`.
+
+This batch addresses findings from a static review of the current implementation. It does not claim a completed external penetration test or a production deployment audit.
+
+- [x] Fail production startup when `AUTH_SECRET_KEY` is shorter than 32 characters or `DATABASE_URL` is a placeholder/local URL.
+- [x] Add streamed request-body limits before FastAPI parses receipt multipart uploads and invitation-photo JSON payloads.
+- [x] Rate-limit receipt uploads, optional Financial Brief and Financial Copilot provider calls, invitation creation/application, and email-verification resends.
+- [x] Validate invitation uploads as actual JPEG files and reject oversized dimensions; update tests to use synthetic valid JPEGs.
+- [x] Make receipt upload permissions work for either financial domain and make receipt downloads respect the confirmed transaction direction. Pending receipts are private to their uploader unless the viewer can read both domains.
+- [x] Require Staff Administration write access for workspace-wide alert acknowledgement and record those changes in the audit log.
+- [x] Bound local OCR execution time.
+- [x] Remove blanket Ruff suppression from the FinancialAlert model and narrow the Financial Operations exception to E501 only.
+- [x] Clarify the optional AI data-sharing notice: aggregated financial facts and the user's question are sent to Hugging Face when enabled; individual transaction rows and customer names are not included.
+- [x] Refresh README and backend setup documentation where prior statements no longer matched the implementation.
+- [ ] Complete PR #21 CI verification on the final head commit.
+- [ ] Manually test the receipt upload/confirm/download flow across Sales-only and Expenses-only roles, invitation photo review on mobile, and AI provider timeout/unavailability.
+- [ ] Verify Render environment provisioning, durable receipt retention/backups, SMTP delivery, and the hosted Hugging Face provider path before release.
+
+The PR's passing automated checks, once confirmed on its final commit, are necessary but do not establish production readiness.

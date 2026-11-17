@@ -1,6 +1,6 @@
 # Exprofit Architecture
 
-**Status:** Target architecture; components are not all implemented yet.
+**Status:** Current architecture plus remaining target boundaries. The core transaction, receipt, financial intelligence, collaboration, and audit components described below are implemented; deployment and end-to-end verification remain incomplete.
 
 ## 1. Design overview
 
@@ -79,7 +79,9 @@ AI is optional and not the source of truth for arithmetic. It receives a bounded
 - Keep receipt storage private and use short-lived authorized access if download links are introduced.
 - Avoid logging credentials, receipt contents, or unnecessary personal data.
 - Configure CORS with explicit trusted origins.
-- Add rate limits to login, verification, and other abuse-sensitive endpoints.
+- Database-backed rate limits cover authentication, email-verification resend, invitation workflows, receipt uploads, and optional external AI requests.
+- Request bodies are size-limited before multipart/JSON parsing for receipt and invitation-photo endpoints.
+- Production startup rejects weak signing secrets and placeholder/local database URLs.
 - Keep secrets in environment variables or a secret manager.
 - Provide health checks that distinguish application liveness from database readiness.
 - Run tests, lint/type checks, and a production frontend build in CI.
@@ -97,7 +99,7 @@ The initial local development path should be reproducible from documented prereq
 
 The FastAPI app registers `/auth/register`, `/auth/login`, `/auth/me`, `/auth/logout`, `/businesses`, and `/businesses/{business_id}/transactions` routes. User passwords are hashed with Argon2. Access tokens are signed with `AUTH_SECRET_KEY`, expire after 30 minutes, and identify a persisted `AuthSession` row; logout revokes that row. Every business/transaction route checks the current user’s `BusinessMembership` on the server. Registration creates the first NGN workspace using the `Africa/Lagos` timezone. Transaction listing applies status/date filters and pagination in the database query.
 
-CI run #97 passed Ruff, the PostgreSQL migration chain, 19 backend tests, frontend typecheck, and production build. One third-party Starlette/AnyIO deprecation warning remains. Distributed login rate limiting, broader audit-event recording, account recovery, and production deployment controls remain follow-up work before a public production launch.
+CI run #97 is the historical baseline. Current security and operational changes are tracked in PR #21. The production hardening includes rate limits beyond login, request-size controls, receipt permission boundaries, and startup secret/database checks. Manual deployed workflows, durable receipt storage, and complete production verification remain release gates.
 
 
 ## 10. Workspace collaboration implementation slice
@@ -124,9 +126,7 @@ The collaboration branch now adds `users.email_verified` and a one-time `email_v
 
 ### Workspace invitation API
 
-The current branch implements invitation creation, acceptance, and revocation. Creation/revocation require the actor's server-verified `staff_administration:write` permission. The Owner alone may invite Admins; Admins may invite Workers only with grants they already hold. Unknown permission keys are rejected, and Workers cannot receive Staff Administration access.
-
-The database stores only a SHA-256 token digest. Invites expire after 30 minutes by default, can be revoked, and are accepted once. Acceptance requires a verified email on the authenticated account that exactly matches the normalized recipient address. The membership change and invitation consumption commit together. The API never returns the raw token. Frontend invite/verification screens, abuse controls, audit events, and notification workflows remain incomplete.
+The current implementation includes invitation creation, application submission, owner review, approval/rejection, and revocation. Creation/revocation require server-verified Staff Administration permission. The Owner alone may invite Admins; Admins may invite Workers only with grants they already hold. The database stores only a SHA-256 token digest. Invites expire, can be revoked, and are single-use. Recipient-bound invitations require a verified email matching the normalized recipient address; shareable unbound links do not require SMTP. Application photos are private, validated JPEGs with file-size and pixel limits, and are removed after decision or revocation/expiry cleanup. Invitation creation and application submissions are rate-limited. Notification workflows and manual mobile verification remain incomplete.
 
 
 ### Frontend account and workspace context
@@ -149,3 +149,13 @@ Members can request departure through `POST /businesses/{business_id}/leave` wit
 ### Collaboration UI
 
 The frontend provides a business collaboration panel for member listing, invitation creation, role/permission editing, suspend/revoke/reinstate actions, and recent audit history. It also includes a voluntary departure form requiring the exact phrase, password, reason, and optional notice hours. The current user's own membership is fetched separately from the protected member directory, so ordinary Workers can view their own status without seeing other employees. UI controls are convenience only; all permission decisions remain on the backend. Browser end-to-end, accessibility, and production security reviews remain outstanding.
+
+
+
+## Current production boundaries
+
+- Receipt uploads are private and review-first. Uploads accept bounded image/PDF content, apply a per-user rate limit, and cap the request body before multipart parsing. OCR has a timeout. Downloads enforce the financial domain of the linked transaction; pending receipts are restricted to their uploader or members who can read both domains.
+- Financial alert status is workspace-wide, so changing it requires Staff Administration write permission and produces an audit event.
+- Optional Financial Brief and Financial Copilot requests are rate-limited. When enabled, only aggregated financial facts, date/currency context, and the user's question are sent to the configured Hugging Face endpoint; individual transaction rows and customer names are not sent. Users should not put personal details in their questions.
+- The production configuration requires a strong `AUTH_SECRET_KEY` and a configured non-local `DATABASE_URL`. Render provisions PostgreSQL and a generated signing secret.
+- Render's default filesystem is not durable storage for receipt retention. Verify persistent storage/backups or use a dedicated private object-storage adapter before storing important receipts in a hosted deployment.

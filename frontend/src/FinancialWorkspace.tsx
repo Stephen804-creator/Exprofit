@@ -61,6 +61,10 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     return workspace.workspace_type === "solo" || membership?.role === "owner" || membership?.permissions[`${domain}:write`] === true;
   }
   const canViewCombined = canRead("sales") && canRead("expenses");
+  const canManageAlerts =
+    workspace.workspace_type === "solo" ||
+    membership?.role === "owner" ||
+    membership?.permissions["staff_administration:write"] === true;
   const canReadExpenses = canRead("expenses");
   const canWriteExpenses = canWrite("expenses");
   const canWriteAny = canWrite("sales") || canWrite("expenses");
@@ -366,7 +370,7 @@ export default function FinancialWorkspace({ workspace, accessToken, membership,
     </section></div>}
     {activePanel === "insights" && canViewCombined && <FinancialIntelligence workspaceId={workspace.id} accessToken={accessToken} />}
     {activePanel === "catalog" && <FinancialCatalogBudget workspaceId={workspace.id} accessToken={accessToken} currencyCode={workspace.currency_code} startDate={from} endDate={to} canReadSales={canRead("sales")} canWriteSales={canWrite("sales")} canReadExpenses={canRead("expenses")} canWriteExpenses={canWrite("expenses")} />}
-    {activePanel === "operations" && canViewCombined && <FinancialOperations workspaceId={workspace.id} accessToken={accessToken} currencyCode={workspace.currency_code} />}
+    {activePanel === "operations" && canViewCombined && <FinancialOperations workspaceId={workspace.id} accessToken={accessToken} currencyCode={workspace.currency_code} canManageAlerts={canManageAlerts} />}
     {activePanel === "operations" && !canViewCombined && <p className="finance-empty">Planning, alerts, and combined exports require read access to both sales and expenses in this workspace.</p>}
     {activePanel === "insights" && !canViewCombined && <p className="finance-empty">MarginGuard and combined financial intelligence require read access to both sales and expenses in this workspace.</p>}
     <p className="finance-disclaimer">Exprofit reports recorded information only. Cash movement is not profit. Check source records before making a business decision.</p>
