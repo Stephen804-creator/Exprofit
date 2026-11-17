@@ -632,3 +632,68 @@ def test_receipt_request_body_is_limited_before_multipart_parsing(client: TestCl
         headers={"Content-Length": str(6 * 1024 * 1024)},
     )
     assert response.status_code == 413
+
+
+def test_sales_only_member_lists_only_receipts_in_readable_domain(client: TestClient) -> None:
+    owner = register(client, "receipt-list-owner@example.com")
+    member = register(client, "receipt-list-sales@example.com")
+    business_id = make_business(client, owner["access_token"])
+    member_id = client.get(
+        "/auth/me", headers=bearer(member["access_token"])
+    ).json()["id"]
+
+    with client.app.state.test_session() as db:
+        db.add(BusinessMembership(
+            business_id=UUID(business_id),
+            user_id=UUID(member_id),
+            role="worker",
+            status="active",
+            permissions={"sales:read": True, "sales:write": True},
+        ))
+        db.commit()
+
+    member_upload = client.post(
+        f"/businesses/{business_id}/receipts",
+        headers=bearer(member["access_token"]),
+        files={"file": (
+            "sales-receipt.jpg",
+            bytes((0xFF, 0xD8, 0xFF)) + b"sales-receipt-unique",
+            "image/jpeg",
+        )},
+    )
+    assert member_upload.status_code == 201, member_upload.text
+    member_receipt_id = member_upload.json()["id"]
+
+    owner_upload = client.post(
+        f"/businesses/{business_id}/receipts",
+        headers=bearer(owner["access_token"]),
+        files={"file": (
+            "expense-receipt.jpg",
+            bytes((0xFF, 0xD8, 0xFF)) + b"expense-receipt-unique",
+            "image/jpeg",
+        )},
+    )
+    assert owner_upload.status_code == 201, owner_upload.text
+    expense_receipt_id = owner_upload.json()["id"]
+
+    confirmed = client.post(
+        f"/businesses/{business_id}/receipts/{expense_receipt_id}/confirm",
+        headers=bearer(owner["access_token"]),
+        json={
+            "direction": "expense",
+            "amount": "25.00",
+            "transaction_date": date.today().isoformat(),
+            "description": "Owner expense receipt",
+            "category": "Supplies",
+        },
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+    listed = client.get(
+        f"/businesses/{business_id}/receipts",
+        headers=bearer(member["access_token"]),
+    )
+    assert listed.status_code == 200, listed.text
+    visible_ids = {item["id"] for item in listed.json()}
+    assert member_receipt_id in visible_ids
+    assert expense_receipt_id not in visible_ids
