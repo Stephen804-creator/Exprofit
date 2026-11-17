@@ -48,6 +48,10 @@ class Settings(BaseSettings):
                     "AUTH_SECRET_KEY must be a non-placeholder value of at least "
                     "32 characters in production"
                 )
+            if "*" in self.allowed_origins:
+                raise ValueError(
+                    "CORS_ORIGINS must contain explicit trusted origins in production"
+                )
             database = urlparse(self.database_url)
             if (
                 "change-me" in self.database_url.lower()
