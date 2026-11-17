@@ -45,7 +45,8 @@ class Settings(BaseSettings):
                 or secret.lower().startswith(("replace-with-", "your-secret-", "change-me-"))
             ):
                 raise ValueError(
-                    "AUTH_SECRET_KEY must be a non-placeholder value of at least 32 characters in production"
+                    "AUTH_SECRET_KEY must be a non-placeholder value of at least "
+                    "32 characters in production"
                 )
             database = urlparse(self.database_url)
             if (
