@@ -195,11 +195,54 @@ def list_receipts(
     membership: Annotated[BusinessMembership, Depends(require_business_membership)],
     db: Annotated[Session, Depends(get_db)],
 ) -> list[dict]:
-    require_permission(membership, "expenses", "read")
+    _require_read(membership)
+    can_read_sales = has_permission(membership, "sales", "read")
+    can_read_expenses = has_permission(membership, "expenses", "read")
     receipts = db.scalars(select(Receipt).where(
         Receipt.business_id == business_id
-    ).order_by(Receipt.created_at.desc()).limit(50)).all()
-    return [_receipt_payload(item) for item in receipts]
+    ).order_by(Receipt.created_at.desc()).limit(100)).all()
+
+    transaction_ids = [
+        receipt.linked_transaction_id
+        for receipt in receipts
+        if receipt.review_status == "confirmed" and receipt.linked_transaction_id
+    ]
+    transactions = {}
+    if transaction_ids:
+        transactions = {
+            transaction.id: transaction
+            for transaction in db.scalars(select(Transaction).where(
+                Transaction.business_id == business_id,
+                Transaction.id.in_(transaction_ids),
+            )).all()
+        }
+
+    visible = []
+    for receipt in receipts:
+        if receipt.review_status == "pending":
+            allowed = (
+                receipt.uploaded_by_user_id == membership.user_id
+                or (can_read_sales and can_read_expenses)
+            )
+        elif receipt.review_status == "confirmed":
+            transaction = transactions.get(receipt.linked_transaction_id)
+            if transaction is None:
+                allowed = False
+            else:
+                domain = "sales" if transaction.direction == "income" else "expenses"
+                allowed = has_permission(membership, domain, "read")
+        elif receipt.review_status == "rejected":
+            allowed = (
+                receipt.uploaded_by_user_id == membership.user_id
+                or (can_read_sales and can_read_expenses)
+            )
+        else:
+            allowed = False
+
+        if allowed:
+            visible.append(_receipt_payload(receipt))
+
+    return visible
 
 
 @router.post("/receipts", status_code=status.HTTP_201_CREATED)
