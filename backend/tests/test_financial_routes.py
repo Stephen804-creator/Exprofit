@@ -676,6 +676,21 @@ def test_sales_only_member_lists_only_receipts_in_readable_domain(client: TestCl
     assert owner_upload.status_code == 201, owner_upload.text
     expense_receipt_id = owner_upload.json()["id"]
 
+    pending_list = client.get(
+        f"/businesses/{business_id}/receipts",
+        headers=bearer(member["access_token"]),
+    )
+    assert pending_list.status_code == 200, pending_list.text
+    pending_ids = {item["id"] for item in pending_list.json()}
+    assert member_receipt_id in pending_ids
+    assert expense_receipt_id not in pending_ids
+
+    pending_download = client.get(
+        f"/businesses/{business_id}/receipts/{expense_receipt_id}/file",
+        headers=bearer(member["access_token"]),
+    )
+    assert pending_download.status_code == 403
+
     forbidden_rejection = client.post(
         f"/businesses/{business_id}/receipts/{expense_receipt_id}/reject",
         headers=bearer(member["access_token"]),
