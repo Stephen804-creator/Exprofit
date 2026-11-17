@@ -34,9 +34,18 @@ class Settings(BaseSettings):
     def validate_production_settings(self) -> "Settings":
         """Fail at startup rather than issuing tokens with weak production secrets."""
         if self.app_env.strip().lower() == "production":
-            if len(self.auth_secret_key.strip()) < 32:
+            secret = self.auth_secret_key.strip()
+            if (
+                len(secret) < 32
+                or secret.lower() in {
+                    "replace-with-a-random-secret-at-least-32-bytes-long",
+                    "change-me",
+                    "changeme",
+                }
+                or secret.lower().startswith(("replace-with-", "your-secret-", "change-me-"))
+            ):
                 raise ValueError(
-                    "AUTH_SECRET_KEY must contain at least 32 characters in production"
+                    "AUTH_SECRET_KEY must be a non-placeholder value of at least 32 characters in production"
                 )
             database = urlparse(self.database_url)
             if (
