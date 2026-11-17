@@ -676,6 +676,12 @@ def test_sales_only_member_lists_only_receipts_in_readable_domain(client: TestCl
     assert owner_upload.status_code == 201, owner_upload.text
     expense_receipt_id = owner_upload.json()["id"]
 
+    forbidden_rejection = client.post(
+        f"/businesses/{business_id}/receipts/{expense_receipt_id}/reject",
+        headers=bearer(member["access_token"]),
+    )
+    assert forbidden_rejection.status_code == 403
+
     confirmed = client.post(
         f"/businesses/{business_id}/receipts/{expense_receipt_id}/confirm",
         headers=bearer(owner["access_token"]),
