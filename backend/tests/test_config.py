@@ -65,3 +65,16 @@ def test_production_settings_accept_strong_secret_and_remote_database() -> None:
     )
     assert settings.app_env == "production"
     assert len(settings.auth_secret_key) >= 32
+
+
+def test_production_settings_reject_example_auth_secret() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="AUTH_SECRET_KEY"):
+        Settings(
+            app_env="production",
+            auth_secret_key="replace-with-a-random-secret-at-least-32-bytes-long",
+            database_url="postgresql+psycopg://user:pass@db.example.com/exprofit",
+            _env_file=None,
+        )
