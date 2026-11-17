@@ -78,3 +78,17 @@ def test_production_settings_reject_example_auth_secret() -> None:
             database_url="postgresql+psycopg://user:pass@db.example.com/exprofit",
             _env_file=None,
         )
+
+
+def test_production_settings_reject_wildcard_cors_origin() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="CORS_ORIGINS"):
+        Settings(
+            app_env="production",
+            auth_secret_key="s" * 48,
+            database_url="postgresql+psycopg://user:pass@db.example.com/exprofit",
+            cors_origins="*",
+            _env_file=None,
+        )
