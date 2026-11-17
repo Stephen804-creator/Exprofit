@@ -444,6 +444,12 @@ def reject_receipt(
         raise HTTPException(status_code=404, detail="Receipt not found.")
     if receipt.review_status != "pending":
         raise HTTPException(status_code=409, detail="This receipt has already been reviewed.")
+    if receipt.uploaded_by_user_id != membership.user_id:
+        # A pending receipt has no confirmed financial direction. A member may
+        # reject their own upload, but another member's receipt requires write
+        # access to both financial domains.
+        require_permission(membership, "sales", "write")
+        require_permission(membership, "expenses", "write")
     receipt.review_status = "rejected"
     receipt.file_bytes = b""
     receipt.extracted_text = ""
