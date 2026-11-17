@@ -114,6 +114,8 @@ app.include_router(financial_operations_router)
 async def browser_security_headers(request, call_next):
     """Set baseline browser protections without blocking the camera or model CDN."""
     response = await call_next(request)
+    if request.url.path.startswith(("/auth", "/businesses", "/invitations")):
+        response.headers.setdefault("Cache-Control", "private, no-store")
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault(
